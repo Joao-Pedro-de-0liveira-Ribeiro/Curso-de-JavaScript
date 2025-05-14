@@ -31,7 +31,7 @@ Os arquivos estão organizados de acordo com os módulos do curso. Cada pasta ou
 
 - O foco deste repositório é **educacional**.
 - Os códigos podem conter comentários, anotações ou até trechos incompletos, pois foram criados durante o aprendizado.
-- 
+
 ---
 
 Obrigado por visitar!
