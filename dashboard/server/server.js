@@ -228,14 +228,24 @@ async function getDeepseek(range) {
 }
 
 /* --------------------------- 5) Licenças --------------------------------- */
-function getLicencas() {
+// Valor de cada licença é buscado dos PREÇOS OFICIAIS (USD) e convertido pelo
+// dólar ao vivo. Preços oficiais mensais: Claude Pro US$20, Claude Max US$100
+// (5x; 20x = US$200), Figma Professional ~US$16. Pode sobrescrever via env
+// (…_USD para trocar o preço em dólar, ou …_BRL para fixar em reais).
+async function getLicencas() {
+  let fx = 5.15;
+  try { fx = (await getUsdBrl()).rate; } catch (_) {}
+  const price = (usdEnv, brlEnv, defUsd) => {
+    const brl = process.env[brlEnv];
+    if (brl) return { usd: +(+brl / fx).toFixed(2), brl: +(+brl).toFixed(2), fonte: 'env(BRL)' };
+    const usd = +(process.env[usdEnv] || defUsd);
+    return { usd, brl: +(usd * fx).toFixed(2), fonte: 'oficial(USD)×dólar' };
+  };
   return {
-    claudeUsers: +(process.env.CLAUDE_PRO_USERS || 19),
-    claudeUnitBrl: +(process.env.CLAUDE_PRO_UNIT_BRL || 110),
-    claudeMaxLic: +(process.env.CLAUDE_MAX_LICENSES || 1),
-    claudeMaxUnitBrl: +(process.env.CLAUDE_MAX_UNIT_BRL || 0),
-    figmaLicencas: +(process.env.FIGMA_LICENSES || 1),
-    figmaUnitBrl: +(process.env.FIGMA_UNIT_BRL || 120),
+    fx,
+    pro:   price('CLAUDE_PRO_USD',  'CLAUDE_PRO_BRL',  20),
+    max:   price('CLAUDE_MAX_USD',  'CLAUDE_MAX_BRL',  100),
+    figma: price('FIGMA_USD',       'FIGMA_BRL',       16),
   };
 }
 
@@ -251,15 +261,16 @@ const server = http.createServer(async (req, res) => {
       case '/api/digitalocean': return send(res, 200, await getDigitalOcean());
       case '/api/aws':          return send(res, 200, await getAws(range));
       case '/api/deepseek':     return send(res, 200, await getDeepseek(range));
-      case '/api/licencas':     return send(res, 200, getLicencas());
+      case '/api/licencas':     return send(res, 200, await getLicencas());
       case '/api/all': {
-        const [fx, dobj, aws, ds] = await Promise.all([
+        const [fx, dobj, aws, ds, lic] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
           getDigitalOcean().catch((e) => ({ error: String(e.message) })),
           getAws(range).catch((e) => ({ error: String(e.message) })),
           getDeepseek(range).catch((e) => ({ error: String(e.message) })),
+          getLicencas().catch((e) => ({ error: String(e.message) })),
         ]);
-        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: getLicencas(), periodo: range });
+        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, periodo: range });
       }
       default: return send(res, 404, { error: 'not found' });
     }

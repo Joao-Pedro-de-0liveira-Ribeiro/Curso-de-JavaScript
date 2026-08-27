@@ -32,7 +32,8 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 - **Filtro por datas** (sem atalhos): você escolhe **De** e **Até**; o painel gera os valores para o intervalo. No modo snapshot os custos de DO/AWS são **rateados proporcionalmente aos dias** (licenças ficam fixas); com backend, os valores são exatos do Cost Explorer.
 - **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…) com o que é cada um e o subtotal; **clique** num serviço para ver os recursos; clique num recurso para o **detalhe**.
 - **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Snapshots, IPs ociosos) → clique para ver os itens → clique no item para o **detalhe**.
-- **Licenças por pessoa**: no card **Licenças** você cadastra cada pessoa em Claude Pro, Claude Max e Figma (nome → chip; × remove). O custo é `nº de pessoas × valor unitário` (Pro R$110, Max R$550, Figma R$120); **zero pessoas = R$0**. Fica salvo no navegador (`localStorage`).
+- **Licenças por pessoa**: no card **Licenças** você cadastra cada pessoa em Claude Pro, Claude Max e Figma (nome → chip; × remove). O custo é `nº de pessoas × valor unitário`; **zero pessoas = R$0**. As pessoas ficam salvas no navegador (`localStorage`); o **valor unitário é buscado dos preços oficiais** (Claude Pro US$20, Claude Max US$100/5x, Figma ~US$16) convertidos pelo **dólar ao vivo** — então acompanham o câmbio.
+- **Datas**: o seletor **De/Até** usa um calendário próprio no tema do site (sem o calendário branco do navegador).
 - **IPs ociosos**: clique no card **IPs Ociosos DO** para ver o detalhe e **quanto dá para economizar** (por IP, por mês e por ano).
 - **DeepSeek automático**: o gasto é calculado por `total depositado − saldo`. Duas formas: (a) **backend** com `DEEPSEEK_API_KEY` + `DEEPSEEK_TOTAL_TOPPED_UP=2.00` no `.env` — o painel puxa pronto; (b) **sem backend**, preencha a key no painel (ou em `CONFIG.deepseekKey`) — o cálculo roda no navegador (o DeepSeek libera CORS) e a key fica só no dispositivo.
 - **USD/BRL** fica no topo, com cotação ao vivo. Os números **animam** ao atualizar, e o painel se auto-atualiza a cada 5 min.
@@ -104,7 +105,13 @@ gasto = DEEPSEEK_TOTAL_TOPPED_UP  −  saldo topped-up atual (da API)
 | `/api/digitalocean` | droplets, databases, IPs reservados (idle = sem droplet) |
 | `/api/aws?start=&end=` | custo por serviço no intervalo × janela anterior (Cost Explorer) |
 | `/api/deepseek` | `{ balanceUsd, spentUsd, totalToppedUp }` (gasto calculado) |
-| `/api/licencas` | Claude Pro / Claude Max / Figma (nº e valor unitário em BRL) |
+| `/api/licencas` | `{ fx, pro, max, figma }` — preço oficial (USD) × dólar, em BRL |
+| `/api/all?start=&end=` | tudo junto (o painel usa este quando `apiBase` está setado) |
+
+> **Integração validada**: com o `.env` preenchido, o `/api/all` devolve AWS real
+> do Cost Explorer, câmbio ao vivo e preços de licença; DO e DeepSeek entram
+> assim que `DO_TOKEN` e `DEEPSEEK_API_KEY` estiverem no `.env`. Sem `apiBase`,
+> o painel usa o último snapshot real (não é mock inventado).
 | `/api/all?start=&end=` | tudo de uma vez (o painel usa este) |
 
 ### Boas práticas de segurança aplicadas

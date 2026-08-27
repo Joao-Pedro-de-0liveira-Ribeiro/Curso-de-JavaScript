@@ -47,10 +47,32 @@ html,body{margin:0}
 .kpi.click:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
 .hint-inline{font-size:12px; color:var(--muted)}
 .hint-inline strong{color:var(--violet)}
-/* date fields */
-.controls input[type=date]{font-weight:600; color:var(--txt)}
-.controls input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer; opacity:.65}
-.controls input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
+/* date fields custom */
+.datefield{display:flex; align-items:center; gap:8px}
+.dinput{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:7px 12px; font-size:13px; font-weight:700; cursor:pointer; min-width:118px; text-align:left; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; gap:8px}
+.dinput::before{content:''; width:14px; height:14px; flex-shrink:0; background:currentColor; opacity:.5;
+  -webkit-mask:no-repeat center/contain; mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='black' stroke-width='2' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='black' stroke-width='2' viewBox='0 0 24 24'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E")}
+.dinput:hover{border-color:#3b82f6}
+.dinput:focus-visible{outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.datepop{position:absolute; z-index:60; display:none; width:268px; background:var(--panel); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-md); padding:12px}
+.datepop.on{display:block}
+.dp-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+.dp-title{font-size:13px; font-weight:800}
+.dp-nav{border:1px solid var(--border); background:var(--panel-2); color:var(--txt); width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1; display:grid; place-items:center}
+.dp-nav:hover{background:var(--border)}
+.dp-week{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px}
+.dp-week span{text-align:center; font-size:10px; font-weight:800; color:var(--muted-2)}
+.dp-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px}
+.dp-day{aspect-ratio:1; border:0; background:transparent; color:var(--txt); border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums}
+.dp-day:hover{background:var(--panel-2)}
+.dp-day.today{box-shadow:inset 0 0 0 1.5px var(--blue); color:var(--blue)}
+.dp-day.sel{background:var(--blue); color:#fff}
+.dp-day.inrange{background:rgba(59,130,246,.14)}
+.dp-foot{display:flex; justify-content:flex-end; margin-top:8px}
+.dp-foot button{border:1px solid var(--border); background:var(--panel-2); color:var(--txt); border-radius:8px; padding:5px 12px; font-size:12px; font-weight:700; cursor:pointer}
+.dp-foot button:hover{background:var(--border)}
 /* licença por pessoa */
 .lic .lcount{font-size:11px; color:var(--muted); margin-top:2px}
 .lic-people{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:150px; overflow:auto}
@@ -303,8 +325,8 @@ svg{display:block}
   </div>
 
   <div class="card controls">
-    <label><span class="uplabel">De</span><input id="dStart" type="date" /></label>
-    <label><span class="uplabel">Até</span><input id="dEnd" type="date" /></label>
+    <div class="datefield"><span class="uplabel">De</span><button type="button" class="dinput" id="btnStart"></button></div>
+    <div class="datefield"><span class="uplabel">Até</span><button type="button" class="dinput" id="btnEnd"></button></div>
     <span class="pill" id="daysTag">—</span>
     <span class="pill pill-mut" id="modeTag"></span>
     <span class="spacer"></span>
@@ -330,6 +352,18 @@ svg{display:block}
   <p class="hint">Selecione uma plataforma para ver os recursos (clique)</p>
   <div class="plats" id="plats"></div>
   <div class="foot" id="foot"></div>
+</div>
+
+<!-- date picker custom (no tema do site) -->
+<div class="datepop" id="datepop">
+  <div class="dp-head">
+    <button type="button" class="dp-nav" id="dpPrev" aria-label="mês anterior">‹</button>
+    <span class="dp-title" id="dpTitle"></span>
+    <button type="button" class="dp-nav" id="dpNext" aria-label="próximo mês">›</button>
+  </div>
+  <div class="dp-week"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+  <div class="dp-grid" id="dpGrid"></div>
+  <div class="dp-foot"><button type="button" id="dpToday">Hoje</button></div>
 </div>
 
 <div class="ov" id="drawer" role="dialog" aria-modal="true"><div class="sheet" id="drawerSheet"></div></div>
@@ -452,12 +486,15 @@ const SNAP={
 let DATA=JSON.parse(JSON.stringify(SNAP));
 
 /* ============ estado ============ */
-// valores unitários mensais fixos (BRL) por tipo de licença
-const LIC_UNIT={pro:110, max:550, figma:120};
+// preços OFICIAIS mensais (USD) — Claude Pro $20, Claude Max $100 (5x), Figma ~$16.
+// O valor em BRL é buscado do backend (oficial × dólar) ou calculado aqui pelo dólar ao vivo.
+const LIC_USD={pro:20, max:100, figma:16};
+let LIC_BACKEND=null; // {pro:{brl},max:{brl},figma:{brl}} quando conectado ao backend
+const licUnit=t=>(LIC_BACKEND&&LIC_BACKEND[t]&&LIC_BACKEND[t].brl!=null)?LIC_BACKEND[t].brl:(LIC_USD[t]*state.usd);
 const LIC_META={
-  pro:{nome:'Claude Pro',logo:'claude'},
-  max:{nome:'Claude Max',logo:'claude'},
-  figma:{nome:'Figma',logo:'figma'},
+  pro:{nome:'Claude Pro',logo:'claude',plano:'US$20/mês'},
+  max:{nome:'Claude Max',logo:'claude',plano:'US$100/mês (5x)'},
+  figma:{nome:'Figma',logo:'figma',plano:'US$16/mês'},
 };
 function seedLicenses(){
   try{const s=localStorage.getItem('lic-people'); if(s)return JSON.parse(s);}catch(_){}
@@ -499,14 +536,55 @@ const idleAsItems=()=>DATA.idleIps.map(ip=>({nome:ip,tipo:'IP',regiao:'',usd:4,s
 
 /* ============ datas ============ */
 function readDates(){
-  state.start=document.getElementById('dStart').value;
-  state.end=document.getElementById('dEnd').value;
-  if(!state.start||!state.end||state.end<state.start){ // segurança
+  if(!state.start||!state.end||state.end<state.start){
     const t=new Date(CONFIG.today); const s=new Date(t); s.setDate(s.getDate()-30);
     state.start=state.start||isoDay(s); state.end=state.end||isoDay(t);
   }
   state.days=Math.max(1,Math.round((new Date(state.end)-new Date(state.start))/86400000));
 }
+/* ---- date picker custom (no tema do site) ---- */
+const DP_MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let dpTarget=null, dpView=new Date(CONFIG.today+'T00:00');
+const parseIso=s=>new Date(s+'T00:00');
+const fmtBR=iso=>{const d=parseIso(iso);return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;};
+function syncDateFields(){
+  document.getElementById('btnStart').textContent=fmtBR(state.start);
+  document.getElementById('btnEnd').textContent=fmtBR(state.end);
+}
+function renderDP(){
+  const y=dpView.getFullYear(), m=dpView.getMonth();
+  document.getElementById('dpTitle').textContent=`${DP_MONTHS[m]} ${y}`;
+  const startWd=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  const sel=dpTarget==='start'?state.start:state.end, other=dpTarget==='start'?state.end:state.start;
+  const grid=document.getElementById('dpGrid'); grid.innerHTML='';
+  for(let i=0;i<startWd;i++)grid.appendChild(el('span','dp-empty'));
+  for(let d=1;d<=days;d++){
+    const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    let cls='dp-day';
+    if(iso===sel)cls+=' sel'; else if(iso===CONFIG.today)cls+=' today';
+    if(other&&((iso>state.start&&iso<state.end)))cls+=' inrange';
+    const cell=el('button',cls,String(d));
+    cell.onclick=()=>{
+      if(dpTarget==='start')state.start=iso; else state.end=iso;
+      if(state.start&&state.end&&state.end<state.start){ // mantém ordem
+        if(dpTarget==='start')state.end=iso; else state.start=iso;
+      }
+      closeDP(); syncDateFields(); loadData();
+    };
+    grid.appendChild(cell);
+  }
+}
+function openDP(target,anchor){
+  dpTarget=target;
+  const cur=target==='start'?state.start:state.end;
+  dpView=parseIso(cur||CONFIG.today);
+  renderDP();
+  const pop=document.getElementById('datepop'), r=anchor.getBoundingClientRect();
+  pop.style.left=Math.max(8,Math.min(r.left, window.innerWidth-280))+'px';
+  pop.style.top=(r.bottom+6+window.scrollY)+'px';
+  pop.classList.add('on');
+}
+function closeDP(){document.getElementById('datepop').classList.remove('on');}
 
 /* ============ computeds (com rateio pf) ============ */
 const sum=(a,f)=>a.reduce((s,r)=>s+(+f(r)||0),0);
@@ -515,7 +593,7 @@ const baseAwsUsd=()=>sum(DATA.aws,r=>r.atual);
 const doUsd=()=>baseDoUsd()*pf();
 const awsUsd=()=>baseAwsUsd()*pf();
 const licCount=t=>state.licenses[t].length;
-const licBrl=()=>licCount('pro')*LIC_UNIT.pro+licCount('max')*LIC_UNIT.max+licCount('figma')*LIC_UNIT.figma;
+const licBrl=()=>licCount('pro')*licUnit('pro')+licCount('max')*licUnit('max')+licCount('figma')*licUnit('figma');
 const dsBrl=()=>state.dsUsd*state.usd;
 const doBrl=()=>doUsd()*state.usd;
 const awsBrl=()=>awsUsd()*state.usd;
@@ -525,7 +603,7 @@ const total=()=>doBrl()+awsBrl()+licBrl()+dsBrl();
 /* ============ KPIs ============ */
 function renderKpis(){
   const c=document.getElementById('kpis');c.innerHTML='';
-  const proMax=licCount('pro')*LIC_UNIT.pro+licCount('max')*LIC_UNIT.max;
+  const proMax=licCount('pro')*licUnit('pro')+licCount('max')*licUnit('max');
   const items=[
     {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',n:total(),fmt:fBRL,s:`${state.days} dias`,key:'total'},
     {cls:'kpi',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do'},
@@ -683,14 +761,14 @@ function renderDrawer(){
   showOv('drawer');
 }
 function licCardEl(tipo){
-  const meta=LIC_META[tipo], unit=LIC_UNIT[tipo], people=state.licenses[tipo];
+  const meta=LIC_META[tipo], unit=licUnit(tipo), people=state.licenses[tipo];
   const card=el('div','lic');
   const peopleHtml = people.length
     ? `<div class="lic-people">${people.map((p,i)=>`<span class="person">${p||'—'}<button data-i="${i}" title="remover">×</button></span>`).join('')}</div>`
     : `<div class="lic-empty">Sem pessoas — não gera custo.</div>`;
   card.innerHTML=`<div class="lh"><span class="ln">${LOGO[meta.logo]} ${meta.nome}</span><span class="chip">${people.length} pessoa${people.length===1?'':'s'}</span></div>
     <div class="lp">${fBRL(people.length*unit)}<small>/mês</small></div>
-    <div class="lcount">${people.length} × ${fBRL(unit)} por pessoa</div>
+    <div class="lcount">${people.length} × ${fBRL(unit)} por pessoa · ${meta.plano} × ${state.usd.toFixed(2)}</div>
     ${peopleHtml}
     <div class="lic-add"><input type="text" placeholder="Nome da pessoa" data-tipo="${tipo}"><button data-tipo="${tipo}">+ Adicionar</button></div>`;
   // remover
@@ -830,7 +908,8 @@ async function loadData(){
       const r=await fetchT(CONFIG.apiBase+'/api/all'+qs,9000);const j=await r.json();
       if(j.digitalocean&&!j.digitalocean.error){DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;DATA.doSnapshots=j.digitalocean.snapshots||DATA.doSnapshots;DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);}
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources;
-      // licenças/pessoas são geridas na tela (localStorage), não vêm do backend
+      // pessoas ficam na tela; os PREÇOS unitários vêm do backend (oficial × dólar)
+      if(j.licencas&&!j.licencas.error)LIC_BACKEND=j.licencas;
       if(j.deepseek&&!j.deepseek.error){state.dsBalance=j.deepseek.balanceUsd;if(j.deepseek.spentUsd!=null)state.dsUsd=j.deepseek.spentUsd;}
       if(j.fx&&j.fx.rate)state.usd=+(+j.fx.rate).toFixed(4);
       state.apiMode=true;
@@ -842,8 +921,14 @@ async function loadData(){
 
 /* ============ controls ============ */
 function syncInputs(){ document.getElementById('usd').value=state.usd.toFixed(2); }
-document.getElementById('dStart').addEventListener('change',loadData);
-document.getElementById('dEnd').addEventListener('change',loadData);
+document.getElementById('btnStart').addEventListener('click',e=>openDP('start',e.currentTarget));
+document.getElementById('btnEnd').addEventListener('click',e=>openDP('end',e.currentTarget));
+document.getElementById('dpPrev').onclick=()=>{dpView.setMonth(dpView.getMonth()-1);renderDP();};
+document.getElementById('dpNext').onclick=()=>{dpView.setMonth(dpView.getMonth()+1);renderDP();};
+document.getElementById('dpToday').onclick=()=>{const iso=CONFIG.today; if(dpTarget==='start')state.start=iso; else state.end=iso; if(state.end<state.start){if(dpTarget==='start')state.end=iso;else state.start=iso;} closeDP();syncDateFields();loadData();};
+document.addEventListener('click',e=>{const pop=document.getElementById('datepop'); if(pop.classList.contains('on')&&!pop.contains(e.target)&&!e.target.closest('.dinput'))closeDP();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDP();});
+window.addEventListener('scroll',()=>closeDP(),{passive:true});
 document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault;renderAll();});
 
 /* ============ tema ============ */
@@ -867,7 +952,8 @@ document.getElementById('topBadge').innerHTML=IC.chart;
 document.getElementById('themeIc').innerHTML=IC.sun;
 document.getElementById('fxIc').innerHTML=IC.refresh;
 (function initDates(){const t=new Date(CONFIG.today);const s=new Date(t);s.setDate(s.getDate()-30);
-  document.getElementById('dEnd').value=isoDay(t);document.getElementById('dStart').value=isoDay(s);})();
+  state.start=isoDay(s);state.end=isoDay(t);})();
+syncDateFields();
 loadData();fetchFx();
 // auto-atualização periódica (cotação + deepseek + dados)
 setInterval(()=>{fetchFx();deepseekAuto();if(CONFIG.apiBase)loadData();},5*60*1000);
