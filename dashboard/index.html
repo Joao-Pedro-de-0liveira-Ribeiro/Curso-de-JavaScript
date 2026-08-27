@@ -6,9 +6,7 @@
 <title>Painel de Custos TI 3RN</title>
 <style>
 /* ============================================================
-   Painel de Custos TI — Grupo 3RN
-   Arquivo único, sem build e sem CDN. Logos das empresas em SVG.
-   Drawers em 2 níveis: serviço/categoria → produtos → detalhe.
+   Painel de Custos TI — Grupo 3RN (arquivo único, sem build)
    ============================================================ */
 :root{
   --bg:#f1f5f9; --panel:#ffffff; --panel-2:#f8fafc; --border:#e5e7eb;
@@ -41,12 +39,11 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-.kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp,.calc,.dc-v,.gcard .gv,.gcard .gvb{font-variant-numeric:tabular-nums}
+.kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp,.dc-v,.gcard .gv,.gcard .gvb,#usd{font-variant-numeric:tabular-nums}
 body{background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:14px; line-height:1.4; -webkit-font-smoothing:antialiased;}
 .wrap{max-width:1280px; margin:0 auto; padding:16px 20px 28px}
-.row{display:flex; align-items:center; gap:12px}
 .spacer{margin-left:auto}
 .uplabel{font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
 .card{background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
@@ -55,31 +52,36 @@ svg{display:block}
 .brand{height:20px;width:auto;flex-shrink:0}
 
 /* Topbar */
-.top{display:flex; align-items:center; gap:12px; margin-bottom:14px}
+.top{display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap}
 .top .badge{display:grid; place-items:center; width:40px; height:40px; border-radius:12px;
   background:linear-gradient(135deg,var(--blue-ink),#1d4ed8); color:#fff; box-shadow:var(--shadow)}
 .top .badge svg{width:22px;height:22px}
 .top h1{margin:0; font-size:18px; font-weight:800}
 .top p{margin:2px 0 0; font-size:12px; color:var(--muted)}
+.fxbox{display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:12px; background:var(--panel); box-shadow:var(--shadow)}
+.fxbox .uplabel{color:var(--muted)}
+.fxbox input{width:74px; border:1px solid var(--border); background:var(--panel-2); color:var(--txt); border-radius:8px; padding:5px 8px; font-size:13px; outline:none; font-weight:700}
+.fxbox input:focus{border-color:#3b82f6}
+.iconbtn{border:1px solid var(--border); background:var(--panel); color:var(--txt); width:30px;height:30px;border-radius:8px;cursor:pointer;display:grid;place-items:center}
+.iconbtn:hover{background:var(--panel-2)} .iconbtn svg{width:15px;height:15px}
 .btn-ghost{border:1px solid var(--border); background:var(--panel); color:var(--txt);
   border-radius:10px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; gap:6px; align-items:center}
-.btn-ghost:hover{background:var(--panel-2)}
-.btn-ghost svg{width:16px;height:16px}
-
-/* Controls */
-.controls{display:flex; flex-wrap:wrap; align-items:center; gap:14px 16px; padding:14px 16px; margin-bottom:14px}
-.controls label{display:flex; align-items:center; gap:8px}
-.controls input,.controls select{border:1px solid var(--border); background:var(--panel); color:var(--txt);
-  border-radius:9px; padding:7px 10px; font-size:13px; outline:none}
-.controls input:focus,.controls select:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-.controls input[type=number]{width:66px}
-.controls input[type=date]{width:150px}
-.calc{font-size:12px; font-weight:700; color:var(--violet)}
-.divider{width:1px; align-self:stretch; background:var(--border)}
-.pill{border-radius:999px; padding:5px 12px; font-size:12px; font-weight:800; background:rgba(59,130,246,.12); color:#2563eb}
+.btn-ghost:hover{background:var(--panel-2)} .btn-ghost svg{width:16px;height:16px}
+.pill{border-radius:999px; padding:5px 11px; font-size:12px; font-weight:800; background:rgba(59,130,246,.12); color:#2563eb}
 :root[data-theme="dark"] .pill{background:rgba(59,130,246,.18); color:#93c5fd}
 .pill-live{background:rgba(16,185,129,.14); color:#059669}
 :root[data-theme="dark"] .pill-live{color:#6ee7b7}
+.pill-mut{background:rgba(100,116,139,.15); color:var(--muted)}
+
+/* Controls */
+.controls{display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; padding:14px 16px; margin-bottom:14px}
+.controls label{display:flex; align-items:center; gap:8px}
+.controls input,.controls select{border:1px solid var(--border); background:var(--panel); color:var(--txt);
+  border-radius:9px; padding:7px 10px; font-size:13px; outline:none}
+.controls input:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.controls input[type=number]{width:66px}
+.controls input[type=date]{width:154px}
+.divider{width:1px; align-self:stretch; background:var(--border)}
 
 /* KPIs */
 .kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:14px}
@@ -103,10 +105,10 @@ svg{display:block}
 .donut-wrap svg{transform:rotate(-90deg)}
 #donut circle.slice{cursor:pointer; transition:opacity .12s}
 #donut.dim circle.slice:not(.active){opacity:.3}
-.donut-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; padding:0 14px}
-.donut-center .dc-t{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
-.donut-center .dc-v{font-size:14px; font-weight:800; line-height:1.15}
-.donut-center .dc-s{font-size:9px; color:var(--muted-2)}
+.donut-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; padding:0 16px}
+.donut-center .dc-t{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--muted)}
+.donut-center .dc-v{font-size:13px; font-weight:800; line-height:1.15; margin-top:1px}
+.donut-center .dc-s{font-size:9px; color:var(--muted-2); margin-top:1px}
 .legend{display:flex; flex-direction:column; gap:7px; min-width:0; flex:1}
 .legrow{display:flex; align-items:center; gap:9px; font-size:12px; cursor:pointer; border-radius:8px; padding:4px 6px; margin:-2px -4px}
 .legrow:hover,.legrow.active{background:var(--panel-2)}
@@ -169,7 +171,7 @@ svg{display:block}
 .grid-res{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; padding:16px 22px}
 .grid-grp{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; padding:18px 22px}
 
-/* Group card (nível 1) */
+/* Group card */
 .gcard{cursor:pointer; display:flex; flex-direction:column; gap:8px; background:var(--panel); border:1px solid var(--border);
   border-left:4px solid var(--gc,var(--blue)); border-radius:14px; padding:14px 15px; box-shadow:var(--shadow); transition:transform .12s, box-shadow .12s}
 .gcard:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
@@ -179,13 +181,12 @@ svg{display:block}
 .gcard .gfoot{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:2px; border-top:1px solid var(--border); padding-top:8px}
 .gcard .gv{font-size:19px; font-weight:800}
 .gcard .gvb{font-size:11px; color:var(--muted)}
-.gcard .gcount{font-size:11px; font-weight:700; color:var(--muted-2)}
 .gcard .gdelta{font-size:11px; font-weight:700}
 .gcard .gopen{font-size:11px;font-weight:700;color:#2563eb;display:flex;align-items:center;gap:3px}
 .gcard[data-c=aws]{--gc:var(--amber)} .gcard[data-c=aws] .gv{color:var(--amber)}
 .gcard[data-c=do]{--gc:var(--blue)} .gcard[data-c=do] .gv{color:var(--blue)}
 
-/* Resource card (nível 2) */
+/* Resource card */
 .res{position:relative; display:flex; flex-direction:column; gap:6px; background:var(--panel);
   border:1px solid var(--border); border-top:4px solid var(--tc,var(--blue)); border-radius:14px; padding:13px 14px; box-shadow:var(--shadow);
   transition:transform .12s, box-shadow .12s}
@@ -233,17 +234,17 @@ svg{display:block}
 .lic .ln{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
 .lic .lp{font-size:20px; font-weight:800; color:var(--violet)}
 .lic .lp small{font-size:11px;font-weight:400;color:var(--muted-2)}
-.lic .ledit{display:flex;align-items:center;gap:6px;margin-top:4px}
-.lic .ledit input{width:110px;border:1px solid var(--border);background:var(--panel);color:var(--txt);border-radius:8px;padding:6px 9px;font-size:13px;outline:none}
-.lic .ledit input:focus{border-color:#3b82f6}
-.ds-row{display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; padding:18px 22px}
-.ds-row label{display:flex; flex-direction:column; gap:4px}
-.ds-row input{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:8px 11px; font-size:13px; outline:none}
+.ds-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:18px 22px}
+.ds-field{display:flex; flex-direction:column; gap:5px}
+.ds-field input{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:8px 11px; font-size:13px; outline:none}
+.ds-field input:focus{border-color:#3b82f6}
+.ds-cards{display:flex; gap:12px; flex-wrap:wrap; padding:0 22px 18px}
 .ds-card{border-radius:12px; padding:10px 18px; border:1px solid var(--border); background:var(--panel-2)}
 .ds-card .st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .ds-card.total{border-color:var(--emerald-bd); background:var(--emerald-bg)}
 .ds-card.total .st{color:var(--emerald-ink)} .ds-card.total .sv{color:var(--emerald)}
 .ds-card .sv{font-size:20px;font-weight:800}
+.dsmsg{padding:0 22px 14px; font-size:11.5px; color:var(--muted)}
 .foot{margin-top:22px; text-align:center; font-size:11px; color:var(--muted-2)}
 
 @media (max-width:1024px){
@@ -251,6 +252,7 @@ svg{display:block}
   .mid{grid-template-columns:1fr}
   .plats{grid-template-columns:repeat(2,1fr)}
   .stat4{grid-template-columns:repeat(2,1fr)}
+  .ds-grid{grid-template-columns:1fr}
 }
 @media (max-width:560px){ .kpis{grid-template-columns:repeat(2,1fr)} .plats{grid-template-columns:1fr} }
 </style>
@@ -262,32 +264,23 @@ svg{display:block}
     <div class="badge" id="topBadge"></div>
     <div><h1>Painel de Custos TI</h1><p>Visão consolidada · Digital Ocean · AWS · Licenças · DeepSeek</p></div>
     <div class="spacer"></div>
+    <div class="fxbox">
+      <span class="uplabel">USD/BRL</span>
+      <input id="usd" type="number" step="0.01" min="1" max="20" />
+      <button class="iconbtn" id="fxBtn" title="Cotação ao vivo"><span id="fxIc"></span></button>
+      <span class="pill pill-live" id="fxTag">27/08</span>
+    </div>
     <button class="btn-ghost" id="themeBtn" title="Alternar tema"><span id="themeIc"></span> Tema</button>
   </div>
 
   <div class="card controls">
-    <label><span class="uplabel">Período</span>
-      <select id="preset">
-        <option value="este-mes">Este mês</option>
-        <option value="mes-passado">Mês passado</option>
-        <option value="ult-7">Últimos 7 dias</option>
-        <option value="ult-30">Últimos 30 dias</option>
-        <option value="custom">Personalizado</option>
-      </select>
-    </label>
     <label><span class="uplabel">De</span><input id="dStart" type="date" /></label>
     <label><span class="uplabel">Até</span><input id="dEnd" type="date" /></label>
-    <span class="pill" id="periodTag">—</span>
-
+    <span class="pill" id="daysTag">—</span>
+    <span class="pill pill-mut" id="modeTag"></span>
     <div class="divider"></div>
-    <label><span class="uplabel">USD/BRL</span><input id="usd" type="number" step="0.01" min="1" max="20" /></label>
-    <button class="btn-ghost" id="fxBtn" title="Buscar cotação em tempo real"><span id="fxIc"></span> ao vivo</button>
-    <span class="pill pill-live" id="fxTag">cotação 27/08/2026</span>
-
-    <div class="divider"></div>
-    <label><span class="uplabel">Claude Pro</span><input id="claude" type="number" min="0" max="500" /><span class="calc" id="claudeCalc"></span></label>
-    <label><span class="uplabel">Claude Max</span><input id="claudeMax" type="number" min="0" max="100" /><span class="calc" id="claudeMaxCalc"></span></label>
-    <label><span class="uplabel">Figma</span><input id="figma" type="number" min="0" max="200" /><span class="calc" id="figmaCalc"></span></label>
+    <label><span class="uplabel">Claude Pro</span><input id="claude" type="number" min="0" max="500" /></label>
+    <label><span class="uplabel">Figma</span><input id="figma" type="number" min="0" max="200" /></label>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -315,13 +308,11 @@ svg{display:block}
 <div class="ov" id="modal" role="dialog" aria-modal="true"><div class="sheet sm" id="modalSheet"></div></div>
 
 <script>
-/* ================================================================
-   CONFIG — troque apiBase pela URL do backend seguro p/ tempo real.
-   ================================================================ */
-const CONFIG = { apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15 };
+/* ============ CONFIG ============ */
+const CONFIG={ apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15, today:'2026-08-27' };
 
-/* ---------------- LOGOS ---------------- */
-const LOGO = {
+/* ============ LOGOS ============ */
+const LOGO={
   do:`<svg class="brand" viewBox="0 0 32 32" aria-label="DigitalOcean"><g fill="#0080FF"><path d="M16 32v-6.2c6.57 0 11.67-6.51 9.15-13.42a9.26 9.26 0 0 0-5.53-5.53C12.71 4.34 6.2 9.43 6.2 16H0C0 5.53 10.12-2.62 21.09.82a15.42 15.42 0 0 1 10.09 10.09C34.62 21.88 26.47 32 16 32z"/><path d="M16.05 25.82H9.87v-6.18h6.18z"/><path d="M9.87 30.57H5.12v-4.75h4.75z"/><path d="M5.12 25.82H1.14v-3.98h3.98z"/></g></svg>`,
   aws:`<svg class="brand" viewBox="0 0 100 62" aria-label="AWS"><text x="4" y="34" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="30" fill="currentColor">aws</text><path d="M8 46c20 11 64 11 84 0" fill="none" stroke="#FF9900" stroke-width="4.5" stroke-linecap="round"/><path d="M86 41l8 4.5-9 3z" fill="#FF9900"/></svg>`,
   figma:`<svg class="brand" viewBox="0 0 24 36" aria-label="Figma"><path fill="#0ACF83" d="M6 36a6 6 0 0 0 6-6v-6H6a6 6 0 1 0 0 12z"/><path fill="#A259FF" d="M0 18a6 6 0 0 1 6-6h6v12H6a6 6 0 0 1-6-6z"/><path fill="#F24E1E" d="M0 6a6 6 0 0 1 6-6h6v12H6A6 6 0 0 1 0 6z"/><path fill="#FF7262" d="M12 0h6a6 6 0 1 1 0 12h-6z"/><path fill="#1ABCFE" d="M24 18a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/></svg>`,
@@ -330,7 +321,7 @@ const LOGO = {
 (function(){let r='';for(let i=0;i<12;i++){const a=i*Math.PI/6,c=Math.cos(a),s=Math.sin(a);r+=`<line x1="${(16+5*c).toFixed(1)}" y1="${(16+5*s).toFixed(1)}" x2="${(16+12.8*c).toFixed(1)}" y2="${(16+12.8*s).toFixed(1)}"/>`;}LOGO.claude=`<svg class="brand" viewBox="0 0 32 32" aria-label="Claude"><g stroke="#D97757" stroke-width="2.7" stroke-linecap="round">${r}</g></svg>`;})();
 const PLOGO={do:LOGO.do,aws:LOGO.aws,lic:LOGO.claude,ds:LOGO.deepseek};
 
-/* ---------------- Ícones (Heroicons) ---------------- */
+/* ============ Ícones ============ */
 const HI=(d)=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`;
 const IC={
   chart:HI('M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125z'),
@@ -344,7 +335,7 @@ const IC={
   x:HI('M6 18 18 6M6 6l12 12'),
 };
 
-/* ---------------- Metadados AWS (o que é cada serviço) ---------------- */
+/* ============ AWS metadados ============ */
 const AWS_SVC={
   RDS:{name:'Amazon RDS',desc:'Bancos de dados relacionais gerenciados (PostgreSQL).'},
   ECS:{name:'Amazon ECS',desc:'Contêineres e serviços rodando em Fargate.'},
@@ -361,7 +352,7 @@ const AWS_SVC={
   Outros:{name:'Outros serviços',desc:'Demais itens (messaging, cost explorer).'},
 };
 
-/* ---------------- DADOS (snapshot real 27/08/2026) ---------------- */
+/* ============ SNAPSHOT (dados reais 27/08/2026) ============ */
 const SNAP={
   doDroplets:[
     {nome:'ubuntu-s-2vcpu-8gb',tipo:'Droplet',regiao:'sfo3',usd:112,spec:'s-8vcpu-16gb-intel',ip:'147.182.248.250'},
@@ -384,9 +375,9 @@ const SNAP={
   ],
   doSnapshots:[
     {nome:'GLPI-ubuntu-s-1vcpu-2gb-sfo3',tipo:'Snapshot',regiao:'sfo3',usd:0.24,spec:'3.95 GB'},
-    {nome:'ubuntu-s-1vcpu-2gb-sfo3-01-...258582',tipo:'Snapshot',regiao:'sfo3',usd:0.35,spec:'5.79 GB'},
+    {nome:'ubuntu-s-1vcpu-2gb-...258582',tipo:'Snapshot',regiao:'sfo3',usd:0.35,spec:'5.79 GB'},
     {nome:'ubuntu-3RN-SISTEMAS-PROD-sfo3',tipo:'Snapshot',regiao:'sfo3',usd:0.42,spec:'7.06 GB'},
-    {nome:'ubuntu-s-1vcpu-2gb-...dev-server',tipo:'Snapshot',regiao:'sfo3',usd:0.42,spec:'7.08 GB'},
+    {nome:'ubuntu-s-1vcpu-2gb-...dev',tipo:'Snapshot',regiao:'sfo3',usd:0.42,spec:'7.08 GB'},
     {nome:'ubuntu-3RN-PROD-2vcpu-...615456',tipo:'Snapshot',regiao:'sfo3',usd:0.54,spec:'8.98 GB'},
     {nome:'ubuntu-3RN-DEV-2vcpu-...217489',tipo:'Snapshot',regiao:'sfo3',usd:0.80,spec:'13.28 GB'},
     {nome:'ubuntu-3RN-PROD-2vcpu-...580819',tipo:'Snapshot',regiao:'sfo3',usd:0.90,spec:'15.03 GB'},
@@ -428,61 +419,64 @@ const SNAP={
 };
 let DATA=JSON.parse(JSON.stringify(SNAP));
 
-/* ---------------- estado ---------------- */
-const state={usd:CONFIG.fxDefault, claude:19, claudeMaxN:1, claudeMaxUnit:0, figma:1,
-  dsUsd:0, dsProj:'', dsBalance:null,
-  preset:'este-mes', start:'', end:'', period:'atual', rangeLabel:'Este mês', apiMode:false};
+/* ============ estado ============ */
+const state={usd:CONFIG.fxDefault, claude:19, figma:1, claudeMaxN:1, claudeMaxUnit:0,
+  dsUsd:0, dsBalance:null, dsProj:'',
+  start:'', end:'', days:30, apiMode:false};
 const drawerState={plat:null, group:null};
 
-/* ---------------- helpers ---------------- */
+/* ============ helpers ============ */
 const fBRL=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const fUSD=v=>'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fCompact=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',notation:'compact',maximumFractionDigits:1});
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
-const awsField=()=>(!state.apiMode&&state.period==='anterior')?'anterior':'atual';
 const isoDay=d=>d.toISOString().slice(0,10);
 const brDate=iso=>iso?iso.split('-').reverse().join('/'):'';
-function fetchT(url,ms=7000){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);return fetch(url,{cache:'no-store',signal:ac.signal}).finally(()=>clearTimeout(t));}
+function fetchT(url,ms,opts){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms||7000);return fetch(url,Object.assign({cache:'no-store',signal:ac.signal},opts||{})).finally(()=>clearTimeout(t));}
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(_){}};
+const pf=()=>state.apiMode?1:(state.days/30);      // fator de rateio por dias (só snapshot)
 const idleAsItems=()=>DATA.idleIps.map(ip=>({nome:ip,tipo:'IP',regiao:'',usd:4,spec:'IP reservado ocioso · $4/mês'}));
 
-/* ---------------- datas ---------------- */
-function computeRange(){
-  const today=new Date(); let s,e,period='atual',label='';
-  if(state.preset==='mes-passado'){s=new Date(today.getFullYear(),today.getMonth()-1,1);e=new Date(today.getFullYear(),today.getMonth(),1);period='anterior';label='Mês passado';}
-  else if(state.preset==='ult-7'){s=new Date(today);s.setDate(s.getDate()-7);e=today;label='Últimos 7 dias';}
-  else if(state.preset==='ult-30'){s=new Date(today);s.setDate(s.getDate()-30);e=today;label='Últimos 30 dias';}
-  else if(state.preset==='custom'){s=state.start?new Date(state.start):new Date(today.getFullYear(),today.getMonth(),1);e=state.end?new Date(state.end):today;period=(e.getMonth()===6)?'anterior':'atual';label='Personalizado';}
-  else {s=new Date(today.getFullYear(),today.getMonth(),1);e=today;label='Este mês';}
-  state.start=isoDay(s);state.end=isoDay(e);state.period=period;state.rangeLabel=label;
-  document.getElementById('dStart').value=state.start;
-  document.getElementById('dEnd').value=state.end;
+/* ============ datas ============ */
+function readDates(){
+  state.start=document.getElementById('dStart').value;
+  state.end=document.getElementById('dEnd').value;
+  if(!state.start||!state.end||state.end<state.start){ // segurança
+    const t=new Date(CONFIG.today); const s=new Date(t); s.setDate(s.getDate()-30);
+    state.start=state.start||isoDay(s); state.end=state.end||isoDay(t);
+  }
+  state.days=Math.max(1,Math.round((new Date(state.end)-new Date(state.start))/86400000));
 }
 
-/* ---------------- computeds ---------------- */
+/* ============ computeds (com rateio pf) ============ */
 const sum=(a,f)=>a.reduce((s,r)=>s+(+f(r)||0),0);
-const doUsd=()=>sum(DATA.doDroplets,r=>r.usd)+sum(DATA.doDatabases,r=>r.usd)+sum(DATA.doSnapshots,r=>r.usd)+DATA.idleIps.length*4;
-const awsUsd=()=>sum(DATA.aws,r=>r[awsField()]);
+const baseDoUsd=()=>sum(DATA.doDroplets,r=>r.usd)+sum(DATA.doDatabases,r=>r.usd)+sum(DATA.doSnapshots,r=>r.usd)+DATA.idleIps.length*4;
+const baseAwsUsd=()=>sum(DATA.aws,r=>r.atual);
+const doUsd=()=>baseDoUsd()*pf();
+const awsUsd=()=>baseAwsUsd()*pf();
 const licBrl=()=>state.claude*110+state.claudeMaxN*state.claudeMaxUnit+state.figma*120;
 const dsBrl=()=>state.dsUsd*state.usd;
 const doBrl=()=>doUsd()*state.usd;
 const awsBrl=()=>awsUsd()*state.usd;
-const idleBrl=()=>DATA.idleIps.length*4*state.usd;
+const idleBrl=()=>DATA.idleIps.length*4*pf()*state.usd;
 const total=()=>doBrl()+awsBrl()+licBrl()+dsBrl();
 
-/* ---------------- KPIs ---------------- */
+/* ============ KPIs ============ */
 function renderKpis(){
   const c=document.getElementById('kpis');c.innerHTML='';
   const items=[
-    {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',v:fBRL(total()),s:'Todas as plataformas'},
+    {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',v:fBRL(total()),s:`${state.days} dias`},
     {cls:'kpi',ic:LOGO.do,t:'Digital Ocean',v:fBRL(doBrl()),s:fUSD(doUsd())},
     {cls:'kpi',ic:LOGO.aws,t:'Amazon AWS',v:fBRL(awsBrl()),s:fUSD(awsUsd())},
-    {cls:'kpi',ic:LOGO.claude,t:'Claude (Pro+Max)',v:fBRL(state.claude*110+state.claudeMaxN*state.claudeMaxUnit),s:`Pro ${state.claude} · Max ${state.claudeMaxN}`},
-    {cls:'kpi',ic:LOGO.deepseek,t:'DeepSeek',v:fBRL(dsBrl()),s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'gasto pela API'},
+    {cls:'kpi',ic:LOGO.claude,t:'Claude Pro',v:fBRL(state.claude*110+state.claudeMaxN*state.claudeMaxUnit),s:`${state.claude} usuários`},
+    {cls:'kpi',ic:LOGO.deepseek,t:'DeepSeek',v:fBRL(dsBrl()),s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key'},
     {cls:'kpi warn',ic:IC.warn,t:'IPs Ociosos DO',v:fBRL(idleBrl()),s:DATA.idleIps.length+' IPs desatribuídos'},
   ];
   items.forEach(k=>{const d=el('div',k.cls);d.innerHTML=`<div class="kh"><span class="kt">${k.t}</span><span class="khi">${k.ic}</span></div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`;c.appendChild(d);});
 }
 
-/* ---------------- Donut ---------------- */
+/* ============ Donut ============ */
 function chartData(){return [
   {plat:'do',label:'Digital Ocean',value:doBrl(),color:'#1d4ed8'},
   {plat:'aws',label:'AWS',value:awsBrl(),color:'#d97706'},
@@ -493,11 +487,11 @@ function setDonutFocus(idx){
   const svg=document.getElementById('donut'),center=document.getElementById('donutCenter'),data=chartData(),T=total();
   document.querySelectorAll('.legrow').forEach(r=>r.classList.remove('active'));
   svg.querySelectorAll('circle.slice').forEach(c=>c.classList.remove('active'));
-  if(idx==null){svg.classList.remove('dim');center.innerHTML=`<div class="dc-t">Total</div><div class="dc-v">${fBRL(total())}</div><div class="dc-s">clique numa fatia</div>`;}
+  if(idx==null){svg.classList.remove('dim');center.innerHTML=`<div class="dc-t">Total</div><div class="dc-v">${fCompact(total())}</div><div class="dc-s">${state.days} dias</div>`;}
   else{const d=data[idx],pct=T>0?Math.round(d.value/T*100):0;svg.classList.add('dim');
     const c=svg.querySelector(`circle.slice[data-idx="${idx}"]`);if(c)c.classList.add('active');
     const lr=document.querySelector(`.legrow[data-idx="${idx}"]`);if(lr)lr.classList.add('active');
-    center.innerHTML=`<div class="dc-t">${d.label}</div><div class="dc-v">${fBRL(d.value)}</div><div class="dc-s">${pct}% do total</div>`;}
+    center.innerHTML=`<div class="dc-t">${d.label}</div><div class="dc-v">${fCompact(d.value)}</div><div class="dc-s">${pct}%</div>`;}
 }
 function renderDonut(){
   const S=132,STROKE=22,R=(S-STROKE)/2,CIRC=2*Math.PI*R,T=total();
@@ -515,49 +509,49 @@ function renderDonut(){
   setDonutFocus(null);
 }
 
-/* ---------------- Alertas ---------------- */
+/* ============ Alertas ============ */
 function renderAlerts(){
   const c=document.getElementById('alerts');c.innerHTML='';const list=[];
   const nat=DATA.aws.find(r=>/nat/i.test(r.nome));
-  if(nat&&nat.atual>nat.anterior)list.push({t:'warn',m:`NAT Gateway subiu ${fUSD(nat.atual-nat.anterior)} no período — verifique tráfego de saída`});
+  if(nat&&nat.atual>nat.anterior)list.push({t:'warn',m:`NAT Gateway subiu ${fUSD(nat.atual-nat.anterior)} vs período anterior — verifique tráfego de saída`});
   const rds=DATA.aws.find(r=>/motor-credito-advanced/.test(r.nome));
   if(rds&&rds.anterior>0&&rds.atual>rds.anterior*1.5)list.push({t:'warn',m:`RDS motor-credito-advanced quase dobrou: ${fUSD(rds.anterior)} → ${fUSD(rds.atual)}`});
   const atf=DATA.aws.find(r=>r.nome==='service-atf');
-  if(atf&&atf.atual<atf.anterior)list.push({t:'ok',m:`ECS service-atf reduziu ${fUSD(atf.anterior-atf.atual)} no período — bom sinal`});
-  if(DATA.idleIps.length)list.push({t:'info',m:`${DATA.idleIps.length} IPs reservados ociosos na Digital Ocean — ${fBRL(idleBrl())}/mês em desperdício`});
+  if(atf&&atf.atual<atf.anterior)list.push({t:'ok',m:`ECS service-atf reduziu ${fUSD(atf.anterior-atf.atual)} vs período anterior — bom sinal`});
+  if(DATA.idleIps.length)list.push({t:'info',m:`${DATA.idleIps.length} IPs reservados ociosos na Digital Ocean — ${fBRL(idleBrl())} em desperdício`});
   if(!list.length)list.push({t:'ok',m:'Nenhum alerta no período selecionado.'});
   list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
 }
 
-/* ---------------- Platform buttons ---------------- */
+/* ============ Platform buttons ============ */
 function renderPlats(){
   const c=document.getElementById('plats');c.innerHTML='';
-  const awsDelta=DATA.aws.reduce((s,r)=>s+(r.atual-r.anterior),0);
+  const awsDelta=DATA.aws.reduce((s,r)=>s+(r.atual-r.anterior),0)*pf();
   const btns=[
     {id:'do',label:'Digital Ocean',v:fBRL(doBrl()),sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`,foot:`${DATA.doDroplets.length} droplets · ${DATA.doDatabases.length} DB · ${DATA.doSnapshots.length} snap`},
     {id:'aws',label:'Amazon AWS',v:fBRL(awsBrl()),sub:fUSD(awsUsd()),foot:`${awsDelta<=0?'▼':'▲'} ${fUSD(Math.abs(awsDelta))} vs anterior`,ok:awsDelta<=0},
-    {id:'lic',label:'Licenças',v:fBRL(licBrl()),sub:'Valor fixo mensal',foot:`Claude Pro ${state.claude} · Max ${state.claudeMaxN} · Figma ${state.figma}`},
-    {id:'ds',label:'DeepSeek',v:fBRL(dsBrl()),sub:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'gasto pela API',foot:'API de IA'},
+    {id:'lic',label:'Licenças',v:fBRL(licBrl()),sub:'Valor fixo mensal',foot:`Claude Pro ${state.claude} · Figma ${state.figma}`},
+    {id:'ds',label:'DeepSeek',v:fBRL(dsBrl()),sub:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',foot:'gasto calculado pela API'},
   ];
   btns.forEach(b=>{const btn=el('button','plat');btn.dataset.c=b.id;
     btn.innerHTML=`<div class="ph">${PLOGO[b.id]}<span class="chev">${IC.chev}</span></div><div><div class="plabel">${b.label}</div><div class="pval">${b.v}</div><div class="psub">${b.sub}</div></div><div class="pfoot ${b.ok?'ok':''}">${b.foot}</div>`;
     btn.onclick=()=>openDrawer(b.id);c.appendChild(btn);});
 }
 
-/* ---------------- Resource card (nível 2) ---------------- */
+/* ============ Resource card ============ */
 function resourceCard(r,kind){
   const d=el('div','res');const chip=kind==='aws'?r.servico:r.tipo;
   d.style.setProperty('--tc',kind==='aws'?'var(--amber)':'var(--blue)');
   let html=`<div class="rh"><span class="rn">${r.nome}</span><span class="chip ${chip}">${chip}</span></div>`;
   if(kind==='aws'){
-    const val=r[awsField()];
-    html+=`<div class="rprice">${fUSD(val)}<small>/mês</small></div><div class="rbrl">${fBRL(val*state.usd)}/mês</div><div class="rdet">${r.detalhe||'—'}</div>`;
-    if(r.atual!==r.anterior){const up=r.atual>r.anterior;html+=`<div class="rdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(r.atual-r.anterior))} vs anterior</div>`;}
+    const val=r.atual*pf();
+    html+=`<div class="rprice">${fUSD(val)}</div><div class="rbrl">${fBRL(val*state.usd)} no período</div><div class="rdet">${r.detalhe||'—'}</div>`;
+    if(r.atual!==r.anterior){const up=r.atual>r.anterior;html+=`<div class="rdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(r.atual-r.anterior)*pf())} vs anterior</div>`;}
     if(r.projeto&&r.projeto!=='—')html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
     html+=`<div class="rmore">Clique para detalhar →</div>`;d.className='res click';d.dataset.c='aws';d.onclick=()=>openModal('aws',r);
   }else{
-    d.dataset.c='do';
-    if(+r.usd>0)html+=`<div class="rprice">${fUSD(r.usd)}<small>/mês</small></div><div class="rbrl">${fBRL(r.usd*state.usd)}/mês</div>`;
+    d.dataset.c='do';const val=(+r.usd||0)*pf();
+    if(+r.usd>0)html+=`<div class="rprice">${fUSD(val)}</div><div class="rbrl">${fBRL(val*state.usd)} no período</div>`;
     else html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
     html+=`<div class="rdet">${r.spec||''}${r.regiao?(' · '+r.regiao):''}${r.ip&&r.ip!=='—'?(' · '+r.ip):''}</div><div class="rmore">Clique para detalhar →</div>`;
     d.className='res click';d.onclick=()=>openModal('do',r);
@@ -565,11 +559,11 @@ function resourceCard(r,kind){
   d.innerHTML=html;return d;
 }
 
-/* ---------------- Group card (nível 1) ---------------- */
+/* ============ Group card ============ */
 function groupCard(kind,g){
   const d=el('div','gcard');d.dataset.c=kind;
   let delta='';
-  if(kind==='aws'&&g.anterior!=null&&g.anterior!==g.atualRaw){const up=g.atualRaw>g.anterior;delta=`<span class="gdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(g.atualRaw-g.anterior))}</span>`;}
+  if(kind==='aws'&&g.anterior!=null&&g.anterior!==g.usd){const up=g.usd>g.anterior;delta=`<span class="gdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(g.usd-g.anterior))}</span>`;}
   d.innerHTML=`<div class="gh"><span class="gname">${g.title}</span>${g.chip?`<span class="chip ${g.chip}">${g.chip}</span>`:''}</div>
     <div class="gdesc">${g.desc}</div>
     <div class="gfoot"><div><div class="gv">${fBRL(g.brl)}</div><div class="gvb">${fUSD(g.usd)} · ${g.count} ${g.count===1?'item':'itens'}</div></div>
@@ -578,12 +572,12 @@ function groupCard(kind,g){
   return d;
 }
 
-/* ---------------- Drawer (2 níveis) ---------------- */
+/* ============ Drawer (2 níveis) ============ */
 function awsGroups(){
   const map={};
-  DATA.aws.forEach(r=>{const k=r.servico;(map[k]=map[k]||{items:[],atual:0,anterior:0});map[k].items.push(r);map[k].atual+=r[awsField()];map[k].anterior+=r.anterior;});
-  return Object.keys(map).map(k=>{const m=map[k];const meta=AWS_SVC[k]||{name:k,desc:''};
-    return {key:k,chip:k,title:meta.name,desc:meta.desc,usd:m.atual,brl:m.atual*state.usd,atualRaw:m.atual,anterior:m.anterior,count:m.items.length,items:m.items};})
+  DATA.aws.forEach(r=>{const k=r.servico;(map[k]=map[k]||{items:[],atual:0,anterior:0});map[k].items.push(r);map[k].atual+=r.atual;map[k].anterior+=r.anterior;});
+  return Object.keys(map).map(k=>{const m=map[k];const meta=AWS_SVC[k]||{name:k,desc:''};const usd=m.atual*pf();
+    return {key:k,chip:k,title:meta.name,desc:meta.desc,usd,brl:usd*state.usd,anterior:m.anterior*pf(),count:m.items.length,items:m.items};})
     .sort((a,b)=>b.usd-a.usd);
 }
 function doGroups(){
@@ -593,7 +587,7 @@ function doGroups(){
     {key:'snapshots',title:'Snapshots',desc:'Backups de imagem dos droplets (cobrados por GB).',items:DATA.doSnapshots},
     {key:'ips',title:'Reserved IPs ociosos',desc:'IPs reservados sem droplet — $4/mês cada. Libere ou atribua.',items:idleAsItems()},
   ];
-  return cats.map(c=>{const usd=sum(c.items,r=>r.usd);return {...c,usd,brl:usd*state.usd,count:c.items.length};});
+  return cats.map(c=>{const usd=sum(c.items,r=>r.usd)*pf();return Object.assign({},c,{usd,brl:usd*state.usd,count:c.items.length});});
 }
 function openDrawer(plat){drawerState.plat=plat;drawerState.group=null;renderDrawer();showOv('drawer');}
 function renderDrawer(){
@@ -604,25 +598,21 @@ function renderDrawer(){
     lic:{label:'Licenças de Software',badge:fBRL(licBrl()),logo:LOGO.claude},
     ds:{label:'DeepSeek',badge:state.dsBalance!=null?`saldo ${fUSD(state.dsBalance)}`:fBRL(dsBrl()),logo:LOGO.deepseek},
   }[plat];
-  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${meta.logo}</span><div><div class="dt">${meta.label}</div><div class="db">${meta.badge} · ${state.rangeLabel} (${brDate(state.start)}–${brDate(state.end)})</div></div></div><button class="xbtn" onclick="closeOv('drawer')">${IC.x}</button></div>`;
+  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${meta.logo}</span><div><div class="dt">${meta.label}</div><div class="db">${meta.badge} · ${brDate(state.start)}–${brDate(state.end)} (${state.days} dias)</div></div></div><button class="xbtn" onclick="closeOv('drawer')">${IC.x}</button></div>`;
 
-  if(plat==='lic'){ renderLicencas(sheet); showOv('drawer'); return; }
-  if(plat==='ds'){ renderDeepseek(sheet); showOv('drawer'); return; }
+  if(plat==='lic'){renderLicencas(sheet);showOv('drawer');return;}
+  if(plat==='ds'){renderDeepseek(sheet);showOv('drawer');return;}
 
-  // AWS / DO — 2 níveis
-  const groups = plat==='aws'?awsGroups():doGroups();
+  const groups=plat==='aws'?awsGroups():doGroups();
   if(group==null){
-    const hint = plat==='aws'
-      ? 'Clique num serviço para ver os recursos que ele contém.'
-      : 'Clique numa categoria para ver os itens; depois clique no item para o detalhe.';
+    const hint=plat==='aws'?'Clique num serviço para ver os recursos que ele contém.':'Clique numa categoria para ver os itens; depois clique no item para o detalhe.';
     sheet.appendChild(el('div','banner warn',`${IC.warn}<span>${hint}</span>`));
     const g=el('div','grid-grp');groups.forEach(gr=>g.appendChild(groupCard(plat,gr)));sheet.appendChild(g);
-  } else {
+  }else{
     const gr=groups.find(x=>x.key===group)||groups[0];
     const bar=el('div','backbar');
     bar.innerHTML=`<button class="backbtn" id="backBtn">${IC.back} Voltar</button><span class="bt">${gr.title||gr.chip}</span><span class="gvb" style="color:var(--muted)">${fBRL(gr.brl)} · ${fUSD(gr.usd)} · ${gr.count} ${gr.count===1?'item':'itens'}</span>`;
-    sheet.appendChild(bar);
-    bar.querySelector('#backBtn').onclick=()=>{drawerState.group=null;renderDrawer();};
+    sheet.appendChild(bar);bar.querySelector('#backBtn').onclick=()=>{drawerState.group=null;renderDrawer();};
     const grid=el('div','grid-res');gr.items.forEach(r=>grid.appendChild(resourceCard(r,plat==='aws'?'aws':'do')));sheet.appendChild(grid);
   }
   showOv('drawer');
@@ -630,49 +620,70 @@ function renderDrawer(){
 function renderLicencas(sheet){
   const g=el('div','grid-res');g.style.gridTemplateColumns='repeat(auto-fill,minmax(240px,1fr))';
   g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Pro</span><span class="chip">Fixo</span></div><div class="lp">${fBRL(state.claude*110)}<small>/mês</small></div><div class="rproj">${state.claude} usuários × R$ 110,00 · Anthropic</div>`));
-  const max=el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Max</span><span class="chip">${state.claudeMaxN} licença</span></div><div class="lp" id="maxLp">${fBRL(state.claudeMaxN*state.claudeMaxUnit)}<small>/mês</small></div><div class="ledit"><span class="uplabel">Valor mensal (R$)</span><input id="maxUnit" type="number" min="0" step="0.01" value="${state.claudeMaxUnit||''}" placeholder="ex: 550"></div>`);
-  g.appendChild(max);
+  g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Max</span><span class="chip">${state.claudeMaxN} licença</span></div><div class="lp">${state.claudeMaxUnit>0?fBRL(state.claudeMaxN*state.claudeMaxUnit):'—'}<small>${state.claudeMaxUnit>0?'/mês':' valor no backend'}</small></div><div class="rproj">definido no .env (CLAUDE_MAX_UNIT_BRL)</div>`));
   g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.figma} Figma</span><span class="chip">Fixo</span></div><div class="lp">${fBRL(state.figma*120)}<small>/mês</small></div><div class="rproj">${state.figma} licença(s) × R$ 120,00 · Figma Inc.</div>`));
   sheet.appendChild(g);
-  const inp=max.querySelector('#maxUnit');
-  inp.oninput=e=>{state.claudeMaxUnit=+e.target.value||0;max.querySelector('#maxLp').innerHTML=`${fBRL(state.claudeMaxN*state.claudeMaxUnit)}<small>/mês</small>`;renderAll(false);};
 }
 function renderDeepseek(sheet){
-  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O gasto do DeepSeek é <strong>calculado pela API</strong>: total depositado − saldo restante (<code>/user/balance</code>). O saldo aparece ao vivo; sem backend, você pode digitar o valor abaixo.</span>`));
-  const row=el('div','ds-row');
-  row.innerHTML=`${state.dsBalance!=null?`<div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv">${fUSD(state.dsBalance)}</div></div>`:''}
-    <label><span class="uplabel">Gasto (USD)${state.apiMode?' · da API':''}</span><input id="dsUsd" type="number" min="0" step="0.01" placeholder="ex: 1.24" value="${state.dsUsd||''}" style="width:150px"></label>
-    <label><span class="uplabel">Projeto</span><input id="dsProj" type="text" placeholder="ex: motor-credito" value="${state.dsProj||''}" style="width:170px"></label>
-    <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>`;
-  sheet.appendChild(row);
-  row.querySelector('#dsUsd').oninput=e=>{state.dsUsd=+e.target.value||0;row.querySelector('.ds-card.total .sv').textContent=fBRL(dsBrl());renderAll(false);};
-  row.querySelector('#dsProj').oninput=e=>{state.dsProj=e.target.value;};
+  const hasKey=!!lsGet('ds-key');
+  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O gasto é <strong>calculado automaticamente</strong> pela API do DeepSeek: <code>total depositado − saldo</code>. Preencha a key e o total; o cálculo é feito no seu navegador (a key fica só neste dispositivo).</span>`));
+  const grid=el('div','ds-grid');
+  grid.innerHTML=`
+    <div class="ds-field"><span class="uplabel">DeepSeek API Key</span><input id="dsKey" type="password" placeholder="sk-..." value="${lsGet('ds-key')||''}"></div>
+    <div class="ds-field"><span class="uplabel">Total já depositado (USD)</span><input id="dsTot" type="number" min="0" step="0.01" placeholder="ex: 2.00" value="${lsGet('ds-total')||''}"></div>`;
+  sheet.appendChild(grid);
+  const cards=el('div','ds-cards');
+  cards.innerHTML=`
+    <div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv" id="dsSaldo">${state.dsBalance!=null?fUSD(state.dsBalance):'—'}</div></div>
+    <div class="ds-card"><div class="st">Gasto (USD)</div><div class="sv" id="dsGasto">${state.dsUsd?fUSD(state.dsUsd):'—'}</div></div>
+    <div class="ds-card total"><div class="st">Total BRL</div><div class="sv" id="dsBrl">${fBRL(dsBrl())}</div></div>
+    <button class="btn-ghost" id="dsCalc" style="align-self:center">${IC.refresh} Calcular agora</button>`;
+  sheet.appendChild(cards);
+  sheet.appendChild(el('div','dsmsg',hasKey?'':'Sem backend, o cálculo roda direto no navegador (CORS liberado pelo DeepSeek). Com o backend, a key fica no servidor.'));
+  const save=()=>{lsSet('ds-key',grid.querySelector('#dsKey').value.trim());lsSet('ds-total',grid.querySelector('#dsTot').value.trim());};
+  grid.querySelector('#dsKey').oninput=save; grid.querySelector('#dsTot').oninput=save;
+  cards.querySelector('#dsCalc').onclick=async()=>{save();await deepseekAuto(true);
+    const s=document.getElementById('dsSaldo'),gg=document.getElementById('dsGasto'),bb=document.getElementById('dsBrl');
+    if(s)s.textContent=state.dsBalance!=null?fUSD(state.dsBalance):'—';
+    if(gg)gg.textContent=state.dsUsd?fUSD(state.dsUsd):'—'; if(bb)bb.textContent=fBRL(dsBrl());};
 }
 
-/* ---------------- Modal detalhe (AWS e DO) ---------------- */
+/* ============ DeepSeek automático (client-side) ============ */
+async function deepseekAuto(force){
+  if(state.apiMode&&!force) return;             // com backend já vem pronto
+  const key=(lsGet('ds-key')||'').trim(), tot=parseFloat(lsGet('ds-total'));
+  if(!key||isNaN(tot)) return;
+  try{
+    const r=await fetchT('https://api.deepseek.com/user/balance',8000,{headers:{Authorization:'Bearer '+key,Accept:'application/json'}});
+    if(!r.ok) return;
+    const j=await r.json();const info=(j.balance_infos||[]).find(b=>b.currency==='USD')||(j.balance_infos||[])[0];
+    if(info){state.dsBalance=+info.total_balance;state.dsUsd=Math.max(0,+(tot-(+info.topped_up_balance)).toFixed(2));renderAll();}
+  }catch(_){/* CSP do preview do artifact bloqueia; funciona no arquivo local/backend */}
+}
+
+/* ============ Modal detalhe ============ */
 function openModal(kind,r){
   const sheet=document.getElementById('modalSheet');
   if(kind==='aws'){
-    const delta=r.atual-r.anterior;
-    const dias=Math.max(1,Math.round((new Date(state.end)-new Date(state.start))/86400000));
-    const proj=r.atual/dias*30;const pct=r.anterior===0?null:((delta/r.anterior)*100).toFixed(1);
-    sheet.innerHTML=`<div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${AWS_SVC[r.servico]?AWS_SVC[r.servico].name:r.servico} · projeto: ${r.projeto} · ${state.rangeLabel}</div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
+    const atual=r.atual*pf(),anterior=r.anterior*pf(),delta=atual-anterior;
+    const proj=r.atual; const pct=r.anterior===0?null:(((r.atual-r.anterior)/r.anterior)*100).toFixed(1);
+    sheet.innerHTML=`<div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${AWS_SVC[r.servico]?AWS_SVC[r.servico].name:r.servico} · projeto: ${r.projeto} · ${state.days} dias</div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
       <div class="stat4">
-        <div class="stat"><div class="st">Período atual</div><div class="sv" style="color:var(--amber)">${fUSD(r.atual)}</div><div class="ss">${fBRL(r.atual*state.usd)}</div></div>
-        <div class="stat"><div class="st">Período anterior</div><div class="sv" style="color:var(--muted)">${r.anterior>0?fUSD(r.anterior):'Novo'}</div><div class="ss">${r.anterior>0?fBRL(r.anterior*state.usd):''}</div></div>
-        <div class="stat"><div class="st">Variação</div><div class="sv ${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${fUSD(Math.abs(delta))}</div><div class="ss ${delta>0?'up':'down'}">${pct!==null?((delta>0?'+':'')+pct+'%'):'Recurso novo'}</div></div>
-        <div class="stat"><div class="st">Projeção 30d</div><div class="sv">${fUSD(proj)}</div><div class="ss">${fBRL(proj*state.usd)}</div></div>
+        <div class="stat"><div class="st">Período atual</div><div class="sv" style="color:var(--amber)">${fUSD(atual)}</div><div class="ss">${fBRL(atual*state.usd)}</div></div>
+        <div class="stat"><div class="st">Período anterior</div><div class="sv" style="color:var(--muted)">${anterior>0?fUSD(anterior):'Novo'}</div><div class="ss">${anterior>0?fBRL(anterior*state.usd):''}</div></div>
+        <div class="stat"><div class="st">Variação</div><div class="sv ${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${fUSD(Math.abs(delta))}</div><div class="ss ${delta>0?'up':'down'}">${pct!==null?((r.atual-r.anterior>0?'+':'')+pct+'%'):'Recurso novo'}</div></div>
+        <div class="stat"><div class="st">Run-rate mensal</div><div class="sv">${fUSD(proj)}</div><div class="ss">${fBRL(proj*state.usd)}</div></div>
       </div>
       <div class="tags"><span class="tag"><strong>Serviço:</strong> ${AWS_SVC[r.servico]?AWS_SVC[r.servico].name:r.servico}</span><span class="tag"><strong>Projeto:</strong> ${r.projeto}</span>${r.detalhe?`<span class="tag">${r.detalhe}</span>`:''}</div>
       <div class="mfoot"><button class="btn-ghost" onclick="closeOv('modal')">Fechar</button></div>`;
   }else{
-    const mensalUsd=+r.usd||0;
+    const mensal=+r.usd||0, periodo=mensal*pf();
     sheet.innerHTML=`<div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${r.tipo} · Digital Ocean · ${r.regiao||'—'}</div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
       <div class="stat4">
-        <div class="stat"><div class="st">Custo mensal</div><div class="sv" style="color:var(--blue)">${mensalUsd>0?fUSD(mensalUsd):'—'}</div><div class="ss">${mensalUsd>0?fBRL(mensalUsd*state.usd):'consultar painel'}</div></div>
+        <div class="stat"><div class="st">Custo mensal</div><div class="sv" style="color:var(--blue)">${mensal>0?fUSD(mensal):'—'}</div><div class="ss">${mensal>0?fBRL(mensal*state.usd):'consultar painel'}</div></div>
+        <div class="stat"><div class="st">No período (${state.days}d)</div><div class="sv">${mensal>0?fUSD(periodo):'—'}</div><div class="ss">${mensal>0?fBRL(periodo*state.usd):''}</div></div>
+        <div class="stat"><div class="st">Projeção anual</div><div class="sv">${mensal>0?fUSD(mensal*12):'—'}</div><div class="ss">${mensal>0?fBRL(mensal*12*state.usd):''}</div></div>
         <div class="stat"><div class="st">Tipo</div><div class="sv" style="font-size:15px">${r.tipo}</div><div class="ss">${r.regiao||'—'}</div></div>
-        <div class="stat"><div class="st">Projeção anual</div><div class="sv">${mensalUsd>0?fUSD(mensalUsd*12):'—'}</div><div class="ss">${mensalUsd>0?fBRL(mensalUsd*12*state.usd):''}</div></div>
-        <div class="stat"><div class="st">Câmbio</div><div class="sv" style="font-size:15px">${state.usd.toFixed(2)}</div><div class="ss">USD/BRL</div></div>
       </div>
       <div class="tags"><span class="tag"><strong>Especificação:</strong> ${r.spec||'—'}</span><span class="tag"><strong>Região:</strong> ${r.regiao||'—'}</span>${r.ip&&r.ip!=='—'?`<span class="tag"><strong>IP:</strong> ${r.ip}</span>`:''}</div>
       <div class="mfoot"><button class="btn-ghost" onclick="closeOv('modal')">Fechar</button></div>`;
@@ -680,82 +691,77 @@ function openModal(kind,r){
   showOv('modal');
 }
 
-/* ---------------- overlays ---------------- */
+/* ============ overlays ============ */
 function showOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
 window.closeOv=closeOv;
 ['drawer','modal'].forEach(id=>document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id)closeOv(id);}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeOv('modal');if(!document.getElementById('modal').classList.contains('on'))closeOv('drawer');}});
 
-/* ---------------- render ---------------- */
+/* ============ render ============ */
 function renderAll(rebuild=true){
   renderKpis();renderDonut();renderAlerts();if(rebuild)renderPlats();
-  document.getElementById('claudeCalc').textContent='= '+fBRL(state.claude*110)+'/mês';
-  document.getElementById('claudeMaxCalc').textContent='= '+fBRL(state.claudeMaxN*state.claudeMaxUnit)+'/mês';
-  document.getElementById('figmaCalc').textContent='= '+fBRL(state.figma*120)+'/mês';
-  document.getElementById('periodTag').textContent=`${state.rangeLabel} · ${brDate(state.start)}–${brDate(state.end)}`;
-  document.getElementById('foot').innerHTML=`Snapshot: <strong>${brDate(CONFIG.snapshotDate)}</strong> · cotação USD/BRL <strong>${state.usd.toFixed(2)}</strong> · `+(state.apiMode?'<strong>modo tempo real</strong> (backend)':'modo snapshot — configure CONFIG.apiBase p/ tempo real');
+  document.getElementById('daysTag').textContent=`${state.days} dias · ${brDate(state.start)}–${brDate(state.end)}`;
+  document.getElementById('modeTag').textContent=state.apiMode?'tempo real':'estimativa proporcional aos dias';
+  document.getElementById('foot').innerHTML=`Snapshot: <strong>${brDate(CONFIG.snapshotDate)}</strong> · USD/BRL <strong>${state.usd.toFixed(2)}</strong> · `+(state.apiMode?'<strong>modo tempo real</strong> (backend)':'modo snapshot — valores rateados por dia; configure CONFIG.apiBase p/ dados exatos');
 }
 
-/* ---------------- carregar dados ---------------- */
+/* ============ carregar dados ============ */
 async function loadData(){
-  computeRange();
+  readDates();
   if(CONFIG.apiBase){
     const qs=`?start=${state.start}&end=${state.end}`;
     try{
       const r=await fetchT(CONFIG.apiBase+'/api/all'+qs,9000);const j=await r.json();
-      if(j.digitalocean&&!j.digitalocean.error){
-        DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;
-        DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;
-        DATA.doSnapshots=j.digitalocean.snapshots||DATA.doSnapshots;
-        DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);
-      }
+      if(j.digitalocean&&!j.digitalocean.error){DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;DATA.doSnapshots=j.digitalocean.snapshots||DATA.doSnapshots;DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);}
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources;
-      if(j.licencas){state.claude=j.licencas.claudeUsers??state.claude;state.claudeMaxN=j.licencas.claudeMaxLic??state.claudeMaxN;if(j.licencas.claudeMaxUnitBrl)state.claudeMaxUnit=j.licencas.claudeMaxUnitBrl;state.figma=j.licencas.figmaLicencas??state.figma;}
+      if(j.licencas){state.claude=j.licencas.claudeUsers??state.claude;state.claudeMaxN=j.licencas.claudeMaxLic??state.claudeMaxN;state.claudeMaxUnit=j.licencas.claudeMaxUnitBrl??state.claudeMaxUnit;state.figma=j.licencas.figmaLicencas??state.figma;}
       if(j.deepseek&&!j.deepseek.error){state.dsBalance=j.deepseek.balanceUsd;if(j.deepseek.spentUsd!=null)state.dsUsd=j.deepseek.spentUsd;}
       if(j.fx&&j.fx.rate)state.usd=+(+j.fx.rate).toFixed(4);
       state.apiMode=true;
     }catch(_){state.apiMode=false;DATA=JSON.parse(JSON.stringify(SNAP));}
-  } else {state.apiMode=false;DATA=JSON.parse(JSON.stringify(SNAP));}
+  }else{state.apiMode=false;DATA=JSON.parse(JSON.stringify(SNAP));}
   syncInputs();renderAll();
+  deepseekAuto();
 }
 
-/* ---------------- controls ---------------- */
+/* ============ controls ============ */
 function syncInputs(){
   document.getElementById('usd').value=state.usd.toFixed(2);
   document.getElementById('claude').value=state.claude;
-  document.getElementById('claudeMax').value=state.claudeMaxN;
   document.getElementById('figma').value=state.figma;
 }
-document.getElementById('preset').addEventListener('change',e=>{state.preset=e.target.value;loadData();});
-document.getElementById('dStart').addEventListener('change',e=>{state.start=e.target.value;state.preset='custom';document.getElementById('preset').value='custom';loadData();});
-document.getElementById('dEnd').addEventListener('change',e=>{state.end=e.target.value;state.preset='custom';document.getElementById('preset').value='custom';loadData();});
+document.getElementById('dStart').addEventListener('change',loadData);
+document.getElementById('dEnd').addEventListener('change',loadData);
 document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault;renderAll();});
 document.getElementById('claude').addEventListener('input',e=>{state.claude=+e.target.value||0;renderAll();});
-document.getElementById('claudeMax').addEventListener('input',e=>{state.claudeMaxN=+e.target.value||0;renderAll();});
 document.getElementById('figma').addEventListener('input',e=>{state.figma=+e.target.value||0;renderAll();});
 
-/* ---------------- tema ---------------- */
+/* ============ tema ============ */
 function currentTheme(){const a=document.documentElement.getAttribute('data-theme');return a||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}
-document.getElementById('themeBtn').onclick=()=>{const next=currentTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('custos-theme',next);}catch(_){}renderDonut();};
-try{const t=localStorage.getItem('custos-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(_){}
+document.getElementById('themeBtn').onclick=()=>{const next=currentTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);lsSet('custos-theme',next);renderDonut();};
+(()=>{const t=lsGet('custos-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
 
-/* ---------------- cotação ao vivo ---------------- */
+/* ============ cotação ao vivo ============ */
 async function fetchFx(){
-  const tag=document.getElementById('fxTag');tag.textContent='buscando...';
+  const tag=document.getElementById('fxTag');tag.textContent='…';
   const url=CONFIG.apiBase?`${CONFIG.apiBase}/api/usd-brl`:'https://open.er-api.com/v6/latest/USD';
   try{const r=await fetchT(url,6000);const j=await r.json();const rate=CONFIG.apiBase?j.rate:j.rates.BRL;
-    if(rate){state.usd=+(+rate).toFixed(4);document.getElementById('usd').value=state.usd.toFixed(2);tag.textContent='ao vivo '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});renderAll();}
-    else tag.textContent='cotação 27/08/2026';
-  }catch(_){tag.textContent='cotação 27/08/2026 (offline)';}
+    if(rate){state.usd=+(+rate).toFixed(4);document.getElementById('usd').value=state.usd.toFixed(2);tag.textContent='ao vivo';renderAll();}
+    else tag.textContent='27/08';
+  }catch(_){tag.textContent='27/08';}
 }
 document.getElementById('fxBtn').onclick=fetchFx;
 
-/* ---------------- init ---------------- */
+/* ============ init ============ */
 document.getElementById('topBadge').innerHTML=IC.chart;
 document.getElementById('themeIc').innerHTML=IC.sun;
 document.getElementById('fxIc').innerHTML=IC.refresh;
+(function initDates(){const t=new Date(CONFIG.today);const s=new Date(t);s.setDate(s.getDate()-30);
+  document.getElementById('dEnd').value=isoDay(t);document.getElementById('dStart').value=isoDay(s);})();
 loadData();fetchFx();
+// auto-atualização periódica (cotação + deepseek + dados)
+setInterval(()=>{fetchFx();deepseekAuto();if(CONFIG.apiBase)loadData();},5*60*1000);
 </script>
 </body>
 </html>
