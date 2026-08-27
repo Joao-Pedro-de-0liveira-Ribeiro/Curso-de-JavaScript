@@ -1,0 +1,15 @@
+{
+  "name": "custos-ti-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend proxy seguro do Painel de Custos TI (DigitalOcean + AWS Cost Explorer + câmbio). Guarda os segredos fora do frontend.",
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cost-explorer": "^3.600.0"
+  }
+}

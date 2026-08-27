@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Painel de Custos TI · Grupo 3RN</title>
+<style>
+/* ============================================================
+   Painel de Custos TI — Grupo 3RN
+   Design fiel ao módulo custos-ti (Vue + Tailwind), reescrito
+   em CSS puro para rodar em arquivo único, sem build e sem CDN.
+   ============================================================ */
+:root{
+  --bg:#f1f5f9; --panel:#ffffff; --panel-2:#f8fafc; --border:#e5e7eb;
+  --txt:#1e293b; --muted:#64748b; --muted-2:#94a3b8;
+  --blue:#1d4ed8; --blue-ink:#1e3a8a; --amber:#d97706; --violet:#7c3aed; --emerald:#059669;
+  --red:#dc2626; --red-bg:#fef2f2; --red-bd:#fecaca;
+  --amber-bg:#fffbeb; --amber-bd:#fde68a; --amber-ink:#92400e;
+  --emerald-bg:#ecfdf5; --emerald-bd:#a7f3d0; --emerald-ink:#065f46;
+  --shadow:0 1px 2px rgba(0,0,0,.05); --shadow-md:0 8px 24px rgba(2,6,23,.12);
+}
+:root[data-theme="dark"]{
+  --bg:#020617; --panel:#0f172a; --panel-2:#1e293b; --border:#334155;
+  --txt:#e2e8f0; --muted:#94a3b8; --muted-2:#64748b;
+  --blue:#60a5fa; --amber:#fbbf24; --violet:#a78bfa; --emerald:#34d399;
+  --red:#f87171; --red-bg:rgba(239,68,68,.10); --red-bd:rgba(239,68,68,.25);
+  --amber-bg:rgba(245,158,11,.10); --amber-bd:rgba(245,158,11,.25); --amber-ink:#fcd34d;
+  --emerald-bg:rgba(16,185,129,.10); --emerald-bd:rgba(16,185,129,.25); --emerald-ink:#6ee7b7;
+  --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 10px 30px rgba(0,0,0,.5);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#020617; --panel:#0f172a; --panel-2:#1e293b; --border:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --muted-2:#64748b;
+    --blue:#60a5fa; --amber:#fbbf24; --violet:#a78bfa; --emerald:#34d399;
+    --red:#f87171; --red-bg:rgba(239,68,68,.10); --red-bd:rgba(239,68,68,.25);
+    --amber-bg:rgba(245,158,11,.10); --amber-bd:rgba(245,158,11,.25); --amber-ink:#fcd34d;
+    --emerald-bg:rgba(16,185,129,.10); --emerald-bd:rgba(16,185,129,.25); --emerald-ink:#6ee7b7;
+    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 10px 30px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+.kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp{font-variant-numeric:tabular-nums}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px; line-height:1.4; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1280px; margin:0 auto; padding:16px 20px 28px}
+.row{display:flex; align-items:center; gap:12px}
+.spacer{margin-left:auto}
+.uplabel{font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
+.mut{color:var(--muted)} .mut2{color:var(--muted-2)}
+.card{background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
+
+/* ---------- Topbar / breadcrumb ---------- */
+.top{display:flex; align-items:center; gap:12px; margin-bottom:14px}
+.top .ic{display:grid; place-items:center; width:40px; height:40px; border-radius:12px;
+  background:linear-gradient(135deg,var(--blue-ink),#1d4ed8); color:#fff; font-size:20px; box-shadow:var(--shadow)}
+:root[data-theme="dark"] .top .ic{background:linear-gradient(135deg,#1e3a8a,#2563eb)}
+.top h1{margin:0; font-size:18px; font-weight:800}
+.top p{margin:2px 0 0; font-size:12px; color:var(--muted)}
+.btn-ghost{border:1px solid var(--border); background:var(--panel); color:var(--txt);
+  border-radius:10px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; gap:6px; align-items:center}
+.btn-ghost:hover{background:var(--panel-2)}
+
+/* ---------- Controls bar ---------- */
+.controls{display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding:14px 16px; margin-bottom:14px}
+.controls label{display:flex; align-items:center; gap:8px}
+.controls input,.controls select{
+  border:1px solid var(--border); background:var(--panel); color:var(--txt);
+  border-radius:9px; padding:7px 10px; font-size:13px; outline:none}
+.controls input:focus,.controls select:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.controls input[type=number]{width:96px}
+.pill{border-radius:999px; padding:5px 12px; font-size:12px; font-weight:800;
+  background:rgba(59,130,246,.12); color:#2563eb}
+:root[data-theme="dark"] .pill{background:rgba(59,130,246,.18); color:#93c5fd}
+.pill-live{background:rgba(16,185,129,.14); color:#059669}
+:root[data-theme="dark"] .pill-live{color:#6ee7b7}
+
+/* ---------- KPI grid ---------- */
+.kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:14px}
+.kpi{border-radius:16px; padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); background:var(--panel); min-width:0}
+.kpi .kh{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.kpi .kt{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+.kpi .ki{font-size:16px; opacity:.9}
+.kpi .kv{margin:8px 0 2px; font-size:19px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere}
+.kpi .ks{font-size:11px; color:var(--muted)}
+.kpi.dark{background:linear-gradient(135deg,#0f172a,#1e293b); border-color:#0f172a; color:#fff}
+.kpi.dark .kt{color:#94a3b8} .kpi.dark .ks{color:#cbd5e1} .kpi.dark .kv{color:#fff}
+.kpi.warn{background:var(--amber-bg); border-color:var(--amber-bd)}
+.kpi.warn .kv{color:var(--amber)}
+
+/* ---------- Middle: donut + alerts ---------- */
+.mid{display:grid; grid-template-columns:320px 1fr; gap:14px; margin-bottom:14px}
+.donut-card{padding:16px}
+.donut-card h3{margin:0 0 12px}
+.donut-flex{display:flex; align-items:center; gap:18px}
+.legend{display:flex; flex-direction:column; gap:9px; min-width:0; flex:1}
+.legrow{display:flex; align-items:center; gap:8px; font-size:12px}
+.legrow .sw{width:11px; height:11px; border-radius:3px; flex-shrink:0}
+.legrow .lb{color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.legrow .vv{margin-left:auto; font-weight:800; white-space:nowrap}
+.legrow .pc{width:34px; text-align:right; color:var(--muted-2)}
+.alerts{display:flex; flex-direction:column; gap:8px}
+.alert{display:flex; gap:9px; align-items:flex-start; border:1px solid; border-radius:12px; padding:11px 14px; font-size:13px; font-weight:500}
+.alert.warn{background:var(--red-bg); border-color:var(--red-bd); color:var(--red)}
+.alert.info{background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber-ink)}
+.alert.ok{background:var(--emerald-bg); border-color:var(--emerald-bd); color:var(--emerald-ink)}
+
+/* ---------- Platform buttons ---------- */
+.plats{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+.plat{display:flex; flex-direction:column; gap:10px; text-align:left; cursor:pointer;
+  background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);
+  transition:transform .12s, box-shadow .12s; color:var(--txt)}
+.plat:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
+.plat .ph{display:flex; align-items:center; justify-content:space-between}
+.plat .pemoji{font-size:20px}
+.plat .chev{color:var(--muted-2); font-size:12px}
+.plat .plabel{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+.plat .pval{margin:4px 0 1px; font-size:22px; font-weight:800; letter-spacing:-.02em}
+.plat .psub{font-size:11px; color:var(--muted)}
+.plat .pfoot{font-size:11px; font-weight:600; color:var(--muted-2)}
+.plat .pfoot.ok{color:var(--emerald)}
+.plat[data-c=do]  .pval{color:var(--blue)}
+.plat[data-c=aws] .pval{color:var(--amber)}
+.plat[data-c=lic] .pval{color:var(--violet)}
+.plat[data-c=ds]  .pval{color:var(--emerald)}
+.plat[data-c=do][aria-expanded=true]{box-shadow:0 0 0 2px var(--blue), var(--shadow-md)}
+.plat[data-c=aws][aria-expanded=true]{box-shadow:0 0 0 2px var(--amber), var(--shadow-md)}
+.plat[data-c=lic][aria-expanded=true]{box-shadow:0 0 0 2px var(--violet), var(--shadow-md)}
+.plat[data-c=ds][aria-expanded=true]{box-shadow:0 0 0 2px var(--emerald), var(--shadow-md)}
+.hint{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 8px}
+
+/* ---------- Overlay (drawer + modal) ---------- */
+.ov{position:fixed; inset:0; z-index:50; display:none; align-items:flex-start; justify-content:center;
+  padding:28px 16px; background:rgba(2,6,23,.55); backdrop-filter:blur(2px); overflow:auto}
+.ov.on{display:flex}
+.sheet{width:100%; max-width:1120px; background:var(--panel); border:1px solid var(--border); border-radius:18px;
+  box-shadow:var(--shadow-md); overflow:hidden; animation:pop .16s ease-out}
+.sheet.sm{max-width:640px}
+@keyframes pop{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+.dhead{display:flex; align-items:center; justify-content:space-between; padding:16px 22px;
+  background:linear-gradient(90deg,#1e3a8a,#1d4ed8,#2563eb); color:#fff}
+.dhead .dt{font-size:14px; font-weight:800}
+.dhead .db{font-size:12px; color:#bfdbfe; margin-top:2px}
+.xbtn{border:0; background:rgba(255,255,255,.14); color:#fff; width:30px; height:30px; border-radius:9px; cursor:pointer; font-size:16px}
+.xbtn:hover{background:rgba(255,255,255,.26)}
+.banner{padding:10px 22px; font-size:12px; font-weight:600}
+.banner.warn{background:var(--amber-bg); border-bottom:1px solid var(--amber-bd); color:var(--amber-ink)}
+.grid-res{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; padding:18px 22px}
+.sublabel{padding:2px 22px 0; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-2)}
+
+/* ---------- Resource card ---------- */
+.res{position:relative; display:flex; flex-direction:column; gap:6px; background:var(--panel);
+  border:1px solid var(--border); border-top:4px solid var(--tc,var(--blue)); border-radius:14px; padding:13px 14px; box-shadow:var(--shadow);
+  transition:transform .12s, box-shadow .12s}
+.res.click{cursor:pointer}
+.res.click:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
+.res .rh{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
+.res .rn{font-size:13px; font-weight:700; line-height:1.25}
+.res .rprice{font-size:19px; font-weight:800}
+.res .rprice small{font-size:11px; font-weight:400; color:var(--muted-2)}
+.res .rbrl{font-size:11px; color:var(--muted)}
+.res .rdet{font-size:11px; color:var(--muted); line-height:1.45; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.res .rdelta{font-size:11px; font-weight:700}
+.res .rproj{font-size:10px; color:var(--muted-2)}
+.res .rmore{font-size:10px; font-weight:600; color:#2563eb; opacity:0; transition:opacity .12s}
+.res.click:hover .rmore{opacity:1}
+.res[data-c=do] .rprice{color:var(--blue)} .res[data-c=aws] .rprice{color:var(--amber)}
+.chip{flex-shrink:0; border-radius:999px; padding:2px 8px; font-size:10px; font-weight:800}
+/* chip palette */
+.chip.RDS,.chip.NAT{background:rgba(217,119,6,.15); color:#b45309}
+.chip.ECS,.chip.Droplet{background:rgba(29,78,216,.13); color:#1d4ed8}
+.chip.EC2{background:rgba(5,150,105,.14); color:#047857}
+.chip.VPC,.chip\.Managed{background:rgba(124,58,237,.14); color:#6d28d9}
+.chip.ELB{background:rgba(217,70,239,.14); color:#a21caf}
+.chip.CW{background:rgba(234,88,12,.14); color:#c2410c}
+.chip.S3{background:rgba(13,148,136,.14); color:#0f766e}
+.chip.WAF{background:rgba(220,38,38,.14); color:#b91c1c}
+.chip.ECR{background:rgba(2,132,199,.14); color:#0369a1}
+.chip.SM,.chip.Tax,.chip.Outros,.chip.Snapshot,.chip.DB{background:rgba(100,116,139,.16); color:#475569}
+:root[data-theme="dark"] .chip{filter:brightness(1.25)}
+.dval{color:var(--emerald)!important}
+
+/* ---------- Modal detail grid ---------- */
+.stat4{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:18px 22px 6px}
+.stat{background:var(--panel-2); border-radius:12px; padding:14px}
+.stat .st{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+.stat .sv{margin:4px 0 1px; font-size:18px; font-weight:800}
+.stat .ss{font-size:11px; color:var(--muted)}
+.tags{display:flex; flex-wrap:wrap; gap:8px; padding:6px 22px 4px}
+.tag{border:1px solid var(--border); background:var(--panel-2); border-radius:9px; padding:7px 11px; font-size:12px; color:var(--muted)}
+.tag strong{color:var(--txt)}
+.mfoot{display:flex; justify-content:flex-end; padding:14px 22px; border-top:1px solid var(--border)}
+.up{color:var(--red)} .down{color:var(--emerald)}
+
+/* license cards */
+.lic{display:flex; flex-direction:column; gap:6px; background:var(--panel); border:1px solid var(--border);
+  border-top:4px solid var(--violet); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
+.lic .lp{font-size:20px; font-weight:800; color:var(--violet)}
+.ds-row{display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; padding:18px 22px}
+.ds-row label{display:flex; flex-direction:column; gap:4px}
+.ds-row input{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:8px 11px; font-size:13px; outline:none}
+.ds-total{border:1px solid var(--emerald-bd); background:var(--emerald-bg); border-radius:12px; padding:10px 18px}
+.ds-total .st{color:var(--emerald-ink)} .ds-total .sv{color:var(--emerald); font-size:20px; font-weight:800}
+.foot{margin-top:22px; text-align:center; font-size:11px; color:var(--muted-2)}
+
+@media (max-width:1024px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .mid{grid-template-columns:1fr}
+  .plats{grid-template-columns:repeat(2,1fr)}
+  .stat4{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .plats{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Topbar -->
+  <div class="top">
+    <div class="ic">💳</div>
+    <div>
+      <h1>Painel de Custos TI</h1>
+      <p>Visão consolidada · Digital Ocean · AWS · Licenças · DeepSeek</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn-ghost" id="themeBtn" title="Alternar tema">🌗 Tema</button>
+  </div>
+
+  <!-- Controls -->
+  <div class="card controls">
+    <label>
+      <span class="uplabel">USD/BRL</span>
+      <input id="usd" type="number" step="0.01" min="1" max="20" />
+    </label>
+    <button class="btn-ghost" id="fxBtn" title="Buscar cotação em tempo real">🔄 Cotação ao vivo</button>
+    <span class="pill pill-live" id="fxTag">cotação 27/08/2026</span>
+    <label>
+      <span class="uplabel">Claude Pro (usuários)</span>
+      <input id="claude" type="number" min="0" max="500" />
+    </label>
+    <label>
+      <span class="uplabel">Figma (licenças)</span>
+      <input id="figma" type="number" min="0" max="200" />
+    </label>
+    <label>
+      <span class="uplabel">Período</span>
+      <select id="period">
+        <option value="atual">Agosto 2026 (1–27)</option>
+        <option value="anterior">Julho 2026</option>
+      </select>
+    </label>
+    <span class="pill spacer" id="periodTag">1–27 ago/2026</span>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Donut + alerts -->
+  <div class="mid">
+    <div class="card donut-card">
+      <h3 class="uplabel">Distribuição de gastos</h3>
+      <div class="donut-flex">
+        <svg id="donut" width="130" height="130" viewBox="0 0 130 130" style="transform:rotate(-90deg);flex-shrink:0"></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+    <div>
+      <p class="uplabel" style="margin:0 0 8px">Alertas automáticos</p>
+      <div class="alerts" id="alerts"></div>
+    </div>
+  </div>
+
+  <!-- Platform buttons -->
+  <p class="hint">Selecione uma plataforma para ver os recursos (clique)</p>
+  <div class="plats" id="plats"></div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<!-- Drawer overlay -->
+<div class="ov" id="drawer" role="dialog" aria-modal="true">
+  <div class="sheet" id="drawerSheet"></div>
+</div>
+<!-- Detail modal overlay -->
+<div class="ov" id="modal" role="dialog" aria-modal="true">
+  <div class="sheet sm" id="modalSheet"></div>
+</div>
+
+<script>
+/* ================================================================
+   CONFIG — troque apiBase pela URL do backend seguro para ligar
+   os dados em tempo real (DO + AWS + DeepSeek). Vazio = snapshot.
+   ================================================================ */
+const CONFIG = {
+  apiBase: '',                    // ex: 'https://custos-api.seudominio.com'
+  snapshotDate: '2026-08-27',
+  fxDefault: 5.15,                // cotação buscada no Google em 27/08/2026
+};
+
+/* ---------------- DADOS (snapshot real 27/08/2026) ---------------- */
+const DO_DROPLETS = [
+  { nome:'ubuntu-s-2vcpu-8gb',      tipo:'Droplet',  regiao:'sfo3', usd:112,   spec:'s-8vcpu-16gb-intel',       ip:'147.182.248.250' },
+  { nome:'ubuntu-s-1vcpu-1gb-amd',  tipo:'Droplet',  regiao:'sfo3', usd:28,    spec:'s-2vcpu-4gb-amd',          ip:'209.38.129.44' },
+  { nome:'ubuntu-s-glpi-production',tipo:'Droplet',  regiao:'sfo3', usd:28,    spec:'s-2vcpu-4gb-amd',          ip:'143.198.138.239' },
+  { nome:'3RN-SISTEMAS-PROD-4vcpu', tipo:'Droplet',  regiao:'sfo3', usd:192,   spec:'s-8vcpu-32gb-640gb-intel', ip:'164.90.152.130' },
+  { nome:'3RN-SISTEMAS-DEV-2vcpu',  tipo:'Droplet',  regiao:'sfo3', usd:48,    spec:'s-2vcpu-8gb-160gb-intel',  ip:'128.199.6.133' },
+  { nome:'3RN-SISTEMAS-AUTOMACOES', tipo:'Droplet',  regiao:'sfo3', usd:128,   spec:'s-8vcpu-16gb-480gb-intel', ip:'164.92.123.163' },
+  { nome:'ULTRA-FLOW-4vcpu',        tipo:'Droplet',  regiao:'sfo3', usd:64,    spec:'s-4vcpu-8gb-240gb-intel',  ip:'146.190.32.81' },
+  { nome:'AUTOMACOES-2-4vcpu',      tipo:'Droplet',  regiao:'nyc3', usd:96,    spec:'s-4vcpu-16gb-320gb-intel', ip:'64.227.111.202' },
+  { nome:'Olimpo-3RN-PRD',          tipo:'Droplet',  regiao:'nyc1', usd:79,    spec:'gd-2vcpu-8gb-intel',       ip:'137.184.67.119' },
+  { nome:'Snapshots (10 itens)',    tipo:'Snapshot', regiao:'sfo3', usd:15.17, spec:'~145 GB total' },
+];
+const DO_DATABASES = [
+  { nome:'db-adv-pgsql-sfo3-08934',        tipo:'DB', regiao:'sfo3', usd:0, spec:'advanced_pg v18 · gd-4vcpu-16gb' },
+  { nome:'db-pgsql-sfo3-49547',            tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v18 · db-s-1vcpu-2gb' },
+  { nome:'db-postgresql-nyc3-75053',       tipo:'DB', regiao:'nyc3', usd:0, spec:'pg v17 · so1_5-4vcpu-32gb' },
+  { nome:'db-...nyc3-75053-aug-18-backup', tipo:'DB', regiao:'nyc3', usd:0, spec:'pg v17 (backup) · 4vcpu-32gb' },
+  { nome:'db-postgresql-sfo3-51713',       tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v17 · gd-2vcpu-8gb' },
+  { nome:'db-postgresql-sfo3-95482',       tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v17 · gd-4vcpu-16gb' },
+];
+const AWS = [
+  { nome:'banking-dev-postgres',    servico:'RDS', detalhe:'db.t4g.micro · Single-AZ · 20GB gp3',          atual:26.97, anterior:36.98, projeto:'banking-dev' },
+  { nome:'motor-credito-advanced',  servico:'RDS', detalhe:'db.t4g.large · Single-AZ · 100GB gp3',         atual:123.89,anterior:58.40, projeto:'motor-credito' },
+  { nome:'service-atf',             servico:'ECS', detalhe:'4vCPU/8GB · motor-credito-cluster · 1/1 tasks', atual:163.41,anterior:228.60,projeto:'motor-credito' },
+  { nome:'service-fidem',           servico:'ECS', detalhe:'1vCPU/2GB · motor-credito-cluster · 1/1 tasks', atual:40.85, anterior:57.15, projeto:'motor-credito' },
+  { nome:'service-atf-esteira',     servico:'ECS', detalhe:'0.25vCPU/512MB · 2/1 tasks',                    atual:20.43, anterior:28.58, projeto:'motor-credito' },
+  { nome:'service-cdc',             servico:'ECS', detalhe:'0.5vCPU/2GB · 1/1 tasks',                       atual:24.13, anterior:33.69, projeto:'motor-credito' },
+  { nome:'history-sync',            servico:'ECS', detalhe:'0.5vCPU/1GB · 1/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
+  { nome:'dash-motor-ctps',         servico:'ECS', detalhe:'0.5vCPU/1GB · 1/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
+  { nome:'monitoramento-ctps-atf',  servico:'ECS', detalhe:'0.5vCPU/1GB · 0/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
+  { nome:'service-messaging',       servico:'ECS', detalhe:'0.25vCPU/512MB · 1/1 tasks',                    atual:10.21, anterior:14.29, projeto:'motor-credito' },
+  { nome:'credit-gateway',          servico:'ECS', detalhe:'0.25vCPU/512MB · 1/1 tasks',                    atual:10.21, anterior:14.29, projeto:'motor-credito' },
+  { nome:'app-worker',              servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
+  { nome:'app-webhook-ingress',     servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
+  { nome:'evidence-api',            servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
+  { nome:'app-api',                 servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
+  { nome:'banking-dev-bastion-ssm', servico:'EC2', detalhe:'t4g.nano · sa-east-1a',                         atual:4.87,  anterior:13.21, projeto:'banking-dev' },
+  { nome:'motor-credito-nat',       servico:'NAT', detalhe:'NAT Gateway · vpc-0dc7856876989443f',           atual:128.50,anterior:112.80,projeto:'motor-credito' },
+  { nome:'EBS + Data Transfer',     servico:'EC2', detalhe:'gp2/gp3 · saída inter-AZ',                      atual:5.44,  anterior:8.16,  projeto:'—' },
+  { nome:'VPC (endpoints + IPs)',   servico:'VPC', detalhe:'flow logs · IPs elásticos · endpoints',         atual:150.75,anterior:170.42,projeto:'—' },
+  { nome:'banking-dev-alb',         servico:'ELB', detalhe:'ALB internet-facing · banking-dev',             atual:21.14, anterior:22.45, projeto:'banking-dev' },
+  { nome:'motor-credito-alb',       servico:'ELB', detalhe:'ALB internet-facing · motor-credito',           atual:21.14, anterior:22.45, projeto:'motor-credito' },
+  { nome:'CloudWatch',              servico:'CW',  detalhe:'Métricas customizadas · alarmes',               atual:48.88, anterior:49.15, projeto:'—' },
+  { nome:'Secrets Manager (16)',    servico:'SM',  detalhe:'16 segredos ativos',                            atual:4.56,  anterior:4.24,  projeto:'—' },
+  { nome:'S3 (5 buckets)',          servico:'S3',  detalhe:'assinaturas · banking · dados-ti · qitech',     atual:2.67,  anterior:6.15,  projeto:'—' },
+  { nome:'WAF banking-dev',         servico:'WAF', detalhe:'Novo neste mês',                                atual:3.39,  anterior:0,     projeto:'banking-dev' },
+  { nome:'ECR (13 repositórios)',   servico:'ECR', detalhe:'imagens de container',                          atual:7.02,  anterior:12.07, projeto:'—' },
+  { nome:'Tax (impostos AWS)',      servico:'Tax', detalhe:'',                                              atual:159.00,anterior:225.92,projeto:'—' },
+  { nome:'Messaging + Cost Explorer',servico:'Outros',detalhe:'',                                           atual:1.11,  anterior:1.02,  projeto:'—' },
+];
+const IDLE_IPS = ['143.244.201.27','129.212.136.251','134.199.137.140'];
+
+/* ---------------- estado ---------------- */
+const state = { usd:CONFIG.fxDefault, claude:19, figma:1, dsUsd:0, dsProj:'', period:'atual' };
+
+/* ---------------- helpers ---------------- */
+const fBRL = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fUSD = v => '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const el = (t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+const awsField = () => state.period==='atual' ? 'atual' : 'anterior';
+
+/* ---------------- computeds ---------------- */
+const doUsd  = () => DO_DROPLETS.reduce((s,r)=>s+r.usd,0);
+const awsUsd = () => AWS.reduce((s,r)=>s+r[awsField()],0);
+const licBrl = () => state.claude*110 + state.figma*120;
+const dsBrl  = () => state.dsUsd*state.usd;
+const doBrl  = () => doUsd()*state.usd;
+const awsBrl = () => awsUsd()*state.usd;
+const idleBrl= () => IDLE_IPS.length*4*state.usd;
+const total  = () => doBrl()+awsBrl()+licBrl()+dsBrl();
+
+/* ---------------- KPIs ---------------- */
+function renderKpis(){
+  const c = document.getElementById('kpis'); c.innerHTML='';
+  const items = [
+    {cls:'kpi dark', i:'💳', t:'Total Consolidado', v:fBRL(total()), s:'Todas as plataformas'},
+    {cls:'kpi', i:'🌊', t:'Digital Ocean', v:fBRL(doBrl()), s:fUSD(doUsd())},
+    {cls:'kpi', i:'☁️', t:'Amazon AWS', v:fBRL(awsBrl()), s:fUSD(awsUsd())},
+    {cls:'kpi', i:'🪪', t:'Licenças', v:fBRL(licBrl()), s:'Claude Pro + Figma'},
+    {cls:'kpi', i:'🤖', t:'DeepSeek', v:fBRL(dsBrl()), s:'Entrada manual'},
+    {cls:'kpi warn', i:'⚠️', t:'IPs Ociosos DO', v:fBRL(idleBrl()), s:IDLE_IPS.length+' IPs desatribuídos'},
+  ];
+  items.forEach(k=>{
+    const d = el('div',k.cls);
+    d.innerHTML = `<div class="kh"><span class="kt">${k.t}</span><span class="ki">${k.i}</span></div>
+      <div class="kv">${k.v}</div><div class="ks">${k.s}</div>`;
+    c.appendChild(d);
+  });
+}
+
+/* ---------------- Donut ---------------- */
+function chartData(){
+  return [
+    {label:'Digital Ocean', value:Math.round(doBrl()),  color:'#1d4ed8'},
+    {label:'AWS',           value:Math.round(awsBrl()), color:'#d97706'},
+    {label:'Licenças',      value:Math.round(licBrl()), color:'#7c3aed'},
+    {label:'DeepSeek',      value:Math.round(dsBrl()),  color:'#059669'},
+  ].filter(d=>d.value>0);
+}
+function renderDonut(){
+  const S=130, STROKE=20, R=(S-STROKE)/2, CIRC=2*Math.PI*R, T=total();
+  const svg=document.getElementById('donut'); svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const base=document.createElementNS(ns,'circle');
+  base.setAttribute('cx',S/2);base.setAttribute('cy',S/2);base.setAttribute('r',R);
+  base.setAttribute('fill','none');base.setAttribute('stroke','rgba(148,163,184,.2)');base.setAttribute('stroke-width',STROKE);
+  svg.appendChild(base);
+  let off=0;
+  chartData().forEach(d=>{
+    const pct=T>0?d.value/T:0, dash=pct*CIRC;
+    const c=document.createElementNS(ns,'circle');
+    c.setAttribute('cx',S/2);c.setAttribute('cy',S/2);c.setAttribute('r',R);
+    c.setAttribute('fill','none');c.setAttribute('stroke',d.color);c.setAttribute('stroke-width',STROKE);
+    c.setAttribute('stroke-dasharray',`${dash} ${CIRC-dash}`);c.setAttribute('stroke-dashoffset',-off);
+    svg.appendChild(c); off+=dash;
+  });
+  const leg=document.getElementById('legend'); leg.innerHTML='';
+  chartData().forEach(d=>{
+    const pct=T>0?Math.round(d.value/T*100):0;
+    const row=el('div','legrow');
+    row.innerHTML=`<span class="sw" style="background:${d.color}"></span>
+      <span class="lb">${d.label}</span><span class="vv">${fBRL(d.value)}</span><span class="pc">${pct}%</span>`;
+    leg.appendChild(row);
+  });
+}
+
+/* ---------------- Alertas ---------------- */
+function renderAlerts(){
+  const c=document.getElementById('alerts'); c.innerHTML='';
+  const list=[];
+  const nat=AWS.find(r=>r.nome==='motor-credito-nat');
+  if(nat&&nat.atual>nat.anterior) list.push({t:'warn',m:`NAT Gateway subiu ${fUSD(nat.atual-nat.anterior)} vs julho — verifique tráfego de saída`});
+  const rds=AWS.find(r=>r.nome==='motor-credito-advanced');
+  if(rds&&rds.atual>rds.anterior*1.5) list.push({t:'warn',m:`RDS motor-credito-advanced quase dobrou: ${fUSD(rds.anterior)} → ${fUSD(rds.atual)}`});
+  const atf=AWS.find(r=>r.nome==='service-atf');
+  if(atf&&atf.atual<atf.anterior) list.push({t:'ok',m:`ECS service-atf reduziu ${fUSD(atf.anterior-atf.atual)} vs julho — bom sinal`});
+  list.push({t:'info',m:`${IDLE_IPS.length} IPs reservados ociosos na Digital Ocean — ${fBRL(idleBrl())}/mês em desperdício`});
+  list.forEach(a=>{
+    const icon=a.t==='warn'?'🔴':a.t==='ok'?'✅':'ℹ️';
+    c.appendChild(el('div',`alert ${a.t}`,`<span>${icon}</span><span>${a.m}</span>`));
+  });
+}
+
+/* ---------------- Platform buttons ---------------- */
+function renderPlats(){
+  const c=document.getElementById('plats'); c.innerHTML='';
+  const awsDelta = AWS.reduce((s,r)=>s+(r.atual-r.anterior),0);
+  const btns=[
+    {id:'do', i:'🌊', label:'Digital Ocean', v:fBRL(doBrl()), sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`, foot:'9 droplets · 6 databases · snapshots'},
+    {id:'aws',i:'☁️', label:'Amazon AWS',    v:fBRL(awsBrl()),sub:fUSD(awsUsd()), foot:`▼ ${fUSD(Math.abs(awsDelta))} vs julho`, ok:true},
+    {id:'lic',i:'🪪', label:'Licenças',      v:fBRL(licBrl()),sub:'Valor fixo mensal', foot:`Claude Pro × ${state.claude} · Figma × ${state.figma}`},
+    {id:'ds', i:'🤖', label:'DeepSeek',      v:fBRL(dsBrl()), sub:'Entrada manual', foot:'API de IA · billing manual'},
+  ];
+  btns.forEach(b=>{
+    const btn=el('button','plat'); btn.dataset.c=b.id; btn.setAttribute('aria-expanded','false');
+    btn.innerHTML=`<div class="ph"><span class="pemoji">${b.i}</span><span class="chev">▾</span></div>
+      <div><div class="plabel">${b.label}</div><div class="pval">${b.v}</div><div class="psub">${b.sub}</div></div>
+      <div class="pfoot ${b.ok?'ok':''}">${b.foot}</div>`;
+    btn.onclick=()=>openDrawer(b.id);
+    c.appendChild(btn);
+  });
+}
+
+/* ---------------- Resource card ---------------- */
+function resourceCard(r, kind){
+  const d=el('div','res'); d.dataset.c=kind;
+  const chip = kind==='aws'? r.servico : r.tipo;
+  const chipCls = chip==='Managed'||chip==='DB'?'DB':chip;
+  d.style.setProperty('--tc', kind==='aws'?'var(--amber)':'var(--blue)');
+  let html=`<div class="rh"><span class="rn">${r.nome}</span><span class="chip ${chipCls}">${chip}</span></div>`;
+  if(kind==='aws'){
+    const val=r[awsField()];
+    html+=`<div class="rprice">${fUSD(val)}<small>/mês</small></div><div class="rbrl">${fBRL(val*state.usd)}/mês</div>`;
+    html+=`<div class="rdet">${r.detalhe||'—'}</div>`;
+    if(r.atual!==r.anterior){
+      const up=r.atual>r.anterior;
+      html+=`<div class="rdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(r.atual-r.anterior))} vs julho</div>`;
+    }
+    if(r.projeto!=='—') html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
+    html+=`<div class="rmore">Clique para detalhar →</div>`;
+    d.className='res click'; d.dataset.c='aws';
+    d.onclick=()=>openModal(r);
+  }else{
+    if(r.usd>0){
+      html+=`<div class="rprice">${fUSD(r.usd)}<small>/mês</small></div><div class="rbrl">${fBRL(r.usd*state.usd)}/mês</div>`;
+    }else{
+      html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
+    }
+    html+=`<div class="rdet">${r.spec} · ${r.regiao}${r.ip?(' · '+r.ip):''}</div>`;
+  }
+  d.innerHTML=html;
+  return d;
+}
+
+/* ---------------- Drawer ---------------- */
+function openDrawer(plat){
+  const sheet=document.getElementById('drawerSheet');
+  const meta={
+    do:{i:'🌊',label:'Digital Ocean',badge:`${fBRL(doBrl())} · ${fUSD(doUsd())}`},
+    aws:{i:'☁️',label:'AWS — sa-east-1 · Cost Explorer',badge:`${fBRL(awsBrl())} · ${fUSD(awsUsd())}`},
+    lic:{i:'🪪',label:'Licenças de Software',badge:fBRL(licBrl())},
+    ds:{i:'🤖',label:'DeepSeek — Entrada manual',badge:fBRL(dsBrl())},
+  }[plat];
+  sheet.innerHTML=`<div class="dhead"><div class="row"><span style="font-size:20px">${meta.i}</span>
+    <div><div class="dt">${meta.label}</div><div class="db">${meta.badge}</div></div></div>
+    <button class="xbtn" onclick="closeOv('drawer')">✕</button></div>`;
+
+  if(plat==='do'){
+    sheet.appendChild(el('div','banner warn',
+      `⚠️ <strong>${IDLE_IPS.length} IPs reservados ociosos</strong>: ${IDLE_IPS.join(', ')} — desperdício de <strong>${fBRL(idleBrl())}/mês</strong>. Libere ou atribua.`));
+    const g1=el('div','grid-res'); DO_DROPLETS.forEach(r=>g1.appendChild(resourceCard(r,'do'))); sheet.appendChild(g1);
+    sheet.appendChild(el('div','sublabel','Managed Databases — preço no painel DO'));
+    const g2=el('div','grid-res'); DO_DATABASES.forEach(r=>g2.appendChild(resourceCard(r,'do'))); sheet.appendChild(g2);
+  } else if(plat==='aws'){
+    const g=el('div','grid-res'); AWS.forEach(r=>g.appendChild(resourceCard(r,'aws'))); sheet.appendChild(g);
+  } else if(plat==='lic'){
+    const g=el('div','grid-res');
+    g.appendChild(el('div','lic',`<div class="rh"><span class="rn">🧠 Claude Pro</span><span class="chip DB">Fixo</span></div>
+      <div class="lp">${fBRL(state.claude*110)}<small style="font-size:11px;font-weight:400;color:var(--muted-2)">/mês</small></div>
+      <div class="rproj">${state.claude} usuários × R$ 110,00 · Anthropic</div>`));
+    g.appendChild(el('div','lic',`<div class="rh"><span class="rn">🎨 Figma</span><span class="chip DB">Fixo</span></div>
+      <div class="lp">${fBRL(state.figma*120)}<small style="font-size:11px;font-weight:400;color:var(--muted-2)">/mês</small></div>
+      <div class="rproj">${state.figma} licença(s) × R$ 120,00 · Figma Inc.</div>`));
+    sheet.appendChild(g);
+  } else if(plat==='ds'){
+    sheet.appendChild(el('div','banner warn',
+      `⚠️ A API do DeepSeek não expõe endpoint de billing. Consulte em <strong>platform.deepseek.com → Billing</strong> e informe abaixo.`));
+    const row=el('div','ds-row');
+    row.innerHTML=`<label><span class="uplabel">Gasto do mês (USD)</span><input id="dsUsd" type="number" min="0" step="0.01" placeholder="ex: 45.00" value="${state.dsUsd||''}" style="width:160px"></label>
+      <label><span class="uplabel">Projeto</span><input id="dsProj" type="text" placeholder="ex: motor-credito" value="${state.dsProj||''}" style="width:190px"></label>
+      <div class="ds-total"><div class="st uplabel">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>`;
+    sheet.appendChild(row);
+    row.querySelector('#dsUsd').oninput=e=>{state.dsUsd=+e.target.value||0; row.querySelector('.sv').textContent=fBRL(dsBrl()); renderAll(false);};
+    row.querySelector('#dsProj').oninput=e=>{state.dsProj=e.target.value;};
+  }
+  showOv('drawer');
+}
+
+/* ---------------- Modal (detalhe AWS) ---------------- */
+function openModal(r){
+  const delta=r.atual-r.anterior, proj=r.atual/27*30;
+  const pct=r.anterior===0?null:((delta/r.anterior)*100).toFixed(1);
+  const sheet=document.getElementById('modalSheet');
+  sheet.innerHTML=`
+    <div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${r.servico} · projeto: ${r.projeto}</div></div>
+      <button class="xbtn" onclick="closeOv('modal')">✕</button></div>
+    <div class="stat4">
+      <div class="stat"><div class="st">Agosto 2026</div><div class="sv" style="color:var(--amber)">${fUSD(r.atual)}</div><div class="ss">${fBRL(r.atual*state.usd)}</div></div>
+      <div class="stat"><div class="st">Julho 2026</div><div class="sv" style="color:var(--muted)">${r.anterior>0?fUSD(r.anterior):'Novo'}</div><div class="ss">${r.anterior>0?fBRL(r.anterior*state.usd):''}</div></div>
+      <div class="stat"><div class="st">Variação</div><div class="sv ${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${fUSD(Math.abs(delta))}</div><div class="ss ${delta>0?'up':'down'}">${pct!==null?((delta>0?'+':'')+pct+'%'):'Recurso novo'}</div></div>
+      <div class="stat"><div class="st">Projeção 30d</div><div class="sv">${fUSD(proj)}</div><div class="ss">${fBRL(proj*state.usd)}</div></div>
+    </div>
+    <div class="tags">
+      <span class="tag"><strong>Serviço:</strong> ${r.servico}</span>
+      <span class="tag"><strong>Projeto:</strong> ${r.projeto}</span>
+      ${r.detalhe?`<span class="tag">${r.detalhe}</span>`:''}
+    </div>
+    <div class="mfoot"><button class="btn-ghost" onclick="closeOv('modal')">Fechar</button></div>`;
+  showOv('modal');
+}
+
+/* ---------------- overlays ---------------- */
+function showOv(id){document.getElementById(id).classList.add('on');}
+function closeOv(id){document.getElementById(id).classList.remove('on');}
+window.closeOv=closeOv;
+['drawer','modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) closeOv(id); });
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){closeOv('drawer');closeOv('modal');} });
+
+/* ---------------- render ---------------- */
+function renderAll(rebuildPlats=true){
+  renderKpis(); renderDonut(); renderAlerts();
+  if(rebuildPlats) renderPlats();
+  document.getElementById('periodTag').textContent = state.period==='atual'?'1–27 ago/2026':'1–31 jul/2026';
+  document.getElementById('foot').innerHTML =
+    `Snapshot dos dados: <strong>${CONFIG.snapshotDate.split('-').reverse().join('/')}</strong> · `+
+    `cotação USD/BRL: <strong>${state.usd.toFixed(2)}</strong> · `+
+    (CONFIG.apiBase?'modo tempo real (backend)':'modo snapshot — ligue o backend seguro para tempo real');
+}
+
+/* ---------------- controls binding ---------------- */
+document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault; renderAll();});
+document.getElementById('claude').addEventListener('input',e=>{state.claude=+e.target.value||0; renderAll();});
+document.getElementById('figma').addEventListener('input',e=>{state.figma=+e.target.value||0; renderAll();});
+document.getElementById('period').addEventListener('change',e=>{state.period=e.target.value; renderAll();});
+
+/* ---------------- tema ---------------- */
+function currentTheme(){
+  const attr=document.documentElement.getAttribute('data-theme');
+  if(attr) return attr;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+}
+document.getElementById('themeBtn').onclick=()=>{
+  const next=currentTheme()==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('custos-theme',next);}catch(_){}
+  renderDonut();
+};
+try{const t=localStorage.getItem('custos-theme'); if(t)document.documentElement.setAttribute('data-theme',t);}catch(_){}
+
+/* ---------------- cotação ao vivo (sem chave / sem segredo) ---------------- */
+async function fetchFx(){
+  const tag=document.getElementById('fxTag');
+  tag.textContent='buscando...';
+  // Se houver backend, use-o; senão, API pública de câmbio (não expõe segredo).
+  const url = CONFIG.apiBase ? `${CONFIG.apiBase}/api/usd-brl` : 'https://open.er-api.com/v6/latest/USD';
+  try{
+    const r=await fetch(url,{cache:'no-store'});
+    const j=await r.json();
+    const rate = CONFIG.apiBase ? j.rate : j.rates.BRL;
+    if(rate){
+      state.usd=+(+rate).toFixed(4);
+      document.getElementById('usd').value=state.usd.toFixed(2);
+      const now=new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      tag.textContent='ao vivo '+now;
+      renderAll();
+    }else tag.textContent='cotação 27/08/2026';
+  }catch(_){
+    tag.textContent='cotação 27/08/2026 (offline)';
+  }
+}
+document.getElementById('fxBtn').onclick=fetchFx;
+
+/* ---------------- init ---------------- */
+document.getElementById('usd').value=state.usd.toFixed(2);
+document.getElementById('claude').value=state.claude;
+document.getElementById('figma').value=state.figma;
+renderAll();
+// tenta cotação ao vivo automaticamente (silencioso se bloqueado)
+fetchFx();
+</script>
+</body>
+</html>
