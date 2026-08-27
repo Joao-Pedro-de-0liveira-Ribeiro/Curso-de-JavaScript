@@ -30,10 +30,11 @@ Vem com o **snapshot real de 27/08/2026** (os dados que você passou) e a **cota
 - **6 KPIs** no topo: total consolidado, DO, AWS, **Claude Pro (em R$)**, DeepSeek e IPs ociosos.
 - **Gráfico de rosca interativo**: passe o mouse numa fatia (mostra valor e % no centro) e **clique** para abrir a plataforma; a legenda também é clicável.
 - **Alertas automáticos**: NAT subiu, RDS dobrou, IPs ociosos, etc.
-- **Filtro de Período**: Este mês · Mês passado · Últimos 7/30 dias · Personalizado (com datas). No modo tempo real, ele muda **como as APIs consultam os dados** (ver seção 2).
-- **4 botões de plataforma** → clique para abrir o painel com **todos os recursos**.
-- **Card de recurso AWS** → clique para abrir o **modal de detalhe** (atual × anterior, variação %, projeção 30 dias).
-- Campos editáveis: **USD/BRL**, **usuários Claude Pro** (mostra o total em R$), **licenças Figma** e **gasto do DeepSeek**.
+- **Filtro de Período**: os campos **De / Até** ficam sempre visíveis para você escolher **datas exatas**; os atalhos (Este mês, Mês passado, Últimos 7/30 dias) preenchem as datas. No modo tempo real, o intervalo muda **como as APIs consultam os dados** (seção 2).
+- **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…) com o que é cada um e o subtotal; **clique** num serviço para ver os recursos; clique num recurso para o **detalhe**.
+- **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Snapshots, IPs ociosos) → clique para ver os itens → clique no item para o **detalhe** (spec, região, IP, custo).
+- Licenças: **Claude Pro**, **Claude Max** (valor mensal editável) e **Figma**, cada um em R$.
+- Campos editáveis: **USD/BRL**, **Claude Pro**, **Claude Max**, **Figma** e **gasto do DeepSeek**.
 - Botão **Tema** (claro/escuro) e **Esc** para fechar qualquer painel.
 
 > Valores fixos usados: **Claude Pro = R$ 110,00/usuário/mês** e **Figma = R$ 120,00/licença/mês**.
@@ -81,16 +82,18 @@ O seletor **Período** (Este mês · Mês passado · Últimos 7/30 dias · Perso
 - **DeepSeek** usa o intervalo só como rótulo (a API não dá custo por data).
 - **DigitalOcean** é *run-rate* mensal atual (a API não expõe custo histórico por dia), então não muda com a data.
 
-### Custo do DeepSeek — como preencher (a sua pergunta)
-A API do DeepSeek **não tem endpoint de "custo por período"** — só o de **saldo** (`/user/balance`).
-Então o painel usa duas fontes, ambas atendidas pelo backend:
-1. **Saldo ao vivo** (o "Topped-up balance" da sua tela): se você preencher `DEEPSEEK_API_KEY`,
-   o card do DeepSeek mostra o saldo restante em tempo real.
-2. **Total cost do período** (o "$0,76" da sua tela): esse número **você lê no console**
-   (platform.deepseek.com → Usage) e informa em `DEEPSEEK_USD_MANUAL` **ou** digita direto no painel.
-   - *Quer 100% automático?* Instrumente suas aplicações para somar `usage.total_tokens` de cada
-     resposta da API e multiplique pelo preço por milhão de tokens do DeepSeek — é a única forma
-     de obter o custo sem depender do console. (Fica como evolução; o manual já resolve hoje.)
+### Custo do DeepSeek — CALCULADO pela API
+A API do DeepSeek expõe só o **saldo** (`/user/balance`), não o custo por período.
+Então o gasto é **calculado**, sem digitar nada:
+
+```
+gasto = DEEPSEEK_TOTAL_TOPPED_UP  −  saldo topped-up atual (da API)
+```
+
+- `DEEPSEEK_API_KEY` → o painel mostra o **saldo ao vivo** e calcula o gasto.
+- `DEEPSEEK_TOTAL_TOPPED_UP` → o total já depositado na conta (ex.: `2.00`).
+- O backend faz `total − saldo` e devolve `spentUsd`; o painel converte para BRL.
+- Observação: como é baseado no saldo, o valor é **acumulado desde o depósito** (não por data).
 
 ### Endpoints (todos GET, só leitura)
 | Rota | Retorno |
@@ -99,8 +102,8 @@ Então o painel usa duas fontes, ambas atendidas pelo backend:
 | `/api/usd-brl` | `{ rate, updatedAt }` — câmbio |
 | `/api/digitalocean` | droplets, databases, IPs reservados (idle = sem droplet) |
 | `/api/aws?start=&end=` | custo por serviço no intervalo × janela anterior (Cost Explorer) |
-| `/api/deepseek?start=&end=` | `{ balanceUsd, spentUsdManual, note }` |
-| `/api/licencas` | Claude Pro / Figma (nº e valor unitário em BRL) |
+| `/api/deepseek` | `{ balanceUsd, spentUsd, totalToppedUp }` (gasto calculado) |
+| `/api/licencas` | Claude Pro / Claude Max / Figma (nº e valor unitário em BRL) |
 | `/api/all?start=&end=` | tudo de uma vez (o painel usa este) |
 
 ### Boas práticas de segurança aplicadas

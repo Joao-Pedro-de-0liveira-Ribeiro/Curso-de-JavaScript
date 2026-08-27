@@ -88,6 +88,14 @@ async function getUsdBrl() {
 
 /* ------------------------- 2) DigitalOcean ------------------------------- */
 // Doc: https://docs.digitalocean.com/reference/api/  (Bearer token READ)
+// preços mensais (USD) das Managed Databases por size — página de pricing DO
+const DB_PRICES = {
+  'db-s-1vcpu-1gb': 15.15, 'db-s-1vcpu-2gb': 30.45, 'db-s-2vcpu-4gb': 60.90,
+  'db-s-4vcpu-8gb': 122.10, 'db-s-6vcpu-16gb': 244.35, 'db-s-1vcpu-2gb-intel': 30.45,
+  'gd-2vcpu-8gb': 122.10, 'gd-4vcpu-16gb': 244.35, 'gd-4vcpu-16gb-intel': 244.35,
+  'gd-8vcpu-32gb': 488.70, 'gd-8vcpu-32gb-intel': 488.70,
+  'so1_5-2vcpu-16gb-intel': 244.35, 'so1_5-4vcpu-32gb-intel': 488.70, 'so1_5-8vcpu-64gb-intel': 977.40,
+};
 async function getDigitalOcean() {
   const token = process.env.DO_TOKEN;
   if (!token) throw new Error('DO_TOKEN ausente no ambiente');
@@ -98,26 +106,33 @@ async function getDigitalOcean() {
     return r.json();
   };
   return cached('do', 5 * 60 * 1000, async () => {
-    const [drop, dbs, ips] = await Promise.all([
+    const [drop, dbs, ips, snaps] = await Promise.all([
       api('droplets?per_page=200'),
       api('databases'),
       api('reserved_ips?per_page=200'),
+      api('snapshots?per_page=200&resource_type=droplet'),
     ]);
     const droplets = (drop.droplets || []).map((d) => ({
-      nome: d.name,
-      tipo: 'Droplet',
+      nome: d.name, tipo: 'Droplet',
       regiao: d.region && d.region.slug,
       spec: d.size_slug,
       usd: (d.size && d.size.price_monthly) || 0, // preço mensal real do size
       ip: ((d.networks && d.networks.v4 && d.networks.v4.find((n) => n.type === 'public')) || {}).ip_address || '—',
     }));
     const databases = (dbs.databases || []).map((d) => ({
-      nome: d.name, tipo: 'DB', regiao: d.region, spec: `${d.engine} v${d.version} · ${d.size}`, usd: 0,
+      nome: d.name, tipo: 'DB', regiao: d.region,
+      spec: `${d.engine} v${d.version} · ${d.size}`,
+      usd: +(((DB_PRICES[d.size] || 0) * (d.num_nodes || 1)).toFixed(2)),
+    }));
+    const snapshots = (snaps.snapshots || []).map((s) => ({
+      nome: s.name, tipo: 'Snapshot', regiao: (s.regions || [])[0] || '',
+      spec: `${(s.size_gigabytes || 0).toFixed(1)} GB`,
+      usd: +(((s.size_gigabytes || 0) * 0.06).toFixed(2)),
     }));
     const reservedIps = (ips.reserved_ips || []).map((i) => ({
       ip: i.ip, regiao: i.region && i.region.slug, atribuido: !!i.droplet, // idle = sem droplet -> $4/mês
     }));
-    return { droplets, databases, reservedIps, updatedAt: new Date().toISOString() };
+    return { droplets, databases, snapshots, reservedIps, updatedAt: new Date().toISOString() };
   });
 }
 
@@ -181,13 +196,15 @@ function shortService(name) {
 
 /* --------------------------- 4) DeepSeek --------------------------------- */
 // A API do DeepSeek expõe SALDO (endpoint /user/balance) — não o custo por
-// período. O "Total cost" que aparece no console é digitado à mão (env), ou
-// calculado a partir dos tokens (ver README). Aqui devolvemos:
-//   balanceUsd     -> saldo restante ao vivo (se DEEPSEEK_API_KEY setada)
-//   spentUsdManual -> gasto do período informado à mão (env DEEPSEEK_USD_MANUAL)
+// período. Então o GASTO é CALCULADO pela API:
+//   gasto = total depositado (DEEPSEEK_TOTAL_TOPPED_UP) − saldo topped-up atual
+// Devolvemos:
+//   balanceUsd -> saldo total ao vivo   |  spentUsd -> gasto calculado
 async function getDeepseek(range) {
   const key = process.env.DEEPSEEK_API_KEY;
-  let balanceUsd = null;
+  const totalToppedUp = process.env.DEEPSEEK_TOTAL_TOPPED_UP != null && process.env.DEEPSEEK_TOTAL_TOPPED_UP !== ''
+    ? +process.env.DEEPSEEK_TOTAL_TOPPED_UP : null;
+  let balanceUsd = null, spentUsd = null;
   if (key) {
     try {
       const r = await fetch('https://api.deepseek.com/user/balance', {
@@ -196,15 +213,17 @@ async function getDeepseek(range) {
       if (r.ok) {
         const j = await r.json();
         const info = (j.balance_infos || []).find((b) => b.currency === 'USD') || (j.balance_infos || [])[0];
-        if (info) balanceUsd = +info.total_balance;
+        if (info) {
+          balanceUsd = +info.total_balance;
+          const toppedUpRestante = +info.topped_up_balance;
+          if (totalToppedUp != null) spentUsd = +(totalToppedUp - toppedUpRestante).toFixed(2);
+        }
       }
     } catch (_) { /* mantém null; não vaza erro */ }
   }
   return {
-    balanceUsd,
-    spentUsdManual: +(process.env.DEEPSEEK_USD_MANUAL || 0),
-    periodo: range,
-    note: 'DeepSeek expõe apenas saldo; informe o "Total cost" do console em DEEPSEEK_USD_MANUAL ou digite no painel.',
+    balanceUsd, spentUsd, totalToppedUp, periodo: range,
+    note: 'gasto = total depositado (DEEPSEEK_TOTAL_TOPPED_UP) − saldo topped-up, via /user/balance.',
   };
 }
 
@@ -213,6 +232,8 @@ function getLicencas() {
   return {
     claudeUsers: +(process.env.CLAUDE_PRO_USERS || 19),
     claudeUnitBrl: +(process.env.CLAUDE_PRO_UNIT_BRL || 110),
+    claudeMaxLic: +(process.env.CLAUDE_MAX_LICENSES || 1),
+    claudeMaxUnitBrl: +(process.env.CLAUDE_MAX_UNIT_BRL || 0),
     figmaLicencas: +(process.env.FIGMA_LICENSES || 1),
     figmaUnitBrl: +(process.env.FIGMA_UNIT_BRL || 120),
   };
