@@ -24,7 +24,7 @@ cd dashboard
 python3 -m http.server 5500    # depois abra http://localhost:5500
 ```
 
-Vem com o **snapshot real de 27/08/2026** (os dados que você passou) e a **cotação do dólar de 27/08/2026 = R$ 5,15** (consultada no dia). O botão **"ao vivo"** busca o câmbio atual em tempo real de uma API pública de câmbio (não precisa de segredo). As plataformas aparecem com o **logo real** (DigitalOcean, AWS, Claude, Figma, DeepSeek), não emojis.
+Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores verdadeiros do **Cost Explorer** (agosto $1.308,69 · julho $1.859,46, total por serviço), e a **cotação do dólar de 27/08/2026 = R$ 5,15** (consultada no dia). O custo por recurso dentro de cada serviço é um rateio (o Cost Explorer só expõe por serviço sem tags de alocação); o subtotal do serviço é exato. O botão **"ao vivo"** busca o câmbio atual em tempo real de uma API pública de câmbio (não precisa de segredo). As plataformas aparecem com o **logo real** (DigitalOcean, AWS, Claude, Figma, DeepSeek), não emojis.
 
 ### Como interagir (só clique)
 - **6 KPIs** no topo: total consolidado, DO, AWS, **Claude Pro (em R$)**, DeepSeek e IPs ociosos.
