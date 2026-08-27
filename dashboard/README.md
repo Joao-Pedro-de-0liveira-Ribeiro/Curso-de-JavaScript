@@ -32,8 +32,10 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 - **Filtro por datas** (sem atalhos): você escolhe **De** e **Até**; o painel gera os valores para o intervalo. No modo snapshot os custos de DO/AWS são **rateados proporcionalmente aos dias** (licenças ficam fixas); com backend, os valores são exatos do Cost Explorer.
 - **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…) com o que é cada um e o subtotal; **clique** num serviço para ver os recursos; clique num recurso para o **detalhe**.
 - **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Snapshots, IPs ociosos) → clique para ver os itens → clique no item para o **detalhe**.
-- **DeepSeek automático**: no painel do DeepSeek, cole a **API key** e o **total já depositado**; o gasto é calculado sozinho (`total − saldo`) direto no navegador (o DeepSeek libera CORS). A key fica só no seu dispositivo (`localStorage`). Com backend, a key fica no servidor.
-- **USD/BRL** fica no topo, com botão de cotação ao vivo. O painel também se auto-atualiza a cada 5 min.
+- **Licenças por pessoa**: no card **Licenças** você cadastra cada pessoa em Claude Pro, Claude Max e Figma (nome → chip; × remove). O custo é `nº de pessoas × valor unitário` (Pro R$110, Max R$550, Figma R$120); **zero pessoas = R$0**. Fica salvo no navegador (`localStorage`).
+- **IPs ociosos**: clique no card **IPs Ociosos DO** para ver o detalhe e **quanto dá para economizar** (por IP, por mês e por ano).
+- **DeepSeek automático**: o gasto é calculado por `total depositado − saldo`. Duas formas: (a) **backend** com `DEEPSEEK_API_KEY` + `DEEPSEEK_TOTAL_TOPPED_UP=2.00` no `.env` — o painel puxa pronto; (b) **sem backend**, preencha a key no painel (ou em `CONFIG.deepseekKey`) — o cálculo roda no navegador (o DeepSeek libera CORS) e a key fica só no dispositivo.
+- **USD/BRL** fica no topo, com cotação ao vivo. Os números **animam** ao atualizar, e o painel se auto-atualiza a cada 5 min.
 - Botão **Tema** (claro/escuro) e **Esc** para fechar qualquer painel.
 
 > Valores fixos usados: **Claude Pro = R$ 110,00/usuário/mês** e **Figma = R$ 120,00/licença/mês**.

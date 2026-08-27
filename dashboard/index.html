@@ -37,9 +37,38 @@
     --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 10px 30px rgba(0,0,0,.5);
   }
 }
+:root{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark}}
 *{box-sizing:border-box}
 html,body{margin:0}
 .kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp,.dc-v,.gcard .gv,.gcard .gvb,#usd{font-variant-numeric:tabular-nums}
+.kpi.click{cursor:pointer; transition:transform .12s, box-shadow .12s}
+.kpi.click:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
+.hint-inline{font-size:12px; color:var(--muted)}
+.hint-inline strong{color:var(--violet)}
+/* date fields */
+.controls input[type=date]{font-weight:600; color:var(--txt)}
+.controls input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer; opacity:.65}
+.controls input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
+/* licença por pessoa */
+.lic .lcount{font-size:11px; color:var(--muted); margin-top:2px}
+.lic-people{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:150px; overflow:auto}
+.person{display:inline-flex; align-items:center; gap:4px; background:var(--panel-2); border:1px solid var(--border); border-radius:999px; padding:3px 5px 3px 10px; font-size:11.5px; font-weight:600}
+.person button{border:0; background:transparent; color:var(--muted-2); cursor:pointer; font-size:14px; line-height:1; padding:0 3px}
+.person button:hover{color:var(--red)}
+.lic-add{display:flex; gap:6px; margin-top:8px}
+.lic-add input{flex:1; min-width:0; border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:8px; padding:6px 9px; font-size:12px; outline:none}
+.lic-add input:focus{border-color:#3b82f6}
+.lic-add button{border:1px solid var(--violet); background:var(--violet); color:#fff; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap}
+.lic-add button:hover{filter:brightness(1.06)}
+.lic-empty{font-size:11.5px; color:var(--muted-2); font-style:italic; margin-top:8px}
+/* recomendação (ip savings) */
+.reco{margin:6px 22px 4px; padding:12px 16px; border-radius:12px; border:1px solid var(--emerald-bd); background:var(--emerald-bg); color:var(--emerald-ink); font-size:13px; font-weight:600; display:flex; gap:9px; align-items:flex-start}
+.reco svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
+.iplist{display:flex; flex-wrap:wrap; gap:8px; padding:4px 22px 6px}
+.ipchip{border:1px solid var(--border); background:var(--panel-2); border-radius:10px; padding:8px 12px; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; display:flex; gap:8px; align-items:center}
+.ipchip .amt{color:var(--amber); font-weight:800}
 body{background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:14px; line-height:1.4; -webkit-font-smoothing:antialiased;}
@@ -278,9 +307,8 @@ svg{display:block}
     <label><span class="uplabel">Até</span><input id="dEnd" type="date" /></label>
     <span class="pill" id="daysTag">—</span>
     <span class="pill pill-mut" id="modeTag"></span>
-    <div class="divider"></div>
-    <label><span class="uplabel">Claude Pro</span><input id="claude" type="number" min="0" max="500" /></label>
-    <label><span class="uplabel">Figma</span><input id="figma" type="number" min="0" max="200" /></label>
+    <span class="spacer"></span>
+    <span class="hint-inline">Gerencie pessoas e licenças no card <strong>Licenças</strong></span>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -309,7 +337,10 @@ svg{display:block}
 
 <script>
 /* ============ CONFIG ============ */
-const CONFIG={ apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15, today:'2026-08-27' };
+const CONFIG={ apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15, today:'2026-08-27',
+  // DeepSeek: preencha aqui para calcular direto no navegador SEM backend
+  // (ou deixe vazio e use o .env do backend). O total já vem 2.00.
+  deepseekKey:'', deepseekTotal:2.00 };
 
 /* ============ LOGOS ============ */
 const LOGO={
@@ -421,7 +452,23 @@ const SNAP={
 let DATA=JSON.parse(JSON.stringify(SNAP));
 
 /* ============ estado ============ */
-const state={usd:CONFIG.fxDefault, claude:19, figma:1, claudeMaxN:1, claudeMaxUnit:0,
+// valores unitários mensais fixos (BRL) por tipo de licença
+const LIC_UNIT={pro:110, max:550, figma:120};
+const LIC_META={
+  pro:{nome:'Claude Pro',logo:'claude'},
+  max:{nome:'Claude Max',logo:'claude'},
+  figma:{nome:'Figma',logo:'figma'},
+};
+function seedLicenses(){
+  try{const s=localStorage.getItem('lic-people'); if(s)return JSON.parse(s);}catch(_){}
+  return { // seed inicial (renomeie/remova/adicione à vontade)
+    pro:Array.from({length:19},(_,i)=>'Colaborador '+(i+1)),
+    max:[],
+    figma:['Designer 1'],
+  };
+}
+function saveLicenses(){ try{localStorage.setItem('lic-people',JSON.stringify(state.licenses));}catch(_){}}
+const state={usd:CONFIG.fxDefault, licenses:seedLicenses(),
   dsUsd:0, dsBalance:null, dsProj:'',
   start:'', end:'', days:30, apiMode:false};
 const drawerState={plat:null, group:null};
@@ -437,6 +484,17 @@ function fetchT(url,ms,opts){const ac=new AbortController();const t=setTimeout((
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(_){}};
 const pf=()=>state.apiMode?1:(state.days/30);      // fator de rateio por dias (só snapshot)
+// anima um número de -> para (contagem crescente/decrescente)
+const _anim={};
+function animateNum(elem,key,to,fmt){
+  const from=_anim[key]!=null?_anim[key]:to; _anim[key]=to;
+  if(elem._raf)cancelAnimationFrame(elem._raf);
+  if(Math.abs(from-to)<0.005){elem.textContent=fmt(to);return;}
+  const dur=550,t0=performance.now();
+  const step=t=>{const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);
+    elem.textContent=fmt(from+(to-from)*e); if(p<1)elem._raf=requestAnimationFrame(step);};
+  elem._raf=requestAnimationFrame(step);
+}
 const idleAsItems=()=>DATA.idleIps.map(ip=>({nome:ip,tipo:'IP',regiao:'',usd:4,spec:'IP reservado ocioso · $4/mês'}));
 
 /* ============ datas ============ */
@@ -456,7 +514,8 @@ const baseDoUsd=()=>sum(DATA.doDroplets,r=>r.usd)+sum(DATA.doDatabases,r=>r.usd)
 const baseAwsUsd=()=>sum(DATA.aws,r=>r.atual);
 const doUsd=()=>baseDoUsd()*pf();
 const awsUsd=()=>baseAwsUsd()*pf();
-const licBrl=()=>state.claude*110+state.claudeMaxN*state.claudeMaxUnit+state.figma*120;
+const licCount=t=>state.licenses[t].length;
+const licBrl=()=>licCount('pro')*LIC_UNIT.pro+licCount('max')*LIC_UNIT.max+licCount('figma')*LIC_UNIT.figma;
 const dsBrl=()=>state.dsUsd*state.usd;
 const doBrl=()=>doUsd()*state.usd;
 const awsBrl=()=>awsUsd()*state.usd;
@@ -466,15 +525,20 @@ const total=()=>doBrl()+awsBrl()+licBrl()+dsBrl();
 /* ============ KPIs ============ */
 function renderKpis(){
   const c=document.getElementById('kpis');c.innerHTML='';
+  const proMax=licCount('pro')*LIC_UNIT.pro+licCount('max')*LIC_UNIT.max;
   const items=[
-    {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',v:fBRL(total()),s:`${state.days} dias`},
-    {cls:'kpi',ic:LOGO.do,t:'Digital Ocean',v:fBRL(doBrl()),s:fUSD(doUsd())},
-    {cls:'kpi',ic:LOGO.aws,t:'Amazon AWS',v:fBRL(awsBrl()),s:fUSD(awsUsd())},
-    {cls:'kpi',ic:LOGO.claude,t:'Claude Pro',v:fBRL(state.claude*110+state.claudeMaxN*state.claudeMaxUnit),s:`${state.claude} usuários`},
-    {cls:'kpi',ic:LOGO.deepseek,t:'DeepSeek',v:fBRL(dsBrl()),s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key'},
-    {cls:'kpi warn',ic:IC.warn,t:'IPs Ociosos DO',v:fBRL(idleBrl()),s:DATA.idleIps.length+' IPs desatribuídos'},
+    {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',n:total(),fmt:fBRL,s:`${state.days} dias`,key:'total'},
+    {cls:'kpi',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do'},
+    {cls:'kpi',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws'},
+    {cls:'kpi',ic:LOGO.claude,t:'Claude',n:proMax,fmt:fBRL,s:`${licCount('pro')} Pro · ${licCount('max')} Max`,key:'claude'},
+    {cls:'kpi',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',key:'ds'},
+    {cls:'kpi warn click',ic:IC.warn,t:'IPs Ociosos DO',n:idleBrl(),fmt:fBRL,s:DATA.idleIps.length+' IPs · clique p/ ver',key:'idle',click:openIpModal},
   ];
-  items.forEach(k=>{const d=el('div',k.cls);d.innerHTML=`<div class="kh"><span class="kt">${k.t}</span><span class="khi">${k.ic}</span></div><div class="kv">${k.v}</div><div class="ks">${k.s}</div>`;c.appendChild(d);});
+  items.forEach(k=>{const d=el('div',k.cls);
+    d.innerHTML=`<div class="kh"><span class="kt">${k.t}</span><span class="khi">${k.ic}</span></div><div class="kv"></div><div class="ks">${k.s}</div>`;
+    animateNum(d.querySelector('.kv'),k.key,k.n,k.fmt);
+    if(k.click)d.onclick=k.click;
+    c.appendChild(d);});
 }
 
 /* ============ Donut ============ */
@@ -531,7 +595,7 @@ function renderPlats(){
   const btns=[
     {id:'do',label:'Digital Ocean',v:fBRL(doBrl()),sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`,foot:`${DATA.doDroplets.length} droplets · ${DATA.doDatabases.length} DB · ${DATA.doSnapshots.length} snap`},
     {id:'aws',label:'Amazon AWS',v:fBRL(awsBrl()),sub:fUSD(awsUsd()),foot:`${awsDelta<=0?'▼':'▲'} ${fUSD(Math.abs(awsDelta))} vs anterior`,ok:awsDelta<=0},
-    {id:'lic',label:'Licenças',v:fBRL(licBrl()),sub:'Valor fixo mensal',foot:`Claude Pro ${state.claude} · Figma ${state.figma}`},
+    {id:'lic',label:'Licenças',v:fBRL(licBrl()),sub:'Cadastre pessoas por licença',foot:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`},
     {id:'ds',label:'DeepSeek',v:fBRL(dsBrl()),sub:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',foot:'gasto calculado pela API'},
   ];
   btns.forEach(b=>{const btn=el('button','plat');btn.dataset.c=b.id;
@@ -618,20 +682,52 @@ function renderDrawer(){
   }
   showOv('drawer');
 }
+function licCardEl(tipo){
+  const meta=LIC_META[tipo], unit=LIC_UNIT[tipo], people=state.licenses[tipo];
+  const card=el('div','lic');
+  const peopleHtml = people.length
+    ? `<div class="lic-people">${people.map((p,i)=>`<span class="person">${p||'—'}<button data-i="${i}" title="remover">×</button></span>`).join('')}</div>`
+    : `<div class="lic-empty">Sem pessoas — não gera custo.</div>`;
+  card.innerHTML=`<div class="lh"><span class="ln">${LOGO[meta.logo]} ${meta.nome}</span><span class="chip">${people.length} pessoa${people.length===1?'':'s'}</span></div>
+    <div class="lp">${fBRL(people.length*unit)}<small>/mês</small></div>
+    <div class="lcount">${people.length} × ${fBRL(unit)} por pessoa</div>
+    ${peopleHtml}
+    <div class="lic-add"><input type="text" placeholder="Nome da pessoa" data-tipo="${tipo}"><button data-tipo="${tipo}">+ Adicionar</button></div>`;
+  // remover
+  card.querySelectorAll('.person button').forEach(b=>b.onclick=()=>{
+    state.licenses[tipo].splice(+b.dataset.i,1); saveLicenses(); refreshLic();
+  });
+  // adicionar
+  const inp=card.querySelector('.lic-add input'), btn=card.querySelector('.lic-add button');
+  const add=()=>{const v=inp.value.trim(); if(!v)return; state.licenses[tipo].push(v); saveLicenses(); refreshLic();};
+  btn.onclick=add; inp.onkeydown=e=>{if(e.key==='Enter')add();};
+  return card;
+}
 function renderLicencas(sheet){
-  const g=el('div','grid-res');g.style.gridTemplateColumns='repeat(auto-fill,minmax(240px,1fr))';
-  g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Pro</span><span class="chip">Fixo</span></div><div class="lp">${fBRL(state.claude*110)}<small>/mês</small></div><div class="rproj">${state.claude} usuários × R$ 110,00 · Anthropic</div>`));
-  g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Max</span><span class="chip">${state.claudeMaxN} licença</span></div><div class="lp">${state.claudeMaxUnit>0?fBRL(state.claudeMaxN*state.claudeMaxUnit):'—'}<small>${state.claudeMaxUnit>0?'/mês':' valor no backend'}</small></div><div class="rproj">definido no .env (CLAUDE_MAX_UNIT_BRL)</div>`));
-  g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.figma} Figma</span><span class="chip">Fixo</span></div><div class="lp">${fBRL(state.figma*120)}<small>/mês</small></div><div class="rproj">${state.figma} licença(s) × R$ 120,00 · Figma Inc.</div>`));
+  const g=el('div','grid-res');g.style.gridTemplateColumns='repeat(auto-fill,minmax(260px,1fr))';g.id='licGrid';
+  ['pro','max','figma'].forEach(t=>g.appendChild(licCardEl(t)));
   sheet.appendChild(g);
+}
+// re-renderiza só o grid de licenças + atualiza KPIs/donut (mantém o drawer aberto)
+function refreshLic(){
+  const g=document.getElementById('licGrid');
+  if(g){const parent=g.parentElement; g.remove();
+    const ng=el('div','grid-res');ng.style.gridTemplateColumns='repeat(auto-fill,minmax(260px,1fr))';ng.id='licGrid';
+    ['pro','max','figma'].forEach(t=>ng.appendChild(licCardEl(t)));
+    parent.appendChild(ng);
+    // atualiza o badge do header do drawer
+    const db=parent.parentElement.querySelector('.dhead .db');
+    if(db)db.textContent=`${fBRL(licBrl())} · ${brDate(state.start)}–${brDate(state.end)} (${state.days} dias)`;
+  }
+  renderAll(false);
 }
 function renderDeepseek(sheet){
   const hasKey=!!lsGet('ds-key');
   sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O gasto é <strong>calculado automaticamente</strong> pela API do DeepSeek: <code>total depositado − saldo</code>. Preencha a key e o total; o cálculo é feito no seu navegador (a key fica só neste dispositivo).</span>`));
   const grid=el('div','ds-grid');
   grid.innerHTML=`
-    <div class="ds-field"><span class="uplabel">DeepSeek API Key</span><input id="dsKey" type="password" placeholder="sk-..." value="${lsGet('ds-key')||''}"></div>
-    <div class="ds-field"><span class="uplabel">Total já depositado (USD)</span><input id="dsTot" type="number" min="0" step="0.01" placeholder="ex: 2.00" value="${lsGet('ds-total')||''}"></div>`;
+    <div class="ds-field"><span class="uplabel">DeepSeek API Key</span><input id="dsKey" type="password" placeholder="sk-..." value="${lsGet('ds-key')||CONFIG.deepseekKey||''}"></div>
+    <div class="ds-field"><span class="uplabel">Total já depositado (USD)</span><input id="dsTot" type="number" min="0" step="0.01" placeholder="ex: 2.00" value="${lsGet('ds-total')||CONFIG.deepseekTotal||''}"></div>`;
   sheet.appendChild(grid);
   const cards=el('div','ds-cards');
   cards.innerHTML=`
@@ -652,7 +748,8 @@ function renderDeepseek(sheet){
 /* ============ DeepSeek automático (client-side) ============ */
 async function deepseekAuto(force){
   if(state.apiMode&&!force) return;             // com backend já vem pronto
-  const key=(lsGet('ds-key')||'').trim(), tot=parseFloat(lsGet('ds-total'));
+  const key=((lsGet('ds-key')||CONFIG.deepseekKey)||'').trim();
+  let tot=parseFloat(lsGet('ds-total')); if(isNaN(tot))tot=CONFIG.deepseekTotal;
   if(!key||isNaN(tot)) return;
   try{
     const r=await fetchT('https://api.deepseek.com/user/balance',8000,{headers:{Authorization:'Bearer '+key,Accept:'application/json'}});
@@ -692,6 +789,23 @@ function openModal(kind,r){
   showOv('modal');
 }
 
+/* ============ IPs ociosos → economia ============ */
+function openIpModal(){
+  const n=DATA.idleIps.length, mensalUsd=n*4, mensalBrl=mensalUsd*state.usd;
+  const sheet=document.getElementById('modalSheet');
+  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${LOGO.do}</span><div><div class="dt">IPs Reservados Ociosos</div><div class="db">DigitalOcean · potencial de economia</div></div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
+    <div class="stat4">
+      <div class="stat"><div class="st">IPs ociosos</div><div class="sv" style="color:var(--amber)">${n}</div><div class="ss">sem droplet</div></div>
+      <div class="stat"><div class="st">Custo/mês</div><div class="sv" style="color:var(--amber)">${fBRL(mensalBrl)}</div><div class="ss">${fUSD(mensalUsd)}</div></div>
+      <div class="stat"><div class="st">Economia/ano</div><div class="sv down">${fBRL(mensalBrl*12)}</div><div class="ss">${fUSD(mensalUsd*12)}</div></div>
+      <div class="stat"><div class="st">Por IP</div><div class="sv" style="font-size:15px">$4,00</div><div class="ss">/mês cada</div></div>
+    </div>
+    <div class="iplist">${DATA.idleIps.map(ip=>`<span class="ipchip">${ip}<span class="amt">${fBRL(4*state.usd)}/mês</span></span>`).join('')}</div>
+    <div class="reco">${IC.warn}<span>Libere ou reatribua esses ${n} IPs para <strong>economizar ${fBRL(mensalBrl*12)}/ano</strong>. Um Reserved IP é gratuito quando está atribuído a um droplet; ocioso custa $4/mês.</span></div>
+    <div class="mfoot"><button class="btn-ghost" onclick="closeOv('modal')">Fechar</button></div>`;
+  showOv('modal');
+}
+
 /* ============ overlays ============ */
 function showOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
@@ -716,7 +830,7 @@ async function loadData(){
       const r=await fetchT(CONFIG.apiBase+'/api/all'+qs,9000);const j=await r.json();
       if(j.digitalocean&&!j.digitalocean.error){DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;DATA.doSnapshots=j.digitalocean.snapshots||DATA.doSnapshots;DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);}
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources;
-      if(j.licencas){state.claude=j.licencas.claudeUsers??state.claude;state.claudeMaxN=j.licencas.claudeMaxLic??state.claudeMaxN;state.claudeMaxUnit=j.licencas.claudeMaxUnitBrl??state.claudeMaxUnit;state.figma=j.licencas.figmaLicencas??state.figma;}
+      // licenças/pessoas são geridas na tela (localStorage), não vêm do backend
       if(j.deepseek&&!j.deepseek.error){state.dsBalance=j.deepseek.balanceUsd;if(j.deepseek.spentUsd!=null)state.dsUsd=j.deepseek.spentUsd;}
       if(j.fx&&j.fx.rate)state.usd=+(+j.fx.rate).toFixed(4);
       state.apiMode=true;
@@ -727,16 +841,10 @@ async function loadData(){
 }
 
 /* ============ controls ============ */
-function syncInputs(){
-  document.getElementById('usd').value=state.usd.toFixed(2);
-  document.getElementById('claude').value=state.claude;
-  document.getElementById('figma').value=state.figma;
-}
+function syncInputs(){ document.getElementById('usd').value=state.usd.toFixed(2); }
 document.getElementById('dStart').addEventListener('change',loadData);
 document.getElementById('dEnd').addEventListener('change',loadData);
 document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault;renderAll();});
-document.getElementById('claude').addEventListener('input',e=>{state.claude=+e.target.value||0;renderAll();});
-document.getElementById('figma').addEventListener('input',e=>{state.figma=+e.target.value||0;renderAll();});
 
 /* ============ tema ============ */
 function currentTheme(){const a=document.documentElement.getAttribute('data-theme');return a||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}
