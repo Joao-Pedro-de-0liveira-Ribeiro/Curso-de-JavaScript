@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Painel de Custos TI · Grupo 3RN</title>
+<title>Painel de Custos TI 3RN</title>
 <style>
 /* ============================================================
    Painel de Custos TI — Grupo 3RN
-   Design fiel ao módulo custos-ti (Vue + Tailwind), reescrito
-   em CSS puro para rodar em arquivo único, sem build e sem CDN.
+   Arquivo único, sem build e sem CDN. Design alinhado ao módulo
+   custos-ti (Vue + Tailwind). Logos das empresas em SVG inline.
    ============================================================ */
 :root{
   --bg:#f1f5f9; --panel:#ffffff; --panel-2:#f8fafc; --border:#e5e7eb;
@@ -41,7 +41,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-.kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp{font-variant-numeric:tabular-nums}
+.kpi .kv,.legrow .vv,.legrow .pc,.res .rprice,.res .rbrl,.plat .pval,.stat .sv,.stat .ss,.lic .lp,.calc,.dc-v{font-variant-numeric:tabular-nums}
 body{
   background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -51,63 +51,83 @@ body{
 .row{display:flex; align-items:center; gap:12px}
 .spacer{margin-left:auto}
 .uplabel{font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
-.mut{color:var(--muted)} .mut2{color:var(--muted-2)}
 .card{background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
+svg{display:block}
+.ic{width:20px;height:20px;flex-shrink:0}
+.brand{height:20px;width:auto;flex-shrink:0}
+.brand.lg{height:26px}
 
-/* ---------- Topbar / breadcrumb ---------- */
+/* ---------- Topbar ---------- */
 .top{display:flex; align-items:center; gap:12px; margin-bottom:14px}
-.top .ic{display:grid; place-items:center; width:40px; height:40px; border-radius:12px;
-  background:linear-gradient(135deg,var(--blue-ink),#1d4ed8); color:#fff; font-size:20px; box-shadow:var(--shadow)}
-:root[data-theme="dark"] .top .ic{background:linear-gradient(135deg,#1e3a8a,#2563eb)}
+.top .badge{display:grid; place-items:center; width:40px; height:40px; border-radius:12px;
+  background:linear-gradient(135deg,var(--blue-ink),#1d4ed8); color:#fff; box-shadow:var(--shadow)}
+.top .badge svg{width:22px;height:22px}
 .top h1{margin:0; font-size:18px; font-weight:800}
 .top p{margin:2px 0 0; font-size:12px; color:var(--muted)}
 .btn-ghost{border:1px solid var(--border); background:var(--panel); color:var(--txt);
   border-radius:10px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; gap:6px; align-items:center}
 .btn-ghost:hover{background:var(--panel-2)}
+.btn-ghost svg{width:16px;height:16px}
 
-/* ---------- Controls bar ---------- */
-.controls{display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding:14px 16px; margin-bottom:14px}
+/* ---------- Controls ---------- */
+.controls{display:flex; flex-wrap:wrap; align-items:center; gap:14px 16px; padding:14px 16px; margin-bottom:14px}
 .controls label{display:flex; align-items:center; gap:8px}
 .controls input,.controls select{
   border:1px solid var(--border); background:var(--panel); color:var(--txt);
   border-radius:9px; padding:7px 10px; font-size:13px; outline:none}
 .controls input:focus,.controls select:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15)}
-.controls input[type=number]{width:96px}
-.pill{border-radius:999px; padding:5px 12px; font-size:12px; font-weight:800;
-  background:rgba(59,130,246,.12); color:#2563eb}
+.controls input[type=number]{width:78px}
+.controls input[type=date]{width:150px}
+.calc{font-size:12px; font-weight:700; color:var(--violet)}
+.divider{width:1px; align-self:stretch; background:var(--border)}
+.pill{border-radius:999px; padding:5px 12px; font-size:12px; font-weight:800; background:rgba(59,130,246,.12); color:#2563eb}
 :root[data-theme="dark"] .pill{background:rgba(59,130,246,.18); color:#93c5fd}
 .pill-live{background:rgba(16,185,129,.14); color:#059669}
 :root[data-theme="dark"] .pill-live{color:#6ee7b7}
+#customDates{display:none; gap:8px}
+#customDates.on{display:flex}
 
 /* ---------- KPI grid ---------- */
 .kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:14px}
 .kpi{border-radius:16px; padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); background:var(--panel); min-width:0}
 .kpi .kh{display:flex; align-items:center; justify-content:space-between; gap:8px}
 .kpi .kt{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
-.kpi .ki{font-size:16px; opacity:.9}
+.kpi .khi{display:flex;align-items:center;color:var(--muted-2)}
 .kpi .kv{margin:8px 0 2px; font-size:19px; font-weight:800; letter-spacing:-.01em; overflow-wrap:anywhere}
 .kpi .ks{font-size:11px; color:var(--muted)}
 .kpi.dark{background:linear-gradient(135deg,#0f172a,#1e293b); border-color:#0f172a; color:#fff}
-.kpi.dark .kt{color:#94a3b8} .kpi.dark .ks{color:#cbd5e1} .kpi.dark .kv{color:#fff}
+.kpi.dark .kt{color:#94a3b8} .kpi.dark .ks{color:#cbd5e1} .kpi.dark .kv{color:#fff} .kpi.dark .khi{color:#64748b}
 .kpi.warn{background:var(--amber-bg); border-color:var(--amber-bd)}
-.kpi.warn .kv{color:var(--amber)}
+.kpi.warn .kv{color:var(--amber)} .kpi.warn .khi{color:var(--amber)}
 
 /* ---------- Middle: donut + alerts ---------- */
-.mid{display:grid; grid-template-columns:320px 1fr; gap:14px; margin-bottom:14px}
+.mid{display:grid; grid-template-columns:340px 1fr; gap:14px; margin-bottom:14px}
 .donut-card{padding:16px}
 .donut-card h3{margin:0 0 12px}
-.donut-flex{display:flex; align-items:center; gap:18px}
-.legend{display:flex; flex-direction:column; gap:9px; min-width:0; flex:1}
-.legrow{display:flex; align-items:center; gap:8px; font-size:12px}
+.donut-flex{display:flex; align-items:center; gap:16px}
+.donut-wrap{position:relative; width:132px; height:132px; flex-shrink:0}
+.donut-wrap svg{transform:rotate(-90deg)}
+#donut circle.slice{cursor:pointer; transition:opacity .12s, stroke-width .12s}
+#donut.dim circle.slice:not(.active){opacity:.3}
+.donut-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; padding:0 12px}
+.donut-center .dc-t{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
+.donut-center .dc-v{font-size:15px; font-weight:800; line-height:1.15}
+.donut-center .dc-s{font-size:9px; color:var(--muted-2)}
+.legend{display:flex; flex-direction:column; gap:6px; min-width:0; flex:1}
+.legrow{display:flex; align-items:center; gap:9px; font-size:12px; cursor:pointer; border-radius:8px; padding:4px 6px; margin:-2px -4px}
+.legrow:hover,.legrow.active{background:var(--panel-2)}
 .legrow .sw{width:11px; height:11px; border-radius:3px; flex-shrink:0}
-.legrow .lb{color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.legrow .vv{margin-left:auto; font-weight:800; white-space:nowrap}
-.legrow .pc{width:34px; text-align:right; color:var(--muted-2)}
+.legrow .meta{min-width:0; flex:1}
+.legrow .lb{color:var(--muted); font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.legrow .row2{display:flex; align-items:baseline; gap:6px; line-height:1.2}
+.legrow .vv{font-weight:800; white-space:nowrap}
+.legrow .pc{color:var(--muted-2); font-size:11px}
 .alerts{display:flex; flex-direction:column; gap:8px}
 .alert{display:flex; gap:9px; align-items:flex-start; border:1px solid; border-radius:12px; padding:11px 14px; font-size:13px; font-weight:500}
-.alert.warn{background:var(--red-bg); border-color:var(--red-bd); color:var(--red)}
-.alert.info{background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber-ink)}
-.alert.ok{background:var(--emerald-bg); border-color:var(--emerald-bd); color:var(--emerald-ink)}
+.alert .dot{width:9px;height:9px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.alert.warn{background:var(--red-bg); border-color:var(--red-bd); color:var(--red)} .alert.warn .dot{background:var(--red)}
+.alert.info{background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber-ink)} .alert.info .dot{background:var(--amber)}
+.alert.ok{background:var(--emerald-bg); border-color:var(--emerald-bd); color:var(--emerald-ink)} .alert.ok .dot{background:var(--emerald)}
 
 /* ---------- Platform buttons ---------- */
 .plats{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
@@ -115,9 +135,8 @@ body{
   background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow);
   transition:transform .12s, box-shadow .12s; color:var(--txt)}
 .plat:hover{transform:translateY(-2px); box-shadow:var(--shadow-md)}
-.plat .ph{display:flex; align-items:center; justify-content:space-between}
-.plat .pemoji{font-size:20px}
-.plat .chev{color:var(--muted-2); font-size:12px}
+.plat .ph{display:flex; align-items:center; justify-content:space-between; min-height:26px}
+.plat .chev{color:var(--muted-2)}
 .plat .plabel{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
 .plat .pval{margin:4px 0 1px; font-size:22px; font-weight:800; letter-spacing:-.02em}
 .plat .psub{font-size:11px; color:var(--muted)}
@@ -127,10 +146,6 @@ body{
 .plat[data-c=aws] .pval{color:var(--amber)}
 .plat[data-c=lic] .pval{color:var(--violet)}
 .plat[data-c=ds]  .pval{color:var(--emerald)}
-.plat[data-c=do][aria-expanded=true]{box-shadow:0 0 0 2px var(--blue), var(--shadow-md)}
-.plat[data-c=aws][aria-expanded=true]{box-shadow:0 0 0 2px var(--amber), var(--shadow-md)}
-.plat[data-c=lic][aria-expanded=true]{box-shadow:0 0 0 2px var(--violet), var(--shadow-md)}
-.plat[data-c=ds][aria-expanded=true]{box-shadow:0 0 0 2px var(--emerald), var(--shadow-md)}
 .hint{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 8px}
 
 /* ---------- Overlay (drawer + modal) ---------- */
@@ -145,9 +160,13 @@ body{
   background:linear-gradient(90deg,#1e3a8a,#1d4ed8,#2563eb); color:#fff}
 .dhead .dt{font-size:14px; font-weight:800}
 .dhead .db{font-size:12px; color:#bfdbfe; margin-top:2px}
-.xbtn{border:0; background:rgba(255,255,255,.14); color:#fff; width:30px; height:30px; border-radius:9px; cursor:pointer; font-size:16px}
-.xbtn:hover{background:rgba(255,255,255,.26)}
-.banner{padding:10px 22px; font-size:12px; font-weight:600}
+.dhead .dbrand{display:flex;align-items:center;gap:10px}
+.dhead .dbrand .chip-logo{background:#fff;border-radius:9px;padding:5px 7px;display:flex;align-items:center}
+.dhead .dbrand .chip-logo .brand{height:18px}
+.xbtn{border:0; background:rgba(255,255,255,.14); color:#fff; width:30px; height:30px; border-radius:9px; cursor:pointer; display:grid; place-items:center}
+.xbtn:hover{background:rgba(255,255,255,.26)} .xbtn svg{width:16px;height:16px}
+.banner{padding:10px 22px; font-size:12px; font-weight:600; display:flex; gap:8px; align-items:flex-start}
+.banner svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
 .banner.warn{background:var(--amber-bg); border-bottom:1px solid var(--amber-bd); color:var(--amber-ink)}
 .grid-res{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; padding:18px 22px}
 .sublabel{padding:2px 22px 0; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-2)}
@@ -169,22 +188,19 @@ body{
 .res .rmore{font-size:10px; font-weight:600; color:#2563eb; opacity:0; transition:opacity .12s}
 .res.click:hover .rmore{opacity:1}
 .res[data-c=do] .rprice{color:var(--blue)} .res[data-c=aws] .rprice{color:var(--amber)}
-.chip{flex-shrink:0; border-radius:999px; padding:2px 8px; font-size:10px; font-weight:800}
-/* chip palette */
+.chip{flex-shrink:0; border-radius:999px; padding:2px 8px; font-size:10px; font-weight:800; background:rgba(100,116,139,.16); color:#475569}
 .chip.RDS,.chip.NAT{background:rgba(217,119,6,.15); color:#b45309}
 .chip.ECS,.chip.Droplet{background:rgba(29,78,216,.13); color:#1d4ed8}
 .chip.EC2{background:rgba(5,150,105,.14); color:#047857}
-.chip.VPC,.chip\.Managed{background:rgba(124,58,237,.14); color:#6d28d9}
+.chip.VPC{background:rgba(124,58,237,.14); color:#6d28d9}
 .chip.ELB{background:rgba(217,70,239,.14); color:#a21caf}
 .chip.CW{background:rgba(234,88,12,.14); color:#c2410c}
 .chip.S3{background:rgba(13,148,136,.14); color:#0f766e}
 .chip.WAF{background:rgba(220,38,38,.14); color:#b91c1c}
 .chip.ECR{background:rgba(2,132,199,.14); color:#0369a1}
-.chip.SM,.chip.Tax,.chip.Outros,.chip.Snapshot,.chip.DB{background:rgba(100,116,139,.16); color:#475569}
-:root[data-theme="dark"] .chip{filter:brightness(1.25)}
-.dval{color:var(--emerald)!important}
+:root[data-theme="dark"] .chip{filter:brightness(1.35)}
 
-/* ---------- Modal detail grid ---------- */
+/* ---------- Modal detail ---------- */
 .stat4{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:18px 22px 6px}
 .stat{background:var(--panel-2); border-radius:12px; padding:14px}
 .stat .st{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--muted)}
@@ -196,15 +212,21 @@ body{
 .mfoot{display:flex; justify-content:flex-end; padding:14px 22px; border-top:1px solid var(--border)}
 .up{color:var(--red)} .down{color:var(--emerald)}
 
-/* license cards */
+/* license + deepseek */
 .lic{display:flex; flex-direction:column; gap:6px; background:var(--panel); border:1px solid var(--border);
   border-top:4px solid var(--violet); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
+.lic .lh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lic .ln{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
 .lic .lp{font-size:20px; font-weight:800; color:var(--violet)}
+.lic .lp small{font-size:11px;font-weight:400;color:var(--muted-2)}
 .ds-row{display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; padding:18px 22px}
 .ds-row label{display:flex; flex-direction:column; gap:4px}
 .ds-row input{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:8px 11px; font-size:13px; outline:none}
-.ds-total{border:1px solid var(--emerald-bd); background:var(--emerald-bg); border-radius:12px; padding:10px 18px}
-.ds-total .st{color:var(--emerald-ink)} .ds-total .sv{color:var(--emerald); font-size:20px; font-weight:800}
+.ds-card{border-radius:12px; padding:10px 18px; border:1px solid var(--border); background:var(--panel-2)}
+.ds-card .st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.ds-card.total{border-color:var(--emerald-bd); background:var(--emerald-bg)}
+.ds-card.total .st{color:var(--emerald-ink)} .ds-card.total .sv{color:var(--emerald)}
+.ds-card .sv{font-size:20px;font-weight:800}
 .foot{margin-top:22px; text-align:center; font-size:11px; color:var(--muted-2)}
 
 @media (max-width:1024px){
@@ -213,10 +235,7 @@ body{
   .plats{grid-template-columns:repeat(2,1fr)}
   .stat4{grid-template-columns:repeat(2,1fr)}
 }
-@media (max-width:560px){
-  .kpis{grid-template-columns:repeat(2,1fr)}
-  .plats{grid-template-columns:1fr}
-}
+@media (max-width:560px){ .kpis{grid-template-columns:repeat(2,1fr)} .plats{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -224,39 +243,54 @@ body{
 
   <!-- Topbar -->
   <div class="top">
-    <div class="ic">💳</div>
+    <div class="badge" id="topBadge"></div>
     <div>
       <h1>Painel de Custos TI</h1>
       <p>Visão consolidada · Digital Ocean · AWS · Licenças · DeepSeek</p>
     </div>
     <div class="spacer"></div>
-    <button class="btn-ghost" id="themeBtn" title="Alternar tema">🌗 Tema</button>
+    <button class="btn-ghost" id="themeBtn" title="Alternar tema"><span id="themeIc"></span> Tema</button>
   </div>
 
   <!-- Controls -->
   <div class="card controls">
     <label>
+      <span class="uplabel">Período</span>
+      <select id="preset">
+        <option value="este-mes">Este mês</option>
+        <option value="mes-passado">Mês passado</option>
+        <option value="ult-7">Últimos 7 dias</option>
+        <option value="ult-30">Últimos 30 dias</option>
+        <option value="custom">Personalizado…</option>
+      </select>
+    </label>
+    <div id="customDates">
+      <label><span class="uplabel">De</span><input id="dStart" type="date" /></label>
+      <label><span class="uplabel">Até</span><input id="dEnd" type="date" /></label>
+    </div>
+    <span class="pill" id="periodTag">—</span>
+
+    <div class="divider"></div>
+
+    <label>
       <span class="uplabel">USD/BRL</span>
       <input id="usd" type="number" step="0.01" min="1" max="20" />
     </label>
-    <button class="btn-ghost" id="fxBtn" title="Buscar cotação em tempo real">🔄 Cotação ao vivo</button>
+    <button class="btn-ghost" id="fxBtn" title="Buscar cotação em tempo real"><span id="fxIc"></span> ao vivo</button>
     <span class="pill pill-live" id="fxTag">cotação 27/08/2026</span>
+
+    <div class="divider"></div>
+
     <label>
-      <span class="uplabel">Claude Pro (usuários)</span>
+      <span class="uplabel">Claude Pro</span>
       <input id="claude" type="number" min="0" max="500" />
+      <span class="calc" id="claudeCalc"></span>
     </label>
     <label>
-      <span class="uplabel">Figma (licenças)</span>
+      <span class="uplabel">Figma</span>
       <input id="figma" type="number" min="0" max="200" />
+      <span class="calc" id="figmaCalc"></span>
     </label>
-    <label>
-      <span class="uplabel">Período</span>
-      <select id="period">
-        <option value="atual">Agosto 2026 (1–27)</option>
-        <option value="anterior">Julho 2026</option>
-      </select>
-    </label>
-    <span class="pill spacer" id="periodTag">1–27 ago/2026</span>
   </div>
 
   <!-- KPIs -->
@@ -265,9 +299,12 @@ body{
   <!-- Donut + alerts -->
   <div class="mid">
     <div class="card donut-card">
-      <h3 class="uplabel">Distribuição de gastos</h3>
+      <h3 class="uplabel">Distribuição de gastos · clique para abrir</h3>
       <div class="donut-flex">
-        <svg id="donut" width="130" height="130" viewBox="0 0 130 130" style="transform:rotate(-90deg);flex-shrink:0"></svg>
+        <div class="donut-wrap">
+          <svg id="donut" width="132" height="132" viewBox="0 0 132 132"></svg>
+          <div class="donut-center" id="donutCenter"></div>
+        </div>
         <div class="legend" id="legend"></div>
       </div>
     </div>
@@ -284,14 +321,9 @@ body{
   <div class="foot" id="foot"></div>
 </div>
 
-<!-- Drawer overlay -->
-<div class="ov" id="drawer" role="dialog" aria-modal="true">
-  <div class="sheet" id="drawerSheet"></div>
-</div>
-<!-- Detail modal overlay -->
-<div class="ov" id="modal" role="dialog" aria-modal="true">
-  <div class="sheet sm" id="modalSheet"></div>
-</div>
+<!-- Overlays -->
+<div class="ov" id="drawer" role="dialog" aria-modal="true"><div class="sheet" id="drawerSheet"></div></div>
+<div class="ov" id="modal" role="dialog" aria-modal="true"><div class="sheet sm" id="modalSheet"></div></div>
 
 <script>
 /* ================================================================
@@ -304,163 +336,258 @@ const CONFIG = {
   fxDefault: 5.15,                // cotação buscada no Google em 27/08/2026
 };
 
+/* ---------------- LOGOS das empresas (SVG inline) ---------------- */
+const LOGO = {
+  do: `<svg class="brand" viewBox="0 0 32 32" aria-label="DigitalOcean"><g fill="#0080FF">
+    <path d="M16 32v-6.2c6.57 0 11.67-6.51 9.15-13.42a9.26 9.26 0 0 0-5.53-5.53C12.71 4.34 6.2 9.43 6.2 16H0C0 5.53 10.12-2.62 21.09.82a15.42 15.42 0 0 1 10.09 10.09C34.62 21.88 26.47 32 16 32z"/>
+    <path d="M16.05 25.82H9.87v-6.18h6.18z"/><path d="M9.87 30.57H5.12v-4.75h4.75z"/><path d="M5.12 25.82H1.14v-3.98h3.98z"/></g></svg>`,
+  aws: `<svg class="brand" viewBox="0 0 100 62" aria-label="AWS">
+    <text x="4" y="34" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="30" fill="currentColor">aws</text>
+    <path d="M8 46c20 11 64 11 84 0" fill="none" stroke="#FF9900" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M86 41l8 4.5-9 3z" fill="#FF9900"/></svg>`,
+  figma: `<svg class="brand" viewBox="0 0 24 36" aria-label="Figma">
+    <path fill="#0ACF83" d="M6 36a6 6 0 0 0 6-6v-6H6a6 6 0 1 0 0 12z"/>
+    <path fill="#A259FF" d="M0 18a6 6 0 0 1 6-6h6v12H6a6 6 0 0 1-6-6z"/>
+    <path fill="#F24E1E" d="M0 6a6 6 0 0 1 6-6h6v12H6A6 6 0 0 1 0 6z"/>
+    <path fill="#FF7262" d="M12 0h6a6 6 0 1 1 0 12h-6z"/>
+    <path fill="#1ABCFE" d="M24 18a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/></svg>`,
+  deepseek: `<svg class="brand" viewBox="0 0 32 32" aria-label="DeepSeek">
+    <path fill="#4D6BFE" d="M4.2 17.3c0-5 4.7-8.4 10.2-8.4 6.3 0 10.5 3.4 11.4 7.6.2 1 1.4 1.4 2.3.8l1.7-1.1c.6-.4 1.3.2 1 .9l-1.2 3.2c-.3.9-1.2 1.5-2.2 1.5-1 0-2 .4-2.8 1.1-2.1 1.8-5 2.9-8.2 2.9-5.7 0-10.2-3.4-10.2-8.5z"/>
+    <circle cx="11" cy="15.4" r="1.15" fill="#fff"/></svg>`,
+};
+// Claude / Anthropic — "spark" na cor clay, gerada por raios
+function claudeLogo(){
+  let rays=''; for(let i=0;i<12;i++){const a=i*Math.PI/6,c=Math.cos(a),s=Math.sin(a);
+    rays+=`<line x1="${(16+5*c).toFixed(1)}" y1="${(16+5*s).toFixed(1)}" x2="${(16+12.8*c).toFixed(1)}" y2="${(16+12.8*s).toFixed(1)}"/>`;}
+  return `<svg class="brand" viewBox="0 0 32 32" aria-label="Claude"><g stroke="#D97757" stroke-width="2.7" stroke-linecap="round">${rays}</g></svg>`;
+}
+LOGO.claude = claudeLogo();
+const PLOGO = { do:LOGO.do, aws:LOGO.aws, lic:LOGO.claude, ds:LOGO.deepseek };
+
+/* ---------------- Ícones (Heroicons outline — mesmo set do frontend) ---------------- */
+const HI = (d)=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`;
+const IC = {
+  chart: HI('M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125z'),
+  banknotes: HI('M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'),
+  warn: HI('M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12z'),
+  refresh: HI('M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99'),
+  sun: HI('M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z'),
+  chev: HI('m19.5 8.25-7.5 7.5-7.5-7.5'),
+  x: HI('M6 18 18 6M6 6l12 12'),
+};
+
 /* ---------------- DADOS (snapshot real 27/08/2026) ---------------- */
-const DO_DROPLETS = [
-  { nome:'ubuntu-s-2vcpu-8gb',      tipo:'Droplet',  regiao:'sfo3', usd:112,   spec:'s-8vcpu-16gb-intel',       ip:'147.182.248.250' },
-  { nome:'ubuntu-s-1vcpu-1gb-amd',  tipo:'Droplet',  regiao:'sfo3', usd:28,    spec:'s-2vcpu-4gb-amd',          ip:'209.38.129.44' },
-  { nome:'ubuntu-s-glpi-production',tipo:'Droplet',  regiao:'sfo3', usd:28,    spec:'s-2vcpu-4gb-amd',          ip:'143.198.138.239' },
-  { nome:'3RN-SISTEMAS-PROD-4vcpu', tipo:'Droplet',  regiao:'sfo3', usd:192,   spec:'s-8vcpu-32gb-640gb-intel', ip:'164.90.152.130' },
-  { nome:'3RN-SISTEMAS-DEV-2vcpu',  tipo:'Droplet',  regiao:'sfo3', usd:48,    spec:'s-2vcpu-8gb-160gb-intel',  ip:'128.199.6.133' },
-  { nome:'3RN-SISTEMAS-AUTOMACOES', tipo:'Droplet',  regiao:'sfo3', usd:128,   spec:'s-8vcpu-16gb-480gb-intel', ip:'164.92.123.163' },
-  { nome:'ULTRA-FLOW-4vcpu',        tipo:'Droplet',  regiao:'sfo3', usd:64,    spec:'s-4vcpu-8gb-240gb-intel',  ip:'146.190.32.81' },
-  { nome:'AUTOMACOES-2-4vcpu',      tipo:'Droplet',  regiao:'nyc3', usd:96,    spec:'s-4vcpu-16gb-320gb-intel', ip:'64.227.111.202' },
-  { nome:'Olimpo-3RN-PRD',          tipo:'Droplet',  regiao:'nyc1', usd:79,    spec:'gd-2vcpu-8gb-intel',       ip:'137.184.67.119' },
-  { nome:'Snapshots (10 itens)',    tipo:'Snapshot', regiao:'sfo3', usd:15.17, spec:'~145 GB total' },
-];
-const DO_DATABASES = [
-  { nome:'db-adv-pgsql-sfo3-08934',        tipo:'DB', regiao:'sfo3', usd:0, spec:'advanced_pg v18 · gd-4vcpu-16gb' },
-  { nome:'db-pgsql-sfo3-49547',            tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v18 · db-s-1vcpu-2gb' },
-  { nome:'db-postgresql-nyc3-75053',       tipo:'DB', regiao:'nyc3', usd:0, spec:'pg v17 · so1_5-4vcpu-32gb' },
-  { nome:'db-...nyc3-75053-aug-18-backup', tipo:'DB', regiao:'nyc3', usd:0, spec:'pg v17 (backup) · 4vcpu-32gb' },
-  { nome:'db-postgresql-sfo3-51713',       tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v17 · gd-2vcpu-8gb' },
-  { nome:'db-postgresql-sfo3-95482',       tipo:'DB', regiao:'sfo3', usd:0, spec:'pg v17 · gd-4vcpu-16gb' },
-];
-const AWS = [
-  { nome:'banking-dev-postgres',    servico:'RDS', detalhe:'db.t4g.micro · Single-AZ · 20GB gp3',          atual:26.97, anterior:36.98, projeto:'banking-dev' },
-  { nome:'motor-credito-advanced',  servico:'RDS', detalhe:'db.t4g.large · Single-AZ · 100GB gp3',         atual:123.89,anterior:58.40, projeto:'motor-credito' },
-  { nome:'service-atf',             servico:'ECS', detalhe:'4vCPU/8GB · motor-credito-cluster · 1/1 tasks', atual:163.41,anterior:228.60,projeto:'motor-credito' },
-  { nome:'service-fidem',           servico:'ECS', detalhe:'1vCPU/2GB · motor-credito-cluster · 1/1 tasks', atual:40.85, anterior:57.15, projeto:'motor-credito' },
-  { nome:'service-atf-esteira',     servico:'ECS', detalhe:'0.25vCPU/512MB · 2/1 tasks',                    atual:20.43, anterior:28.58, projeto:'motor-credito' },
-  { nome:'service-cdc',             servico:'ECS', detalhe:'0.5vCPU/2GB · 1/1 tasks',                       atual:24.13, anterior:33.69, projeto:'motor-credito' },
-  { nome:'history-sync',            servico:'ECS', detalhe:'0.5vCPU/1GB · 1/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
-  { nome:'dash-motor-ctps',         servico:'ECS', detalhe:'0.5vCPU/1GB · 1/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
-  { nome:'monitoramento-ctps-atf',  servico:'ECS', detalhe:'0.5vCPU/1GB · 0/1 tasks',                       atual:20.43, anterior:28.58, projeto:'motor-credito' },
-  { nome:'service-messaging',       servico:'ECS', detalhe:'0.25vCPU/512MB · 1/1 tasks',                    atual:10.21, anterior:14.29, projeto:'motor-credito' },
-  { nome:'credit-gateway',          servico:'ECS', detalhe:'0.25vCPU/512MB · 1/1 tasks',                    atual:10.21, anterior:14.29, projeto:'motor-credito' },
-  { nome:'app-worker',              servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
-  { nome:'app-webhook-ingress',     servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
-  { nome:'evidence-api',            servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
-  { nome:'app-api',                 servico:'ECS', detalhe:'0.25vCPU/512MB · banking-dev-cluster',          atual:10.21, anterior:14.29, projeto:'banking-dev' },
-  { nome:'banking-dev-bastion-ssm', servico:'EC2', detalhe:'t4g.nano · sa-east-1a',                         atual:4.87,  anterior:13.21, projeto:'banking-dev' },
-  { nome:'motor-credito-nat',       servico:'NAT', detalhe:'NAT Gateway · vpc-0dc7856876989443f',           atual:128.50,anterior:112.80,projeto:'motor-credito' },
-  { nome:'EBS + Data Transfer',     servico:'EC2', detalhe:'gp2/gp3 · saída inter-AZ',                      atual:5.44,  anterior:8.16,  projeto:'—' },
-  { nome:'VPC (endpoints + IPs)',   servico:'VPC', detalhe:'flow logs · IPs elásticos · endpoints',         atual:150.75,anterior:170.42,projeto:'—' },
-  { nome:'banking-dev-alb',         servico:'ELB', detalhe:'ALB internet-facing · banking-dev',             atual:21.14, anterior:22.45, projeto:'banking-dev' },
-  { nome:'motor-credito-alb',       servico:'ELB', detalhe:'ALB internet-facing · motor-credito',           atual:21.14, anterior:22.45, projeto:'motor-credito' },
-  { nome:'CloudWatch',              servico:'CW',  detalhe:'Métricas customizadas · alarmes',               atual:48.88, anterior:49.15, projeto:'—' },
-  { nome:'Secrets Manager (16)',    servico:'SM',  detalhe:'16 segredos ativos',                            atual:4.56,  anterior:4.24,  projeto:'—' },
-  { nome:'S3 (5 buckets)',          servico:'S3',  detalhe:'assinaturas · banking · dados-ti · qitech',     atual:2.67,  anterior:6.15,  projeto:'—' },
-  { nome:'WAF banking-dev',         servico:'WAF', detalhe:'Novo neste mês',                                atual:3.39,  anterior:0,     projeto:'banking-dev' },
-  { nome:'ECR (13 repositórios)',   servico:'ECR', detalhe:'imagens de container',                          atual:7.02,  anterior:12.07, projeto:'—' },
-  { nome:'Tax (impostos AWS)',      servico:'Tax', detalhe:'',                                              atual:159.00,anterior:225.92,projeto:'—' },
-  { nome:'Messaging + Cost Explorer',servico:'Outros',detalhe:'',                                           atual:1.11,  anterior:1.02,  projeto:'—' },
-];
-const IDLE_IPS = ['143.244.201.27','129.212.136.251','134.199.137.140'];
+const SNAP = {
+  doDroplets:[
+    {nome:'ubuntu-s-2vcpu-8gb',tipo:'Droplet',regiao:'sfo3',usd:112,spec:'s-8vcpu-16gb-intel',ip:'147.182.248.250'},
+    {nome:'ubuntu-s-1vcpu-1gb-amd',tipo:'Droplet',regiao:'sfo3',usd:28,spec:'s-2vcpu-4gb-amd',ip:'209.38.129.44'},
+    {nome:'ubuntu-s-glpi-production',tipo:'Droplet',regiao:'sfo3',usd:28,spec:'s-2vcpu-4gb-amd',ip:'143.198.138.239'},
+    {nome:'3RN-SISTEMAS-PROD-4vcpu',tipo:'Droplet',regiao:'sfo3',usd:192,spec:'s-8vcpu-32gb-640gb-intel',ip:'164.90.152.130'},
+    {nome:'3RN-SISTEMAS-DEV-2vcpu',tipo:'Droplet',regiao:'sfo3',usd:48,spec:'s-2vcpu-8gb-160gb-intel',ip:'128.199.6.133'},
+    {nome:'3RN-SISTEMAS-AUTOMACOES',tipo:'Droplet',regiao:'sfo3',usd:128,spec:'s-8vcpu-16gb-480gb-intel',ip:'164.92.123.163'},
+    {nome:'ULTRA-FLOW-4vcpu',tipo:'Droplet',regiao:'sfo3',usd:64,spec:'s-4vcpu-8gb-240gb-intel',ip:'146.190.32.81'},
+    {nome:'AUTOMACOES-2-4vcpu',tipo:'Droplet',regiao:'nyc3',usd:96,spec:'s-4vcpu-16gb-320gb-intel',ip:'64.227.111.202'},
+    {nome:'Olimpo-3RN-PRD',tipo:'Droplet',regiao:'nyc1',usd:79,spec:'gd-2vcpu-8gb-intel',ip:'137.184.67.119'},
+    {nome:'Snapshots (10 itens)',tipo:'Snapshot',regiao:'sfo3',usd:15.17,spec:'~145 GB total'},
+  ],
+  doDatabases:[
+    {nome:'db-adv-pgsql-sfo3-08934',tipo:'DB',regiao:'sfo3',usd:0,spec:'advanced_pg v18 · gd-4vcpu-16gb'},
+    {nome:'db-pgsql-sfo3-49547',tipo:'DB',regiao:'sfo3',usd:0,spec:'pg v18 · db-s-1vcpu-2gb'},
+    {nome:'db-postgresql-nyc3-75053',tipo:'DB',regiao:'nyc3',usd:0,spec:'pg v17 · so1_5-4vcpu-32gb'},
+    {nome:'db-...75053-aug-18-backup',tipo:'DB',regiao:'nyc3',usd:0,spec:'pg v17 (backup) · 4vcpu-32gb'},
+    {nome:'db-postgresql-sfo3-51713',tipo:'DB',regiao:'sfo3',usd:0,spec:'pg v17 · gd-2vcpu-8gb'},
+    {nome:'db-postgresql-sfo3-95482',tipo:'DB',regiao:'sfo3',usd:0,spec:'pg v17 · gd-4vcpu-16gb'},
+  ],
+  aws:[
+    {nome:'banking-dev-postgres',servico:'RDS',detalhe:'db.t4g.micro · Single-AZ · 20GB gp3',atual:26.97,anterior:36.98,projeto:'banking-dev'},
+    {nome:'motor-credito-advanced',servico:'RDS',detalhe:'db.t4g.large · Single-AZ · 100GB gp3',atual:123.89,anterior:58.40,projeto:'motor-credito'},
+    {nome:'service-atf',servico:'ECS',detalhe:'4vCPU/8GB · motor-credito-cluster · 1/1 tasks',atual:163.41,anterior:228.60,projeto:'motor-credito'},
+    {nome:'service-fidem',servico:'ECS',detalhe:'1vCPU/2GB · motor-credito-cluster · 1/1 tasks',atual:40.85,anterior:57.15,projeto:'motor-credito'},
+    {nome:'service-atf-esteira',servico:'ECS',detalhe:'0.25vCPU/512MB · 2/1 tasks',atual:20.43,anterior:28.58,projeto:'motor-credito'},
+    {nome:'service-cdc',servico:'ECS',detalhe:'0.5vCPU/2GB · 1/1 tasks',atual:24.13,anterior:33.69,projeto:'motor-credito'},
+    {nome:'history-sync',servico:'ECS',detalhe:'0.5vCPU/1GB · 1/1 tasks',atual:20.43,anterior:28.58,projeto:'motor-credito'},
+    {nome:'dash-motor-ctps',servico:'ECS',detalhe:'0.5vCPU/1GB · 1/1 tasks',atual:20.43,anterior:28.58,projeto:'motor-credito'},
+    {nome:'monitoramento-ctps-atf',servico:'ECS',detalhe:'0.5vCPU/1GB · 0/1 tasks',atual:20.43,anterior:28.58,projeto:'motor-credito'},
+    {nome:'service-messaging',servico:'ECS',detalhe:'0.25vCPU/512MB · 1/1 tasks',atual:10.21,anterior:14.29,projeto:'motor-credito'},
+    {nome:'credit-gateway',servico:'ECS',detalhe:'0.25vCPU/512MB · 1/1 tasks',atual:10.21,anterior:14.29,projeto:'motor-credito'},
+    {nome:'app-worker',servico:'ECS',detalhe:'0.25vCPU/512MB · banking-dev-cluster',atual:10.21,anterior:14.29,projeto:'banking-dev'},
+    {nome:'app-webhook-ingress',servico:'ECS',detalhe:'0.25vCPU/512MB · banking-dev-cluster',atual:10.21,anterior:14.29,projeto:'banking-dev'},
+    {nome:'evidence-api',servico:'ECS',detalhe:'0.25vCPU/512MB · banking-dev-cluster',atual:10.21,anterior:14.29,projeto:'banking-dev'},
+    {nome:'app-api',servico:'ECS',detalhe:'0.25vCPU/512MB · banking-dev-cluster',atual:10.21,anterior:14.29,projeto:'banking-dev'},
+    {nome:'banking-dev-bastion-ssm',servico:'EC2',detalhe:'t4g.nano · sa-east-1a',atual:4.87,anterior:13.21,projeto:'banking-dev'},
+    {nome:'motor-credito-nat',servico:'NAT',detalhe:'NAT Gateway · vpc-0dc7856876989443f',atual:128.50,anterior:112.80,projeto:'motor-credito'},
+    {nome:'EBS + Data Transfer',servico:'EC2',detalhe:'gp2/gp3 · saída inter-AZ',atual:5.44,anterior:8.16,projeto:'—'},
+    {nome:'VPC (endpoints + IPs)',servico:'VPC',detalhe:'flow logs · IPs elásticos · endpoints',atual:150.75,anterior:170.42,projeto:'—'},
+    {nome:'banking-dev-alb',servico:'ELB',detalhe:'ALB internet-facing · banking-dev',atual:21.14,anterior:22.45,projeto:'banking-dev'},
+    {nome:'motor-credito-alb',servico:'ELB',detalhe:'ALB internet-facing · motor-credito',atual:21.14,anterior:22.45,projeto:'motor-credito'},
+    {nome:'CloudWatch',servico:'CW',detalhe:'Métricas customizadas · alarmes',atual:48.88,anterior:49.15,projeto:'—'},
+    {nome:'Secrets Manager (16)',servico:'SM',detalhe:'16 segredos ativos',atual:4.56,anterior:4.24,projeto:'—'},
+    {nome:'S3 (5 buckets)',servico:'S3',detalhe:'assinaturas · banking · dados-ti · qitech',atual:2.67,anterior:6.15,projeto:'—'},
+    {nome:'WAF banking-dev',servico:'WAF',detalhe:'Novo neste mês',atual:3.39,anterior:0,projeto:'banking-dev'},
+    {nome:'ECR (13 repositórios)',servico:'ECR',detalhe:'imagens de container',atual:7.02,anterior:12.07,projeto:'—'},
+    {nome:'Tax (impostos AWS)',servico:'Tax',detalhe:'',atual:159.00,anterior:225.92,projeto:'—'},
+    {nome:'Messaging + Cost Explorer',servico:'Outros',detalhe:'',atual:1.11,anterior:1.02,projeto:'—'},
+  ],
+  idleIps:['143.244.201.27','129.212.136.251','134.199.137.140'],
+};
+// DATA é o que a tela renderiza (snapshot, ou substituído pela API)
+let DATA = JSON.parse(JSON.stringify(SNAP));
 
 /* ---------------- estado ---------------- */
-const state = { usd:CONFIG.fxDefault, claude:19, figma:1, dsUsd:0, dsProj:'', period:'atual' };
+const state = {
+  usd:CONFIG.fxDefault, claude:19, figma:1, dsUsd:0, dsProj:'', dsBalance:null,
+  preset:'este-mes', start:'', end:'', period:'atual', rangeLabel:'Este mês', apiMode:false,
+};
 
 /* ---------------- helpers ---------------- */
 const fBRL = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const fUSD = v => '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const el = (t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
-const awsField = () => state.period==='atual' ? 'atual' : 'anterior';
+const awsField = () => (!state.apiMode && state.period==='anterior') ? 'anterior' : 'atual';
+const isoDay = d => d.toISOString().slice(0,10);
+const brDate = iso => iso? iso.split('-').reverse().join('/') : '';
+// fetch com timeout (evita travar quando não há rede)
+function fetchT(url, ms=7000){
+  const ac=new AbortController(); const t=setTimeout(()=>ac.abort(),ms);
+  return fetch(url,{cache:'no-store',signal:ac.signal}).finally(()=>clearTimeout(t));
+}
+
+/* ---------------- período / datas ---------------- */
+function computeRange(){
+  const today = new Date();
+  let s,e,period='atual',label='';
+  if(state.preset==='mes-passado'){
+    s=new Date(today.getFullYear(),today.getMonth()-1,1); e=new Date(today.getFullYear(),today.getMonth(),1);
+    period='anterior'; label='Mês passado';
+  } else if(state.preset==='ult-7'){ s=new Date(today); s.setDate(s.getDate()-7); e=today; label='Últimos 7 dias'; }
+  else if(state.preset==='ult-30'){ s=new Date(today); s.setDate(s.getDate()-30); e=today; label='Últimos 30 dias'; }
+  else if(state.preset==='custom'){
+    s=state.start?new Date(state.start):new Date(today.getFullYear(),today.getMonth(),1);
+    e=state.end?new Date(state.end):today;
+    period=(e.getMonth()===6)?'anterior':'atual'; label='Personalizado';
+  } else { s=new Date(today.getFullYear(),today.getMonth(),1); e=today; label='Este mês'; } // este-mes
+  state.start=isoDay(s); state.end=isoDay(e); state.period=period; state.rangeLabel=label;
+}
 
 /* ---------------- computeds ---------------- */
-const doUsd  = () => DO_DROPLETS.reduce((s,r)=>s+r.usd,0);
-const awsUsd = () => AWS.reduce((s,r)=>s+r[awsField()],0);
+const doUsd  = () => DATA.doDroplets.reduce((s,r)=>s+(+r.usd||0),0);
+const awsUsd = () => DATA.aws.reduce((s,r)=>s+(+r[awsField()]||0),0);
 const licBrl = () => state.claude*110 + state.figma*120;
 const dsBrl  = () => state.dsUsd*state.usd;
 const doBrl  = () => doUsd()*state.usd;
 const awsBrl = () => awsUsd()*state.usd;
-const idleBrl= () => IDLE_IPS.length*4*state.usd;
+const idleBrl= () => DATA.idleIps.length*4*state.usd;
 const total  = () => doBrl()+awsBrl()+licBrl()+dsBrl();
 
 /* ---------------- KPIs ---------------- */
 function renderKpis(){
-  const c = document.getElementById('kpis'); c.innerHTML='';
-  const items = [
-    {cls:'kpi dark', i:'💳', t:'Total Consolidado', v:fBRL(total()), s:'Todas as plataformas'},
-    {cls:'kpi', i:'🌊', t:'Digital Ocean', v:fBRL(doBrl()), s:fUSD(doUsd())},
-    {cls:'kpi', i:'☁️', t:'Amazon AWS', v:fBRL(awsBrl()), s:fUSD(awsUsd())},
-    {cls:'kpi', i:'🪪', t:'Licenças', v:fBRL(licBrl()), s:'Claude Pro + Figma'},
-    {cls:'kpi', i:'🤖', t:'DeepSeek', v:fBRL(dsBrl()), s:'Entrada manual'},
-    {cls:'kpi warn', i:'⚠️', t:'IPs Ociosos DO', v:fBRL(idleBrl()), s:IDLE_IPS.length+' IPs desatribuídos'},
+  const c=document.getElementById('kpis'); c.innerHTML='';
+  const items=[
+    {cls:'kpi dark', ic:IC.banknotes, t:'Total Consolidado', v:fBRL(total()), s:'Todas as plataformas'},
+    {cls:'kpi', ic:LOGO.do, t:'Digital Ocean', v:fBRL(doBrl()), s:fUSD(doUsd())},
+    {cls:'kpi', ic:LOGO.aws, t:'Amazon AWS', v:fBRL(awsBrl()), s:fUSD(awsUsd())},
+    {cls:'kpi', ic:LOGO.claude, t:'Claude Pro', v:fBRL(state.claude*110), s:`${state.claude} × R$ 110`},
+    {cls:'kpi', ic:LOGO.deepseek, t:'DeepSeek', v:fBRL(dsBrl()), s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'entrada manual'},
+    {cls:'kpi warn', ic:IC.warn, t:'IPs Ociosos DO', v:fBRL(idleBrl()), s:DATA.idleIps.length+' IPs desatribuídos'},
   ];
   items.forEach(k=>{
-    const d = el('div',k.cls);
-    d.innerHTML = `<div class="kh"><span class="kt">${k.t}</span><span class="ki">${k.i}</span></div>
+    const d=el('div',k.cls);
+    d.innerHTML=`<div class="kh"><span class="kt">${k.t}</span><span class="khi">${k.ic}</span></div>
       <div class="kv">${k.v}</div><div class="ks">${k.s}</div>`;
     c.appendChild(d);
   });
 }
 
-/* ---------------- Donut ---------------- */
+/* ---------------- Donut (interativo) ---------------- */
 function chartData(){
   return [
-    {label:'Digital Ocean', value:Math.round(doBrl()),  color:'#1d4ed8'},
-    {label:'AWS',           value:Math.round(awsBrl()), color:'#d97706'},
-    {label:'Licenças',      value:Math.round(licBrl()), color:'#7c3aed'},
-    {label:'DeepSeek',      value:Math.round(dsBrl()),  color:'#059669'},
+    {plat:'do', label:'Digital Ocean', value:doBrl(), color:'#1d4ed8'},
+    {plat:'aws',label:'AWS',           value:awsBrl(),color:'#d97706'},
+    {plat:'lic',label:'Licenças',      value:licBrl(),color:'#7c3aed'},
+    {plat:'ds', label:'DeepSeek',      value:dsBrl(), color:'#059669'},
   ].filter(d=>d.value>0);
 }
+function setDonutFocus(idx){
+  const svg=document.getElementById('donut');
+  const center=document.getElementById('donutCenter');
+  const data=chartData(), T=total();
+  document.querySelectorAll('.legrow').forEach(r=>r.classList.remove('active'));
+  svg.querySelectorAll('circle.slice').forEach(c=>c.classList.remove('active'));
+  if(idx==null){
+    svg.classList.remove('dim');
+    center.innerHTML=`<div class="dc-t">Total</div><div class="dc-v">${fBRL(total())}</div><div class="dc-s">clique numa fatia</div>`;
+  }else{
+    const d=data[idx], pct=T>0?Math.round(d.value/T*100):0;
+    svg.classList.add('dim');
+    const c=svg.querySelector(`circle.slice[data-idx="${idx}"]`); if(c)c.classList.add('active');
+    const lr=document.querySelector(`.legrow[data-idx="${idx}"]`); if(lr)lr.classList.add('active');
+    center.innerHTML=`<div class="dc-t">${d.label}</div><div class="dc-v">${fBRL(d.value)}</div><div class="dc-s">${pct}% do total</div>`;
+  }
+}
 function renderDonut(){
-  const S=130, STROKE=20, R=(S-STROKE)/2, CIRC=2*Math.PI*R, T=total();
+  const S=132, STROKE=22, R=(S-STROKE)/2, CIRC=2*Math.PI*R, T=total();
   const svg=document.getElementById('donut'); svg.innerHTML='';
   const ns='http://www.w3.org/2000/svg';
   const base=document.createElementNS(ns,'circle');
   base.setAttribute('cx',S/2);base.setAttribute('cy',S/2);base.setAttribute('r',R);
   base.setAttribute('fill','none');base.setAttribute('stroke','rgba(148,163,184,.2)');base.setAttribute('stroke-width',STROKE);
   svg.appendChild(base);
-  let off=0;
-  chartData().forEach(d=>{
-    const pct=T>0?d.value/T:0, dash=pct*CIRC;
+  const data=chartData(); let off=0;
+  data.forEach((d,i)=>{
+    const dash=(T>0?d.value/T:0)*CIRC;
     const c=document.createElementNS(ns,'circle');
+    c.setAttribute('class','slice');c.setAttribute('data-idx',i);c.setAttribute('data-plat',d.plat);
     c.setAttribute('cx',S/2);c.setAttribute('cy',S/2);c.setAttribute('r',R);
     c.setAttribute('fill','none');c.setAttribute('stroke',d.color);c.setAttribute('stroke-width',STROKE);
     c.setAttribute('stroke-dasharray',`${dash} ${CIRC-dash}`);c.setAttribute('stroke-dashoffset',-off);
+    c.addEventListener('mouseenter',()=>setDonutFocus(i));
+    c.addEventListener('mouseleave',()=>setDonutFocus(null));
+    c.addEventListener('click',()=>openDrawer(d.plat));
     svg.appendChild(c); off+=dash;
   });
   const leg=document.getElementById('legend'); leg.innerHTML='';
-  chartData().forEach(d=>{
+  data.forEach((d,i)=>{
     const pct=T>0?Math.round(d.value/T*100):0;
-    const row=el('div','legrow');
+    const row=el('div','legrow'); row.setAttribute('data-idx',i);
     row.innerHTML=`<span class="sw" style="background:${d.color}"></span>
-      <span class="lb">${d.label}</span><span class="vv">${fBRL(d.value)}</span><span class="pc">${pct}%</span>`;
+      <div class="meta"><div class="lb">${d.label}</div>
+      <div class="row2"><span class="vv">${fBRL(d.value)}</span><span class="pc">${pct}%</span></div></div>`;
+    row.addEventListener('mouseenter',()=>setDonutFocus(i));
+    row.addEventListener('mouseleave',()=>setDonutFocus(null));
+    row.addEventListener('click',()=>openDrawer(d.plat));
     leg.appendChild(row);
   });
+  setDonutFocus(null);
 }
 
 /* ---------------- Alertas ---------------- */
 function renderAlerts(){
   const c=document.getElementById('alerts'); c.innerHTML='';
   const list=[];
-  const nat=AWS.find(r=>r.nome==='motor-credito-nat');
-  if(nat&&nat.atual>nat.anterior) list.push({t:'warn',m:`NAT Gateway subiu ${fUSD(nat.atual-nat.anterior)} vs julho — verifique tráfego de saída`});
-  const rds=AWS.find(r=>r.nome==='motor-credito-advanced');
-  if(rds&&rds.atual>rds.anterior*1.5) list.push({t:'warn',m:`RDS motor-credito-advanced quase dobrou: ${fUSD(rds.anterior)} → ${fUSD(rds.atual)}`});
-  const atf=AWS.find(r=>r.nome==='service-atf');
-  if(atf&&atf.atual<atf.anterior) list.push({t:'ok',m:`ECS service-atf reduziu ${fUSD(atf.anterior-atf.atual)} vs julho — bom sinal`});
-  list.push({t:'info',m:`${IDLE_IPS.length} IPs reservados ociosos na Digital Ocean — ${fBRL(idleBrl())}/mês em desperdício`});
-  list.forEach(a=>{
-    const icon=a.t==='warn'?'🔴':a.t==='ok'?'✅':'ℹ️';
-    c.appendChild(el('div',`alert ${a.t}`,`<span>${icon}</span><span>${a.m}</span>`));
-  });
+  const nat=DATA.aws.find(r=>/nat/i.test(r.nome));
+  if(nat&&nat.atual>nat.anterior) list.push({t:'warn',m:`NAT Gateway subiu ${fUSD(nat.atual-nat.anterior)} no período — verifique tráfego de saída`});
+  const rds=DATA.aws.find(r=>/motor-credito-advanced/.test(r.nome));
+  if(rds&&rds.anterior>0&&rds.atual>rds.anterior*1.5) list.push({t:'warn',m:`RDS motor-credito-advanced quase dobrou: ${fUSD(rds.anterior)} → ${fUSD(rds.atual)}`});
+  const atf=DATA.aws.find(r=>r.nome==='service-atf');
+  if(atf&&atf.atual<atf.anterior) list.push({t:'ok',m:`ECS service-atf reduziu ${fUSD(atf.anterior-atf.atual)} no período — bom sinal`});
+  if(DATA.idleIps.length) list.push({t:'info',m:`${DATA.idleIps.length} IPs reservados ociosos na Digital Ocean — ${fBRL(idleBrl())}/mês em desperdício`});
+  if(!list.length) list.push({t:'ok',m:'Nenhum alerta no período selecionado.'});
+  list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
 }
 
 /* ---------------- Platform buttons ---------------- */
 function renderPlats(){
   const c=document.getElementById('plats'); c.innerHTML='';
-  const awsDelta = AWS.reduce((s,r)=>s+(r.atual-r.anterior),0);
+  const awsDelta=DATA.aws.reduce((s,r)=>s+(r.atual-r.anterior),0);
   const btns=[
-    {id:'do', i:'🌊', label:'Digital Ocean', v:fBRL(doBrl()), sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`, foot:'9 droplets · 6 databases · snapshots'},
-    {id:'aws',i:'☁️', label:'Amazon AWS',    v:fBRL(awsBrl()),sub:fUSD(awsUsd()), foot:`▼ ${fUSD(Math.abs(awsDelta))} vs julho`, ok:true},
-    {id:'lic',i:'🪪', label:'Licenças',      v:fBRL(licBrl()),sub:'Valor fixo mensal', foot:`Claude Pro × ${state.claude} · Figma × ${state.figma}`},
-    {id:'ds', i:'🤖', label:'DeepSeek',      v:fBRL(dsBrl()), sub:'Entrada manual', foot:'API de IA · billing manual'},
+    {id:'do', label:'Digital Ocean', v:fBRL(doBrl()), sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`, foot:`${DATA.doDroplets.length} droplets · ${DATA.doDatabases.length} databases`},
+    {id:'aws',label:'Amazon AWS',    v:fBRL(awsBrl()),sub:fUSD(awsUsd()), foot:`${awsDelta<=0?'▼':'▲'} ${fUSD(Math.abs(awsDelta))} vs período anterior`, ok:awsDelta<=0},
+    {id:'lic',label:'Licenças',      v:fBRL(licBrl()),sub:'Valor fixo mensal', foot:`Claude Pro × ${state.claude} · Figma × ${state.figma}`},
+    {id:'ds', label:'DeepSeek',      v:fBRL(dsBrl()), sub:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'entrada manual', foot:'API de IA'},
   ];
   btns.forEach(b=>{
-    const btn=el('button','plat'); btn.dataset.c=b.id; btn.setAttribute('aria-expanded','false');
-    btn.innerHTML=`<div class="ph"><span class="pemoji">${b.i}</span><span class="chev">▾</span></div>
+    const btn=el('button','plat'); btn.dataset.c=b.id;
+    btn.innerHTML=`<div class="ph">${PLOGO[b.id]}<span class="chev">${IC.chev}</span></div>
       <div><div class="plabel">${b.label}</div><div class="pval">${b.v}</div><div class="psub">${b.sub}</div></div>
       <div class="pfoot ${b.ok?'ok':''}">${b.foot}</div>`;
     btn.onclick=()=>openDrawer(b.id);
@@ -472,72 +599,65 @@ function renderPlats(){
 function resourceCard(r, kind){
   const d=el('div','res'); d.dataset.c=kind;
   const chip = kind==='aws'? r.servico : r.tipo;
-  const chipCls = chip==='Managed'||chip==='DB'?'DB':chip;
   d.style.setProperty('--tc', kind==='aws'?'var(--amber)':'var(--blue)');
-  let html=`<div class="rh"><span class="rn">${r.nome}</span><span class="chip ${chipCls}">${chip}</span></div>`;
+  let html=`<div class="rh"><span class="rn">${r.nome}</span><span class="chip ${chip}">${chip}</span></div>`;
   if(kind==='aws'){
     const val=r[awsField()];
     html+=`<div class="rprice">${fUSD(val)}<small>/mês</small></div><div class="rbrl">${fBRL(val*state.usd)}/mês</div>`;
     html+=`<div class="rdet">${r.detalhe||'—'}</div>`;
-    if(r.atual!==r.anterior){
-      const up=r.atual>r.anterior;
-      html+=`<div class="rdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(r.atual-r.anterior))} vs julho</div>`;
-    }
-    if(r.projeto!=='—') html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
+    if(r.atual!==r.anterior){const up=r.atual>r.anterior;
+      html+=`<div class="rdelta ${up?'up':'down'}">${up?'▲':'▼'} ${fUSD(Math.abs(r.atual-r.anterior))} vs anterior</div>`;}
+    if(r.projeto&&r.projeto!=='—') html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
     html+=`<div class="rmore">Clique para detalhar →</div>`;
     d.className='res click'; d.dataset.c='aws';
     d.onclick=()=>openModal(r);
   }else{
-    if(r.usd>0){
-      html+=`<div class="rprice">${fUSD(r.usd)}<small>/mês</small></div><div class="rbrl">${fBRL(r.usd*state.usd)}/mês</div>`;
-    }else{
-      html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
-    }
-    html+=`<div class="rdet">${r.spec} · ${r.regiao}${r.ip?(' · '+r.ip):''}</div>`;
+    if(+r.usd>0) html+=`<div class="rprice">${fUSD(r.usd)}<small>/mês</small></div><div class="rbrl">${fBRL(r.usd*state.usd)}/mês</div>`;
+    else html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
+    html+=`<div class="rdet">${r.spec} · ${r.regiao||''}${r.ip&&r.ip!=='—'?(' · '+r.ip):''}</div>`;
   }
-  d.innerHTML=html;
-  return d;
+  d.innerHTML=html; return d;
 }
 
 /* ---------------- Drawer ---------------- */
 function openDrawer(plat){
   const sheet=document.getElementById('drawerSheet');
   const meta={
-    do:{i:'🌊',label:'Digital Ocean',badge:`${fBRL(doBrl())} · ${fUSD(doUsd())}`},
-    aws:{i:'☁️',label:'AWS — sa-east-1 · Cost Explorer',badge:`${fBRL(awsBrl())} · ${fUSD(awsUsd())}`},
-    lic:{i:'🪪',label:'Licenças de Software',badge:fBRL(licBrl())},
-    ds:{i:'🤖',label:'DeepSeek — Entrada manual',badge:fBRL(dsBrl())},
+    do:{label:'Digital Ocean',badge:`${fBRL(doBrl())} · ${fUSD(doUsd())}`,logo:LOGO.do},
+    aws:{label:'AWS — Cost Explorer',badge:`${fBRL(awsBrl())} · ${fUSD(awsUsd())}`,logo:LOGO.aws},
+    lic:{label:'Licenças de Software',badge:fBRL(licBrl()),logo:LOGO.claude},
+    ds:{label:'DeepSeek',badge:state.dsBalance!=null?`saldo ${fUSD(state.dsBalance)}`:fBRL(dsBrl()),logo:LOGO.deepseek},
   }[plat];
-  sheet.innerHTML=`<div class="dhead"><div class="row"><span style="font-size:20px">${meta.i}</span>
-    <div><div class="dt">${meta.label}</div><div class="db">${meta.badge}</div></div></div>
-    <button class="xbtn" onclick="closeOv('drawer')">✕</button></div>`;
+  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${meta.logo}</span>
+    <div><div class="dt">${meta.label}</div><div class="db">${meta.badge} · ${state.rangeLabel} (${brDate(state.start)}–${brDate(state.end)})</div></div></div>
+    <button class="xbtn" onclick="closeOv('drawer')">${IC.x}</button></div>`;
 
   if(plat==='do'){
     sheet.appendChild(el('div','banner warn',
-      `⚠️ <strong>${IDLE_IPS.length} IPs reservados ociosos</strong>: ${IDLE_IPS.join(', ')} — desperdício de <strong>${fBRL(idleBrl())}/mês</strong>. Libere ou atribua.`));
-    const g1=el('div','grid-res'); DO_DROPLETS.forEach(r=>g1.appendChild(resourceCard(r,'do'))); sheet.appendChild(g1);
+      `${IC.warn}<span><strong>${DATA.idleIps.length} IPs reservados ociosos</strong>: ${DATA.idleIps.join(', ')} — desperdício de <strong>${fBRL(idleBrl())}/mês</strong>. Libere ou atribua. (valores DO = run-rate mensal atual)</span>`));
+    const g1=el('div','grid-res'); DATA.doDroplets.forEach(r=>g1.appendChild(resourceCard(r,'do'))); sheet.appendChild(g1);
     sheet.appendChild(el('div','sublabel','Managed Databases — preço no painel DO'));
-    const g2=el('div','grid-res'); DO_DATABASES.forEach(r=>g2.appendChild(resourceCard(r,'do'))); sheet.appendChild(g2);
+    const g2=el('div','grid-res'); DATA.doDatabases.forEach(r=>g2.appendChild(resourceCard(r,'do'))); sheet.appendChild(g2);
   } else if(plat==='aws'){
-    const g=el('div','grid-res'); AWS.forEach(r=>g.appendChild(resourceCard(r,'aws'))); sheet.appendChild(g);
+    const g=el('div','grid-res'); DATA.aws.forEach(r=>g.appendChild(resourceCard(r,'aws'))); sheet.appendChild(g);
   } else if(plat==='lic'){
     const g=el('div','grid-res');
-    g.appendChild(el('div','lic',`<div class="rh"><span class="rn">🧠 Claude Pro</span><span class="chip DB">Fixo</span></div>
-      <div class="lp">${fBRL(state.claude*110)}<small style="font-size:11px;font-weight:400;color:var(--muted-2)">/mês</small></div>
-      <div class="rproj">${state.claude} usuários × R$ 110,00 · Anthropic</div>`));
-    g.appendChild(el('div','lic',`<div class="rh"><span class="rn">🎨 Figma</span><span class="chip DB">Fixo</span></div>
-      <div class="lp">${fBRL(state.figma*120)}<small style="font-size:11px;font-weight:400;color:var(--muted-2)">/mês</small></div>
-      <div class="rproj">${state.figma} licença(s) × R$ 120,00 · Figma Inc.</div>`));
+    g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.claude} Claude Pro</span><span class="chip">Fixo</span></div>
+      <div class="lp">${fBRL(state.claude*110)}<small>/mês</small></div><div class="rproj">${state.claude} usuários × R$ 110,00 · Anthropic</div>`));
+    g.appendChild(el('div','lic',`<div class="lh"><span class="ln">${LOGO.figma} Figma</span><span class="chip">Fixo</span></div>
+      <div class="lp">${fBRL(state.figma*120)}<small>/mês</small></div><div class="rproj">${state.figma} licença(s) × R$ 120,00 · Figma Inc.</div>`));
     sheet.appendChild(g);
   } else if(plat==='ds'){
     sheet.appendChild(el('div','banner warn',
-      `⚠️ A API do DeepSeek não expõe endpoint de billing. Consulte em <strong>platform.deepseek.com → Billing</strong> e informe abaixo.`));
+      `${IC.warn}<span>A API do DeepSeek expõe apenas o <strong>saldo</strong> (não o custo por data). O <strong>Total cost</strong> que aparece no console (ex.: $0,76) é informado abaixo. Veja o README para calcular pelos tokens.</span>`));
     const row=el('div','ds-row');
-    row.innerHTML=`<label><span class="uplabel">Gasto do mês (USD)</span><input id="dsUsd" type="number" min="0" step="0.01" placeholder="ex: 45.00" value="${state.dsUsd||''}" style="width:160px"></label>
-      <label><span class="uplabel">Projeto</span><input id="dsProj" type="text" placeholder="ex: motor-credito" value="${state.dsProj||''}" style="width:190px"></label>
-      <div class="ds-total"><div class="st uplabel">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>`;
+    row.innerHTML=`
+      ${state.dsBalance!=null?`<div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv">${fUSD(state.dsBalance)}</div></div>`:''}
+      <label><span class="uplabel">Total cost do período (USD)</span><input id="dsUsd" type="number" min="0" step="0.01" placeholder="ex: 0.76" value="${state.dsUsd||''}" style="width:180px"></label>
+      <label><span class="uplabel">Projeto</span><input id="dsProj" type="text" placeholder="ex: motor-credito" value="${state.dsProj||''}" style="width:180px"></label>
+      <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>`;
     sheet.appendChild(row);
-    row.querySelector('#dsUsd').oninput=e=>{state.dsUsd=+e.target.value||0; row.querySelector('.sv').textContent=fBRL(dsBrl()); renderAll(false);};
+    row.querySelector('#dsUsd').oninput=e=>{state.dsUsd=+e.target.value||0; row.querySelector('.ds-card.total .sv').textContent=fBRL(dsBrl()); renderAll(false);};
     row.querySelector('#dsProj').oninput=e=>{state.dsProj=e.target.value;};
   }
   showOv('drawer');
@@ -545,15 +665,17 @@ function openDrawer(plat){
 
 /* ---------------- Modal (detalhe AWS) ---------------- */
 function openModal(r){
-  const delta=r.atual-r.anterior, proj=r.atual/27*30;
+  const delta=r.atual-r.anterior;
+  const dias=Math.max(1,Math.round((new Date(state.end)-new Date(state.start))/86400000));
+  const proj=r.atual/dias*30;
   const pct=r.anterior===0?null:((delta/r.anterior)*100).toFixed(1);
   const sheet=document.getElementById('modalSheet');
   sheet.innerHTML=`
-    <div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${r.servico} · projeto: ${r.projeto}</div></div>
-      <button class="xbtn" onclick="closeOv('modal')">✕</button></div>
+    <div class="dhead"><div><div class="dt">${r.nome}</div><div class="db">${r.servico} · projeto: ${r.projeto} · ${state.rangeLabel}</div></div>
+      <button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
     <div class="stat4">
-      <div class="stat"><div class="st">Agosto 2026</div><div class="sv" style="color:var(--amber)">${fUSD(r.atual)}</div><div class="ss">${fBRL(r.atual*state.usd)}</div></div>
-      <div class="stat"><div class="st">Julho 2026</div><div class="sv" style="color:var(--muted)">${r.anterior>0?fUSD(r.anterior):'Novo'}</div><div class="ss">${r.anterior>0?fBRL(r.anterior*state.usd):''}</div></div>
+      <div class="stat"><div class="st">Período atual</div><div class="sv" style="color:var(--amber)">${fUSD(r.atual)}</div><div class="ss">${fBRL(r.atual*state.usd)}</div></div>
+      <div class="stat"><div class="st">Período anterior</div><div class="sv" style="color:var(--muted)">${r.anterior>0?fUSD(r.anterior):'Novo'}</div><div class="ss">${r.anterior>0?fBRL(r.anterior*state.usd):''}</div></div>
       <div class="stat"><div class="st">Variação</div><div class="sv ${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${fUSD(Math.abs(delta))}</div><div class="ss ${delta>0?'up':'down'}">${pct!==null?((delta>0?'+':'')+pct+'%'):'Recurso novo'}</div></div>
       <div class="stat"><div class="st">Projeção 30d</div><div class="sv">${fUSD(proj)}</div><div class="ss">${fBRL(proj*state.usd)}</div></div>
     </div>
@@ -570,34 +692,65 @@ function openModal(r){
 function showOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
 window.closeOv=closeOv;
-['drawer','modal'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',e=>{ if(e.target.id===id) closeOv(id); });
-});
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){closeOv('drawer');closeOv('modal');} });
+['drawer','modal'].forEach(id=>document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id)closeOv(id);}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeOv('drawer');closeOv('modal');}});
 
 /* ---------------- render ---------------- */
-function renderAll(rebuildPlats=true){
+function renderAll(rebuild=true){
   renderKpis(); renderDonut(); renderAlerts();
-  if(rebuildPlats) renderPlats();
-  document.getElementById('periodTag').textContent = state.period==='atual'?'1–27 ago/2026':'1–31 jul/2026';
-  document.getElementById('foot').innerHTML =
-    `Snapshot dos dados: <strong>${CONFIG.snapshotDate.split('-').reverse().join('/')}</strong> · `+
-    `cotação USD/BRL: <strong>${state.usd.toFixed(2)}</strong> · `+
-    (CONFIG.apiBase?'modo tempo real (backend)':'modo snapshot — ligue o backend seguro para tempo real');
+  if(rebuild) renderPlats();
+  document.getElementById('claudeCalc').textContent='= '+fBRL(state.claude*110)+'/mês';
+  document.getElementById('figmaCalc').textContent='= '+fBRL(state.figma*120)+'/mês';
+  document.getElementById('periodTag').textContent=`${state.rangeLabel} · ${brDate(state.start)}–${brDate(state.end)}`;
+  document.getElementById('foot').innerHTML=
+    `Snapshot: <strong>${brDate(CONFIG.snapshotDate)}</strong> · cotação USD/BRL <strong>${state.usd.toFixed(2)}</strong> · `+
+    (state.apiMode?'<strong>modo tempo real</strong> (backend)':'modo snapshot — configure CONFIG.apiBase p/ tempo real');
 }
 
-/* ---------------- controls binding ---------------- */
+/* ---------------- carregar dados (snapshot ou API) ---------------- */
+async function loadData(){
+  computeRange();
+  if(CONFIG.apiBase){
+    const qs=`?start=${state.start}&end=${state.end}`;
+    try{
+      const r=await fetchT(CONFIG.apiBase+'/api/all'+qs,9000);
+      const j=await r.json();
+      if(j.digitalocean&&!j.digitalocean.error){
+        DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;
+        DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;
+        DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);
+      }
+      if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length) DATA.aws=j.aws.resources;
+      if(j.licencas){ state.claude=j.licencas.claudeUsers??state.claude; state.figma=j.licencas.figmaLicencas??state.figma; }
+      if(j.deepseek&&!j.deepseek.error){ state.dsBalance=j.deepseek.balanceUsd; if(j.deepseek.spentUsdManual) state.dsUsd=j.deepseek.spentUsdManual; }
+      if(j.fx&&j.fx.rate){ state.usd=+(+j.fx.rate).toFixed(4); }
+      state.apiMode=true;
+    }catch(_){ state.apiMode=false; DATA=JSON.parse(JSON.stringify(SNAP)); }
+  } else {
+    state.apiMode=false; DATA=JSON.parse(JSON.stringify(SNAP));
+  }
+  syncInputs(); renderAll();
+}
+
+/* ---------------- controls ---------------- */
+function syncInputs(){
+  document.getElementById('usd').value=state.usd.toFixed(2);
+  document.getElementById('claude').value=state.claude;
+  document.getElementById('figma').value=state.figma;
+}
+document.getElementById('preset').addEventListener('change',e=>{
+  state.preset=e.target.value;
+  document.getElementById('customDates').classList.toggle('on',state.preset==='custom');
+  loadData();
+});
+document.getElementById('dStart').addEventListener('change',e=>{state.start=e.target.value; if(state.preset==='custom')loadData();});
+document.getElementById('dEnd').addEventListener('change',e=>{state.end=e.target.value; if(state.preset==='custom')loadData();});
 document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault; renderAll();});
 document.getElementById('claude').addEventListener('input',e=>{state.claude=+e.target.value||0; renderAll();});
 document.getElementById('figma').addEventListener('input',e=>{state.figma=+e.target.value||0; renderAll();});
-document.getElementById('period').addEventListener('change',e=>{state.period=e.target.value; renderAll();});
 
 /* ---------------- tema ---------------- */
-function currentTheme(){
-  const attr=document.documentElement.getAttribute('data-theme');
-  if(attr) return attr;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
-}
+function currentTheme(){const a=document.documentElement.getAttribute('data-theme'); return a||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}
 document.getElementById('themeBtn').onclick=()=>{
   const next=currentTheme()==='dark'?'light':'dark';
   document.documentElement.setAttribute('data-theme',next);
@@ -606,35 +759,25 @@ document.getElementById('themeBtn').onclick=()=>{
 };
 try{const t=localStorage.getItem('custos-theme'); if(t)document.documentElement.setAttribute('data-theme',t);}catch(_){}
 
-/* ---------------- cotação ao vivo (sem chave / sem segredo) ---------------- */
+/* ---------------- cotação ao vivo ---------------- */
 async function fetchFx(){
-  const tag=document.getElementById('fxTag');
-  tag.textContent='buscando...';
-  // Se houver backend, use-o; senão, API pública de câmbio (não expõe segredo).
-  const url = CONFIG.apiBase ? `${CONFIG.apiBase}/api/usd-brl` : 'https://open.er-api.com/v6/latest/USD';
+  const tag=document.getElementById('fxTag'); tag.textContent='buscando...';
+  const url=CONFIG.apiBase?`${CONFIG.apiBase}/api/usd-brl`:'https://open.er-api.com/v6/latest/USD';
   try{
-    const r=await fetch(url,{cache:'no-store'});
-    const j=await r.json();
-    const rate = CONFIG.apiBase ? j.rate : j.rates.BRL;
-    if(rate){
-      state.usd=+(+rate).toFixed(4);
-      document.getElementById('usd').value=state.usd.toFixed(2);
-      const now=new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      tag.textContent='ao vivo '+now;
-      renderAll();
-    }else tag.textContent='cotação 27/08/2026';
-  }catch(_){
-    tag.textContent='cotação 27/08/2026 (offline)';
-  }
+    const r=await fetchT(url,7000); const j=await r.json();
+    const rate=CONFIG.apiBase?j.rate:j.rates.BRL;
+    if(rate){ state.usd=+(+rate).toFixed(4); document.getElementById('usd').value=state.usd.toFixed(2);
+      tag.textContent='ao vivo '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); renderAll(); }
+    else tag.textContent='cotação 27/08/2026';
+  }catch(_){ tag.textContent='cotação 27/08/2026 (offline)'; }
 }
 document.getElementById('fxBtn').onclick=fetchFx;
 
 /* ---------------- init ---------------- */
-document.getElementById('usd').value=state.usd.toFixed(2);
-document.getElementById('claude').value=state.claude;
-document.getElementById('figma').value=state.figma;
-renderAll();
-// tenta cotação ao vivo automaticamente (silencioso se bloqueado)
+document.getElementById('topBadge').innerHTML=IC.chart;
+document.getElementById('themeIc').innerHTML=IC.sun;
+document.getElementById('fxIc').innerHTML=IC.refresh;
+loadData();
 fetchFx();
 </script>
 </body>
