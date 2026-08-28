@@ -31,10 +31,14 @@
 'use strict';
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { URL } = require('url');
 
 const PORT = process.env.PORT || 8787;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const CE_REGION = 'us-east-1';                                   // Cost Explorer só existe em us-east-1
+const DESCRIBE_REGION = process.env.AWS_REGION || 'sa-east-1';   // recursos ficam em sa-east-1
 
 /* ------------------------------- utils ---------------------------------- */
 function send(res, status, body) {
@@ -148,7 +152,7 @@ async function getAws(range) {
   const prev = previousRange(range.start, range.end);
   const key = `aws:${range.start}:${range.end}`;
   return cached(key, 30 * 60 * 1000, async () => {
-    const client = new CostExplorerClient({ region: process.env.AWS_REGION || 'us-east-1' });
+    const client = new CostExplorerClient({ region: CE_REGION });
     const query = (s, e) => client.send(new GetCostAndUsageCommand({
       TimePeriod: { Start: s, End: e },
       Granularity: 'MONTHLY',
@@ -249,11 +253,82 @@ async function getLicencas() {
   };
 }
 
+/* --------------------- 6) Desperdício (recursos ociosos) ------------------ */
+// Consulta DO e AWS por recursos que não estão em uso mas geram custo.
+async function getWaste() {
+  return cached('waste', 10 * 60 * 1000, async () => {
+    const items = [];
+    // ---- DigitalOcean ----
+    const token = process.env.DO_TOKEN;
+    if (token) {
+      const H = { Authorization: `Bearer ${token}` };
+      const doGet = async (p) => (await fetch(`https://api.digitalocean.com/v2/${p}`, { headers: H })).json();
+      try {
+        const ips = await doGet('reserved_ips?per_page=200');
+        (ips.reserved_ips || []).filter((i) => !i.droplet).forEach((i) =>
+          items.push({ plataforma: 'DigitalOcean', tipo: 'Reserved IP', nome: i.ip, motivo: 'IP reservado sem droplet', usdMes: 4 }));
+      } catch (_) {}
+      try {
+        const dr = await doGet('droplets?per_page=200');
+        (dr.droplets || []).filter((d) => d.status && d.status !== 'active').forEach((d) =>
+          items.push({ plataforma: 'DigitalOcean', tipo: `Droplet ${d.status}`, nome: d.name, motivo: `droplet ${d.status} ainda gera custo`, usdMes: (d.size && d.size.price_monthly) || 0 }));
+      } catch (_) {}
+      try {
+        const vol = await doGet('volumes?per_page=200');
+        (vol.volumes || []).filter((v) => !(v.droplet_ids || []).length).forEach((v) =>
+          items.push({ plataforma: 'DigitalOcean', tipo: 'Volume solto', nome: v.name, motivo: 'block storage sem droplet', usdMes: +((v.size_gigabytes || 0) * 0.10).toFixed(2) }));
+      } catch (_) {}
+    }
+    // ---- AWS: ECS com 0 tarefas rodando + EBS não anexado ----
+    try {
+      const { ECSClient, ListClustersCommand, ListServicesCommand, DescribeServicesCommand } = require('@aws-sdk/client-ecs');
+      const ecs = new ECSClient({ region: DESCRIBE_REGION });
+      const cl = await ecs.send(new ListClustersCommand({}));
+      for (const arn of (cl.clusterArns || [])) {
+        const sv = await ecs.send(new ListServicesCommand({ cluster: arn, maxResults: 100 }));
+        const arns = sv.serviceArns || [];
+        for (let i = 0; i < arns.length; i += 10) {
+          const dd = await ecs.send(new DescribeServicesCommand({ cluster: arn, services: arns.slice(i, i + 10) }));
+          (dd.services || []).forEach((s) => {
+            if ((s.desiredCount || 0) > 0 && (s.runningCount || 0) === 0)
+              items.push({ plataforma: 'AWS', tipo: 'ECS', nome: s.serviceName, motivo: 'serviço com 0 tarefas rodando (paga mesmo parado)', usdMes: null });
+          });
+        }
+      }
+    } catch (_) {}
+    try {
+      const { EC2Client, DescribeVolumesCommand, DescribeAddressesCommand } = require('@aws-sdk/client-ec2');
+      const ec2 = new EC2Client({ region: DESCRIBE_REGION });
+      const vol = await ec2.send(new DescribeVolumesCommand({ Filters: [{ Name: 'status', Values: ['available'] }] }));
+      (vol.Volumes || []).forEach((v) =>
+        items.push({ plataforma: 'AWS', tipo: 'EBS solto', nome: v.VolumeId, motivo: 'volume EBS não anexado', usdMes: +((v.Size || 0) * 0.10).toFixed(2) }));
+      const ips = await ec2.send(new DescribeAddressesCommand({}));
+      (ips.Addresses || []).filter((a) => !a.AssociationId).forEach((a) =>
+        items.push({ plataforma: 'AWS', tipo: 'Elastic IP', nome: a.PublicIp, motivo: 'IP elástico não associado', usdMes: 3.6 }));
+    } catch (_) {}
+    return items;
+  });
+}
+
+/* ------------------------------ static ----------------------------------- */
+function serveIndex(res) {
+  try {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+  } catch (e) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('index.html não encontrado');
+  }
+}
+
 /* ------------------------------ router ----------------------------------- */
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://${req.headers.host}`);
   const range = resolveRange(u.searchParams);
   if (req.method === 'OPTIONS') return send(res, 204, {});
+  // serve o painel (para o front auto-conectar ao mesmo host)
+  if (req.method === 'GET' && (u.pathname === '/' || u.pathname === '/index.html')) return serveIndex(res);
   try {
     switch (u.pathname) {
       case '/api/health':       return send(res, 200, { ok: true, ts: Date.now() });
@@ -262,15 +337,17 @@ const server = http.createServer(async (req, res) => {
       case '/api/aws':          return send(res, 200, await getAws(range));
       case '/api/deepseek':     return send(res, 200, await getDeepseek(range));
       case '/api/licencas':     return send(res, 200, await getLicencas());
+      case '/api/waste':        return send(res, 200, await getWaste());
       case '/api/all': {
-        const [fx, dobj, aws, ds, lic] = await Promise.all([
+        const [fx, dobj, aws, ds, lic, waste] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
           getDigitalOcean().catch((e) => ({ error: String(e.message) })),
           getAws(range).catch((e) => ({ error: String(e.message) })),
           getDeepseek(range).catch((e) => ({ error: String(e.message) })),
           getLicencas().catch((e) => ({ error: String(e.message) })),
+          getWaste().catch(() => []),
         ]);
-        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, periodo: range });
+        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, waste, periodo: range });
       }
       default: return send(res, 404, { error: 'not found' });
     }
@@ -280,6 +357,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[custos-ti] backend seguro em http://localhost:${PORT}`);
-  console.log(`[custos-ti] CORS liberado para: ${ALLOWED_ORIGIN}`);
+  console.log(`[custos-ti] Painel + API em  http://localhost:${PORT}`);
+  console.log(`[custos-ti] Abra esse endereço no navegador — o painel se conecta sozinho e puxa tudo ao vivo.`);
 });

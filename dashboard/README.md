@@ -15,14 +15,29 @@ dashboard/
 
 ---
 
-## 1. Ver o dashboard agora (modo snapshot)
+## 0. Rodar TUDO ao vivo (recomendado) — o backend serve o painel
 
-Basta abrir `index.html` no navegador (duplo clique) — ou servir a pasta:
+Um comando só: o backend serve o `index.html` e o painel **se conecta sozinho**
+(sem configurar nada, sem key no front). Tudo é consultado ao vivo pelas APIs
+usando o `.env`, e **atualiza conforme as datas** que você escolher:
 
 ```bash
-cd dashboard
-python3 -m http.server 5500    # depois abra http://localhost:5500
+cd dashboard/server
+cp .env.example .env      # preencha DO_TOKEN, AWS_*, DEEPSEEK_API_KEY, DEEPSEEK_TOTAL_TOPPED_UP=2.00
+npm install
+npm start                 # abra http://localhost:8787 no navegador
 ```
+
+Aí: AWS vem do Cost Explorer **pelo período escolhido** (Julho mostra Julho,
+Agosto mostra Agosto), DigitalOcean e DeepSeek pela API, câmbio ao vivo, e os
+alertas mostram o que **aumentou/diminuiu no período** + recursos ociosos
+(IPs, volumes soltos, ECS parado). Nada fica “mockado” no front.
+
+## 1. Só ver o layout (snapshot offline)
+
+Sem backend, abra `index.html` direto (duplo clique). Ele usa o último snapshot
+real (AWS por mês: Jul $1.859 / Ago $1.309) só para você ver o desenho — o rodapé
+avisa “snapshot offline”. Para dados ao vivo, use o passo 0.
 
 Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores verdadeiros do **Cost Explorer** (agosto $1.308,69 · julho $1.859,46, total por serviço), e a **cotação do dólar de 27/08/2026 = R$ 5,15** (consultada no dia). O custo por recurso dentro de cada serviço é um rateio (o Cost Explorer só expõe por serviço sem tags de alocação); o subtotal do serviço é exato. O botão **"ao vivo"** busca o câmbio atual em tempo real de uma API pública de câmbio (não precisa de segredo). As plataformas aparecem com o **logo real** (DigitalOcean, AWS, Claude, Figma, DeepSeek), não emojis.
 
