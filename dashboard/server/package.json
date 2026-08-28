@@ -12,9 +12,12 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.600.0",
     "@aws-sdk/client-cost-explorer": "^3.600.0",
     "@aws-sdk/client-ec2": "^3.600.0",
     "@aws-sdk/client-ecs": "^3.600.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.600.0",
+    "@aws-sdk/client-rds": "^3.600.0",
     "dotenv": "^16.4.5"
   }
 }

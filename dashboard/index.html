@@ -91,6 +91,14 @@ html,body{margin:0}
 .iplist{display:flex; flex-wrap:wrap; gap:8px; padding:4px 22px 6px}
 .ipchip{border:1px solid var(--border); background:var(--panel-2); border-radius:10px; padding:8px 12px; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; display:flex; gap:8px; align-items:center}
 .ipchip .amt{color:var(--amber); font-weight:800}
+.wlist{display:flex; flex-direction:column; gap:8px; padding:8px 22px 4px; max-height:340px; overflow:auto}
+.wrow{display:flex; align-items:center; gap:12px; border:1px solid var(--border); background:var(--panel-2); border-radius:12px; padding:10px 14px}
+.wlogo{display:flex; flex-shrink:0} .wlogo .brand{height:18px}
+.wmeta{flex:1; min-width:0}
+.wrow .wn{font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.wrow .wm{font-size:11px; color:var(--muted); line-height:1.4}
+.wrow .wu{font-size:10.5px; color:var(--amber); font-weight:700; margin-top:1px}
+.wrow .wc{font-size:13px; font-weight:800; color:var(--amber); white-space:nowrap; font-variant-numeric:tabular-nums}
 body{background:var(--bg); color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:14px; line-height:1.4; -webkit-font-smoothing:antialiased;}
@@ -640,7 +648,7 @@ function renderKpis(){
     {cls:'kpi click',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws',click:()=>openDrawer('aws')},
     {cls:'kpi click',ic:LOGO.claude,t:'Licenças',n:licBrl(),fmt:fBRL,s:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`,key:'lic',click:()=>openDrawer('lic')},
     {cls:'kpi click',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):(state.apiMode?'sem key no .env':'rode o backend'),key:'ds',click:()=>openDrawer('ds')},
-    {cls:'kpi warn click',ic:IC.warn,t:'IPs Ociosos DO',n:idleBrl(),fmt:fBRL,s:DATA.idleIps.length+' IPs · clique p/ ver',key:'idle',click:openIpModal},
+    {cls:'kpi warn click',ic:IC.warn,t:'Recursos Ociosos',n:wasteBrlMes(),fmt:fBRL,s:wasteList().length+' recursos · clique',key:'idle',click:openWasteModal},
   ];
   items.forEach(k=>{const d=el('div',k.cls);
     d.innerHTML=`<div class="kh"><span class="kt">${k.t}</span><span class="khi">${k.ic}</span></div><div class="kv"></div><div class="ks">${k.s}</div>`;
@@ -685,10 +693,10 @@ function renderDonut(){
 /* ============ Detector de desperdício (recursos ociosos) ============ */
 // Vem do backend (DATA.waste) quando conectado; senão heurística sobre o snapshot.
 function wasteList(){
-  if(Array.isArray(DATA.waste)&&DATA.waste.length!=null&&state.apiMode) return DATA.waste;
+  if(state.apiMode&&Array.isArray(DATA.waste)) return DATA.waste;   // do backend (por métricas)
   const w=[];
-  DATA.idleIps.forEach(ip=>w.push({tipo:'DO · Reserved IP',nome:ip,motivo:'IP reservado sem droplet',usdMes:4}));
-  DATA.aws.forEach(r=>{ if(/0\/\d/.test(r.detalhe||'')) w.push({tipo:'AWS · ECS',nome:r.nome,motivo:'serviço com 0 tarefas rodando, mas gera custo',usdMes:(awsResVal(r,state.start,state.end))}); });
+  DATA.idleIps.forEach(ip=>w.push({plataforma:'DigitalOcean',tipo:'Reserved IP ocioso',nome:ip,motivo:'IP reservado sem droplet',usdMes:4}));
+  DATA.aws.forEach(r=>{ if(/0\/\d/.test(r.detalhe||'')) w.push({plataforma:'AWS',tipo:'ECS parado',nome:r.nome,motivo:'serviço com 0 tarefas rodando, mas gera custo',usdMes:awsResVal(r,state.start,state.end)}); });
   return w;
 }
 const wasteBrlMes=()=>wasteList().reduce((s,x)=>s+(+x.usdMes||0),0)*state.usd;
@@ -712,7 +720,7 @@ function renderAlerts(){
   });
   // desperdício
   const w=wasteList();
-  if(w.length)list.push({t:'info',m:`${w.length} recurso(s) ocioso(s)/sem uso gerando custo — ${fBRL(wasteBrlMes())}/mês. Clique em “IPs Ociosos” ou veja o card DO/AWS.`});
+  if(w.length)list.push({t:'info',m:`${w.length} recurso(s) ocioso(s)/sem uso há 7+ dias gerando custo — ${fBRL(wasteBrlMes())}/mês. Clique no card <strong>Recursos Ociosos</strong>.`});
   if(!list.length)list.push({t:'ok',m:'Sem variações relevantes no período selecionado.'});
   list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
 }
@@ -918,7 +926,7 @@ async function deepseekAuto(force,onStatus){
 
 /* ============ Modal detalhe ============ */
 function openModal(kind,r){
-  const sheet=document.getElementById('modalSheet');
+  const sheet=document.getElementById('modalSheet'); sheet.className='sheet sm';
   if(kind==='aws'){
     const p=prevRange();
     const atual=awsResVal(r,state.start,state.end);
@@ -950,19 +958,30 @@ function openModal(kind,r){
   showOv('modal');
 }
 
-/* ============ IPs ociosos → economia ============ */
-function openIpModal(){
-  const n=DATA.idleIps.length, mensalUsd=n*4, mensalBrl=mensalUsd*state.usd;
-  const sheet=document.getElementById('modalSheet');
-  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${LOGO.do}</span><div><div class="dt">IPs Reservados Ociosos</div><div class="db">DigitalOcean · potencial de economia</div></div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
+/* ============ Recursos ociosos → economia ============ */
+function openWasteModal(){
+  const w=wasteList();
+  const mensalBrl=wasteBrlMes();
+  const comCusto=w.filter(x=>+x.usdMes>0).length;
+  const sheet=document.getElementById('modalSheet'); sheet.className='sheet';       // largura maior
+  const rows=w.length? w.map(x=>{
+    const logo=/digital/i.test(x.plataforma||'')?LOGO.do:LOGO.aws;
+    const custo=(+x.usdMes>0)?`${fBRL(x.usdMes*state.usd)}/mês`:(x.revisar?'revisar':'—');
+    const uso=x.ultimoUso?`último uso ${brDate(x.ultimoUso)}`:(x.diasOcioso?`${x.diasOcioso}+ dias sem uso`:'');
+    return `<div class="wrow">
+      <span class="wlogo">${logo}</span>
+      <div class="wmeta"><div class="wn">${x.nome}</div><div class="wm">${x.tipo} · ${x.motivo}</div>${uso?`<div class="wu">${uso}</div>`:''}</div>
+      <div class="wc">${custo}</div></div>`;
+  }).join(''):`<div class="dsmsg">Nenhum recurso ocioso detectado no período. 👏</div>`;
+  sheet.innerHTML=`<div class="dhead"><div class="dbrand"><span class="chip-logo">${IC.warn}</span><div><div class="dt">Recursos Ociosos — economia possível</div><div class="db">AWS + DigitalOcean · validado por métricas de uso (últimos ${8} dias)</div></div></div><button class="xbtn" onclick="closeOv('modal')">${IC.x}</button></div>
     <div class="stat4">
-      <div class="stat"><div class="st">IPs ociosos</div><div class="sv" style="color:var(--amber)">${n}</div><div class="ss">sem droplet</div></div>
-      <div class="stat"><div class="st">Custo/mês</div><div class="sv" style="color:var(--amber)">${fBRL(mensalBrl)}</div><div class="ss">${fUSD(mensalUsd)}</div></div>
-      <div class="stat"><div class="st">Economia/ano</div><div class="sv down">${fBRL(mensalBrl*12)}</div><div class="ss">${fUSD(mensalUsd*12)}</div></div>
-      <div class="stat"><div class="st">Por IP</div><div class="sv" style="font-size:15px">$4,00</div><div class="ss">/mês cada</div></div>
+      <div class="stat"><div class="st">Recursos ociosos</div><div class="sv" style="color:var(--amber)">${w.length}</div><div class="ss">sem uso / soltos</div></div>
+      <div class="stat"><div class="st">Custo/mês (quantificável)</div><div class="sv" style="color:var(--amber)">${fBRL(mensalBrl)}</div><div class="ss">${comCusto} com custo estimado</div></div>
+      <div class="stat"><div class="st">Economia/ano</div><div class="sv down">${fBRL(mensalBrl*12)}</div><div class="ss">se desligar os ociosos</div></div>
+      <div class="stat"><div class="st">Regra</div><div class="sv" style="font-size:14px">7+ dias</div><div class="ss">sem uso = alerta</div></div>
     </div>
-    <div class="iplist">${DATA.idleIps.map(ip=>`<span class="ipchip">${ip}<span class="amt">${fBRL(4*state.usd)}/mês</span></span>`).join('')}</div>
-    <div class="reco">${IC.warn}<span>Libere ou reatribua esses ${n} IPs para <strong>economizar ${fBRL(mensalBrl*12)}/ano</strong>. Um Reserved IP é gratuito quando está atribuído a um droplet; ocioso custa $4/mês.</span></div>
+    <div class="wlist">${rows}</div>
+    <div class="reco">${IC.warn}<span>Recursos <strong>sem uso há 7+ dias</strong> (bancos sem conexão, load balancers sem tráfego, droplets sem rede) e recursos soltos (IPs, volumes) geram custo à toa. Desligue/remova para economizar <strong>${fBRL(mensalBrl*12)}/ano</strong>.</span></div>
     <div class="mfoot"><button class="btn-ghost" onclick="closeOv('modal')">Fechar</button></div>`;
   showOv('modal');
 }

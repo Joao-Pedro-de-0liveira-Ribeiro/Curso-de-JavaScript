@@ -270,32 +270,107 @@ function getLicencas() {
 }
 
 /* --------------------- 6) Desperdício (recursos ociosos) ------------------ */
-// Consulta DO e AWS por recursos que não estão em uso mas geram custo.
+// Valida por MÉTRICAS se cada recurso está sendo usado, o último dia de uso e,
+// se estiver >7 dias sem uso, alerta. AWS via CloudWatch; DO via monitoring.
+const WASTE_WINDOW_DAYS = 8;      // janela de análise
+const WASTE_IDLE_DAYS = 7;        // alerta se ocioso há >= 7 dias
 async function getWaste() {
-  return cached('waste', 10 * 60 * 1000, async () => {
+  return cached('waste', 15 * 60 * 1000, async () => {
     const items = [];
-    // ---- DigitalOcean ----
+    const now = Date.now(), DAY = 86400000;
+    const start = new Date(now - WASTE_WINDOW_DAYS * DAY), end = new Date(now);
+    const isoDate = (t) => new Date(t).toISOString().slice(0, 10);
+
+    /* ================= DigitalOcean ================= */
     const token = process.env.DO_TOKEN;
     if (token) {
       const H = { Authorization: `Bearer ${token}` };
       const doGet = async (p) => (await fetch(`https://api.digitalocean.com/v2/${p}`, { headers: H })).json();
+      // ociosos "estruturais"
       try {
         const ips = await doGet('reserved_ips?per_page=200');
         (ips.reserved_ips || []).filter((i) => !i.droplet).forEach((i) =>
-          items.push({ plataforma: 'DigitalOcean', tipo: 'Reserved IP', nome: i.ip, motivo: 'IP reservado sem droplet', usdMes: 4 }));
-      } catch (_) {}
-      try {
-        const dr = await doGet('droplets?per_page=200');
-        (dr.droplets || []).filter((d) => d.status && d.status !== 'active').forEach((d) =>
-          items.push({ plataforma: 'DigitalOcean', tipo: `Droplet ${d.status}`, nome: d.name, motivo: `droplet ${d.status} ainda gera custo`, usdMes: (d.size && d.size.price_monthly) || 0 }));
+          items.push({ plataforma: 'DigitalOcean', tipo: 'Reserved IP ocioso', nome: i.ip, motivo: 'IP reservado sem droplet', usdMes: 4 }));
       } catch (_) {}
       try {
         const vol = await doGet('volumes?per_page=200');
         (vol.volumes || []).filter((v) => !(v.droplet_ids || []).length).forEach((v) =>
           items.push({ plataforma: 'DigitalOcean', tipo: 'Volume solto', nome: v.name, motivo: 'block storage sem droplet', usdMes: +((v.size_gigabytes || 0) * 0.10).toFixed(2) }));
       } catch (_) {}
+      // droplets: desligados + SEM TRÁFEGO (uso) há dias, via monitoring/bandwidth
+      let droplets = [];
+      try { droplets = (await doGet('droplets?per_page=200')).droplets || []; } catch (_) {}
+      droplets.filter((d) => d.status && d.status !== 'active').forEach((d) =>
+        items.push({ plataforma: 'DigitalOcean', tipo: `Droplet ${d.status}`, nome: d.name, motivo: `droplet ${d.status} ainda gera custo`, usdMes: (d.size && d.size.price_monthly) || 0 }));
+      for (const d of droplets.filter((x) => x.status === 'active')) {
+        try {
+          const s = Math.floor(start / 1000), e = Math.floor(now / 1000);
+          const url = `https://api.digitalocean.com/v2/monitoring/metrics/droplet/bandwidth?host_id=${d.id}&interface=public&direction=inbound&start=${s}&end=${e}`;
+          const m = await (await fetch(url, { headers: H })).json();
+          const values = (((m.data || {}).result || [])[0] || {}).values;
+          if (!values || !values.length) continue;                 // sem agente de monitoring -> pula
+          let lastTs = 0, maxv = 0;
+          values.forEach(([ts, v]) => { const val = +v; if (val > maxv) maxv = val; if (val > 500) lastTs = Math.max(lastTs, ts); }); // >500 B/s = uso real
+          if (maxv < 500) {
+            const dias = lastTs ? Math.round((now / 1000 - lastTs) / 86400) : WASTE_WINDOW_DAYS;
+            if (dias >= WASTE_IDLE_DAYS) items.push({ plataforma: 'DigitalOcean', tipo: 'Droplet ocioso', nome: d.name,
+              motivo: `sem tráfego de rede há ${dias}+ dias`, usdMes: (d.size && d.size.price_monthly) || 0,
+              diasOcioso: dias, ultimoUso: lastTs ? isoDate(lastTs * 1000) : null });
+          }
+        } catch (_) {}
+      }
+      // databases: a API da DO não expõe métricas de uso -> sinaliza p/ revisão manual
+      try {
+        const db = await doGet('databases');
+        (db.databases || []).forEach((d) => items.push({ plataforma: 'DigitalOcean', tipo: 'Managed DB', nome: d.name,
+          motivo: 'DO não expõe uso por API — confirme se este banco está em uso', usdMes: null, revisar: true }));
+      } catch (_) {}
     }
-    // ---- AWS: ECS com 0 tarefas rodando + EBS não anexado ----
+
+    /* ================= AWS (CloudWatch = uso real) ================= */
+    let cw = null, GetMetric = null;
+    try {
+      const cwm = require('@aws-sdk/client-cloudwatch');
+      cw = new cwm.CloudWatchClient({ region: DESCRIBE_REGION });
+      GetMetric = cwm.GetMetricStatisticsCommand;
+    } catch (_) {}
+    // devolve {lastUsed, diasOcioso, ocioso} para uma métrica diária
+    const metricIdle = async (Namespace, MetricName, Dimensions, Stat) => {
+      if (!cw) return null;
+      const r = await cw.send(new GetMetric({ Namespace, MetricName, Dimensions, StartTime: start, EndTime: end, Period: 86400, Statistics: [Stat] }));
+      const pts = (r.Datapoints || []).map((p) => ({ t: +new Date(p.Timestamp), v: p[Stat] || 0 })).sort((a, b) => a.t - b.t);
+      const used = pts.filter((p) => p.v > 0);
+      const lastUsed = used.length ? used[used.length - 1].t : null;
+      const dias = lastUsed ? Math.round((now - lastUsed) / DAY) : WASTE_WINDOW_DAYS;
+      return { lastUsed, diasOcioso: dias, ocioso: !used.length || dias >= WASTE_IDLE_DAYS };
+    };
+    // RDS: bancos sem conexões
+    try {
+      const { RDSClient, DescribeDBInstancesCommand } = require('@aws-sdk/client-rds');
+      const rds = new RDSClient({ region: DESCRIBE_REGION });
+      const dd = await rds.send(new DescribeDBInstancesCommand({}));
+      for (const db of (dd.DBInstances || [])) {
+        const m = await metricIdle('AWS/RDS', 'DatabaseConnections', [{ Name: 'DBInstanceIdentifier', Value: db.DBInstanceIdentifier }], 'Maximum');
+        if (m && m.ocioso) items.push({ plataforma: 'AWS', tipo: 'RDS sem conexões', nome: db.DBInstanceIdentifier,
+          motivo: `0 conexões há ${m.diasOcioso}+ dias (${db.DBInstanceClass})`, usdMes: null,
+          diasOcioso: m.diasOcioso, ultimoUso: m.lastUsed ? isoDate(m.lastUsed) : null });
+      }
+    } catch (_) {}
+    // ELB (ALB): balanceadores sem requisições
+    try {
+      const { ElasticLoadBalancingV2Client, DescribeLoadBalancersCommand } = require('@aws-sdk/client-elastic-load-balancing-v2');
+      const elb = new ElasticLoadBalancingV2Client({ region: DESCRIBE_REGION });
+      const lbs = await elb.send(new DescribeLoadBalancersCommand({}));
+      for (const lb of (lbs.LoadBalancers || [])) {
+        if (lb.Type !== 'application') continue;
+        const dim = (lb.LoadBalancerArn.split(':loadbalancer/')[1]) || '';    // app/nome/id
+        const m = await metricIdle('AWS/ApplicationELB', 'RequestCount', [{ Name: 'LoadBalancer', Value: dim }], 'Sum');
+        if (m && m.ocioso) items.push({ plataforma: 'AWS', tipo: 'Load Balancer sem tráfego', nome: lb.LoadBalancerName,
+          motivo: `0 requisições há ${m.diasOcioso}+ dias`, usdMes: null,
+          diasOcioso: m.diasOcioso, ultimoUso: m.lastUsed ? isoDate(m.lastUsed) : null });
+      }
+    } catch (_) {}
+    // ECS: serviço com 0 tarefas rodando
     try {
       const { ECSClient, ListClustersCommand, ListServicesCommand, DescribeServicesCommand } = require('@aws-sdk/client-ecs');
       const ecs = new ECSClient({ region: DESCRIBE_REGION });
@@ -307,11 +382,12 @@ async function getWaste() {
           const dd = await ecs.send(new DescribeServicesCommand({ cluster: arn, services: arns.slice(i, i + 10) }));
           (dd.services || []).forEach((s) => {
             if ((s.desiredCount || 0) > 0 && (s.runningCount || 0) === 0)
-              items.push({ plataforma: 'AWS', tipo: 'ECS', nome: s.serviceName, motivo: 'serviço com 0 tarefas rodando (paga mesmo parado)', usdMes: null });
+              items.push({ plataforma: 'AWS', tipo: 'ECS parado', nome: s.serviceName, motivo: 'serviço com 0 tarefas rodando (paga mesmo parado)', usdMes: null });
           });
         }
       }
     } catch (_) {}
+    // EC2: EBS solto + Elastic IP não associado
     try {
       const { EC2Client, DescribeVolumesCommand, DescribeAddressesCommand } = require('@aws-sdk/client-ec2');
       const ec2 = new EC2Client({ region: DESCRIBE_REGION });
@@ -320,8 +396,9 @@ async function getWaste() {
         items.push({ plataforma: 'AWS', tipo: 'EBS solto', nome: v.VolumeId, motivo: 'volume EBS não anexado', usdMes: +((v.Size || 0) * 0.10).toFixed(2) }));
       const ips = await ec2.send(new DescribeAddressesCommand({}));
       (ips.Addresses || []).filter((a) => !a.AssociationId).forEach((a) =>
-        items.push({ plataforma: 'AWS', tipo: 'Elastic IP', nome: a.PublicIp, motivo: 'IP elástico não associado', usdMes: 3.6 }));
+        items.push({ plataforma: 'AWS', tipo: 'Elastic IP ocioso', nome: a.PublicIp, motivo: 'IP elástico não associado', usdMes: 3.6 }));
     } catch (_) {}
+    console.log(`[waste] ${items.length} recurso(s) ocioso(s) detectado(s)`);
     return items;
   });
 }
