@@ -82,11 +82,20 @@ function previousRange(start, end) {
 }
 
 /* --------------------------- 1) USD / BRL -------------------------------- */
+// Fonte primária INTRADIÁRIA (AwesomeAPI, comercial BR); fallback diário (open.er-api).
 async function getUsdBrl() {
-  return cached('fx', 10 * 60 * 1000, async () => {
-    const r = await fetch('https://open.er-api.com/v6/latest/USD');
-    const j = await r.json();
-    return { rate: j.rates.BRL, updatedAt: j.time_last_update_utc || new Date().toISOString() };
+  return cached('fx', 5 * 60 * 1000, async () => {
+    try {
+      const r = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+      if (r.ok) {
+        const j = await r.json();
+        const b = j.USDBRL;
+        if (b && b.bid) return { rate: +(+b.bid).toFixed(4), fonte: 'awesomeapi', updatedAt: b.create_date || new Date().toISOString() };
+      }
+    } catch (_) { /* cai no fallback */ }
+    const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
+    const j2 = await r2.json();
+    return { rate: j2.rates.BRL, fonte: 'open.er-api', updatedAt: j2.time_last_update_utc || new Date().toISOString() };
   });
 }
 
@@ -209,12 +218,13 @@ async function getDeepseek(range) {
   const key = (process.env.DEEPSEEK_API_KEY || '').trim().replace(/^["']|["']$/g, '');
   const rawTot = (process.env.DEEPSEEK_TOTAL_TOPPED_UP || '').trim().replace(/^["']|["']$/g, '');
   const totalToppedUp = rawTot !== '' && !isNaN(+rawTot) ? +rawTot : null;
+  const DS_URL = process.env.DEEPSEEK_URL || 'https://api.deepseek.com/user/balance';
   let balanceUsd = null, spentUsd = null, currency = null, error = null, status = null;
   if (!key) {
     error = 'DEEPSEEK_API_KEY não definida no .env';
   } else {
     try {
-      const r = await fetch('https://api.deepseek.com/user/balance', {
+      const r = await fetch(DS_URL, {
         headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
       });
       status = r.status;
@@ -236,6 +246,7 @@ async function getDeepseek(range) {
       error = 'falha de rede ao chamar o DeepSeek: ' + String(e.message || e);
     }
   }
+  console.log(`[deepseek] status=${status} balance=${balanceUsd} spent=${spentUsd} currency=${currency}${error ? ' erro=' + error : ''}`);
   return {
     balanceUsd, spentUsd, totalToppedUp, currency, status, error, periodo: range,
     note: 'gasto = DEEPSEEK_TOTAL_TOPPED_UP − topped_up_balance, via /user/balance.',
@@ -243,24 +254,14 @@ async function getDeepseek(range) {
 }
 
 /* --------------------------- 5) Licenças --------------------------------- */
-// Valor de cada licença é buscado dos PREÇOS OFICIAIS (USD) e convertido pelo
-// dólar ao vivo. Preços oficiais mensais: Claude Pro US$20, Claude Max US$100
-// (5x; 20x = US$200), Figma Professional ~US$16. Pode sobrescrever via env
-// (…_USD para trocar o preço em dólar, ou …_BRL para fixar em reais).
-async function getLicencas() {
-  let fx = 5.15;
-  try { fx = (await getUsdBrl()).rate; } catch (_) {}
-  const price = (usdEnv, brlEnv, defUsd) => {
-    const brl = process.env[brlEnv];
-    if (brl) return { usd: +(+brl / fx).toFixed(2), brl: +(+brl).toFixed(2), fonte: 'env(BRL)' };
-    const usd = +(process.env[usdEnv] || defUsd);
-    return { usd, brl: +(usd * fx).toFixed(2), fonte: 'oficial(USD)×dólar' };
-  };
+// Valores FIXOS mensais em BRL (o que a empresa paga hoje): Claude Pro R$110,
+// Claude Max R$550, Figma R$120. Sobrescreva via env se mudar.
+function getLicencas() {
+  const brl = (env, def) => +(process.env[env] || def);
   return {
-    fx,
-    pro:   price('CLAUDE_PRO_USD',  'CLAUDE_PRO_BRL',  20),
-    max:   price('CLAUDE_MAX_USD',  'CLAUDE_MAX_BRL',  100),
-    figma: price('FIGMA_USD',       'FIGMA_BRL',       16),
+    pro:   { brl: brl('CLAUDE_PRO_BRL', 110) },
+    max:   { brl: brl('CLAUDE_MAX_BRL', 550) },
+    figma: { brl: brl('FIGMA_BRL',      120) },
   };
 }
 
@@ -371,21 +372,20 @@ const server = http.createServer(async (req, res) => {
       case '/api/digitalocean': return send(res, 200, await getDigitalOcean());
       case '/api/aws':          return send(res, 200, await getAws(range));
       case '/api/deepseek':     return send(res, 200, await getDeepseek(range));
-      case '/api/licencas':     return send(res, 200, await getLicencas());
+      case '/api/licencas':     return send(res, 200, getLicencas());
       case '/api/waste':        return send(res, 200, await getWaste());
       case '/api/pessoas':
         if (req.method === 'POST') return send(res, 200, { ok: true, pessoas: writePeople(await readBody(req)) });
         return send(res, 200, { pessoas: readPeople() });
       case '/api/all': {
-        const [fx, dobj, aws, ds, lic, waste] = await Promise.all([
+        const [fx, dobj, aws, ds, waste] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
           getDigitalOcean().catch((e) => ({ error: String(e.message) })),
           getAws(range).catch((e) => ({ error: String(e.message) })),
           getDeepseek(range).catch((e) => ({ error: String(e.message) })),
-          getLicencas().catch((e) => ({ error: String(e.message) })),
           getWaste().catch(() => []),
         ]);
-        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, waste, pessoas: readPeople(), periodo: range });
+        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: getLicencas(), waste, pessoas: readPeople(), periodo: range });
       }
       default: return send(res, 404, { error: 'not found' });
     }

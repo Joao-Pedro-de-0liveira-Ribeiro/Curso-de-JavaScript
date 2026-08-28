@@ -336,9 +336,7 @@ svg{display:block}
     <div class="datefield"><span class="uplabel">De</span><button type="button" class="dinput" id="btnStart"></button></div>
     <div class="datefield"><span class="uplabel">Até</span><button type="button" class="dinput" id="btnEnd"></button></div>
     <span class="pill" id="daysTag">—</span>
-    <span class="pill pill-mut" id="modeTag"></span>
-    <span class="spacer"></span>
-    <span class="hint-inline">Gerencie pessoas e licenças no card <strong>Licenças</strong></span>
+    <span class="pill pill-live" id="modeTag"></span>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -496,15 +494,15 @@ const SNAP={
 let DATA=JSON.parse(JSON.stringify(SNAP));
 
 /* ============ estado ============ */
-// preços OFICIAIS mensais (USD) — Claude Pro $20, Claude Max $100 (5x), Figma ~$16.
-// O valor em BRL é buscado do backend (oficial × dólar) ou calculado aqui pelo dólar ao vivo.
-const LIC_USD={pro:20, max:100, figma:16};
+// valores FIXOS mensais em BRL (o que a empresa paga hoje). Vêm do backend
+// (/api/licencas, sobrescrevível por env) ou destes defaults.
+const LIC_BRL={pro:110, max:550, figma:120};
 let LIC_BACKEND=null; // {pro:{brl},max:{brl},figma:{brl}} quando conectado ao backend
-const licUnit=t=>(LIC_BACKEND&&LIC_BACKEND[t]&&LIC_BACKEND[t].brl!=null)?LIC_BACKEND[t].brl:(LIC_USD[t]*state.usd);
+const licUnit=t=>(LIC_BACKEND&&LIC_BACKEND[t]&&LIC_BACKEND[t].brl!=null)?LIC_BACKEND[t].brl:LIC_BRL[t];
 const LIC_META={
-  pro:{nome:'Claude Pro',logo:'claude',plano:'US$20/mês'},
-  max:{nome:'Claude Max',logo:'claude',plano:'US$100/mês (5x)'},
-  figma:{nome:'Figma',logo:'figma',plano:'US$16/mês'},
+  pro:{nome:'Claude Pro',logo:'claude'},
+  max:{nome:'Claude Max',logo:'claude'},
+  figma:{nome:'Figma',logo:'figma'},
 };
 function seedLicenses(){
   try{const s=localStorage.getItem('lic-people'); if(s)return JSON.parse(s);}catch(_){}
@@ -535,7 +533,9 @@ const brDate=iso=>iso?iso.split('-').reverse().join('/'):'';
 function fetchT(url,ms,opts){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms||7000);return fetch(url,Object.assign({cache:'no-store',signal:ac.signal},opts||{})).finally(()=>clearTimeout(t));}
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(_){}};
-const pf=()=>state.apiMode?1:(state.days/30);      // fator de rateio por dias (só snapshot)
+// DigitalOcean é run-rate mensal; prorateia pelos dias do período SEMPRE
+// (a API da DO não dá histórico por dia), então o valor muda com a data.
+const pf=()=>state.days/30;
 // anima um número de -> para (contagem crescente/decrescente)
 const _anim={};
 function animateNum(elem,key,to,fmt){
@@ -829,7 +829,7 @@ function licCardEl(tipo){
     : `<div class="lic-empty">Sem pessoas — não gera custo.</div>`;
   card.innerHTML=`<div class="lh"><span class="ln">${LOGO[meta.logo]} ${meta.nome}</span><span class="chip">${people.length} pessoa${people.length===1?'':'s'}</span></div>
     <div class="lp">${fBRL(people.length*unit)}<small>/mês</small></div>
-    <div class="lcount">${people.length} × ${fBRL(unit)} por pessoa · ${meta.plano} × ${state.usd.toFixed(2)}</div>
+    <div class="lcount">${people.length} × ${fBRL(unit)}/mês por pessoa</div>
     ${peopleHtml}
     <div class="lic-add"><input type="text" placeholder="Nome da pessoa" data-tipo="${tipo}"><button data-tipo="${tipo}">+ Adicionar</button></div>`;
   // remover
@@ -988,10 +988,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')goBack();});
 function renderAll(rebuild=true){
   renderKpis();renderDonut();renderAlerts();renderMonthly();
   document.getElementById('daysTag').textContent=`${state.days} dias · ${brDate(state.start)}–${brDate(state.end)}`;
-  document.getElementById('modeTag').textContent=state.apiMode?'tempo real (backend)':'snapshot offline';
+  document.getElementById('modeTag').textContent=state.apiMode?'tempo real (backend)':'conectando ao backend…';
   document.getElementById('foot').innerHTML=`USD/BRL <strong>${state.usd.toFixed(2)}</strong> · `+(state.apiMode
-    ?'<strong>tempo real</strong> — AWS/DO/DeepSeek consultados ao vivo pelo backend para o período selecionado'
-    :`<strong>snapshot offline</strong> — abra o painel pelo endereço do backend (<code>npm start</code>) para dados 100% ao vivo`);
+    ?'<strong>tempo real</strong> — AWS/DO/DeepSeek/câmbio consultados ao vivo pelo backend para o período selecionado'
+    :`conectando ao backend… abra o painel pelo endereço do backend (<code>npm start</code>) para dados ao vivo`);
 }
 
 /* ============ carregar dados ============ */
