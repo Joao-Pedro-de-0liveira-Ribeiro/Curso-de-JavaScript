@@ -218,6 +218,7 @@ svg{display:block}
 .banner{padding:10px 22px; font-size:12px; font-weight:600; display:flex; gap:8px; align-items:flex-start}
 .banner svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
 .banner.warn{background:var(--amber-bg); border-bottom:1px solid var(--amber-bd); color:var(--amber-ink)}
+.banner.ok{background:var(--emerald-bg); border-bottom:1px solid var(--emerald-bd); color:var(--emerald-ink)}
 .backbar{display:flex;align-items:center;gap:10px;padding:12px 22px 0}
 .backbtn{border:1px solid var(--border);background:var(--panel);color:var(--txt);border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .backbtn:hover{background:var(--panel-2)} .backbtn svg{width:14px;height:14px}
@@ -630,7 +631,7 @@ function renderKpis(){
     {cls:'kpi click',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do',click:()=>openDrawer('do')},
     {cls:'kpi click',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws',click:()=>openDrawer('aws')},
     {cls:'kpi click',ic:LOGO.claude,t:'Licenças',n:licBrl(),fmt:fBRL,s:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`,key:'lic',click:()=>openDrawer('lic')},
-    {cls:'kpi click',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',key:'ds',click:()=>openDrawer('ds')},
+    {cls:'kpi click',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):(state.apiMode?'sem key no .env':'rode o backend'),key:'ds',click:()=>openDrawer('ds')},
     {cls:'kpi warn click',ic:IC.warn,t:'IPs Ociosos DO',n:idleBrl(),fmt:fBRL,s:DATA.idleIps.length+' IPs · clique p/ ver',key:'idle',click:openIpModal},
   ];
   items.forEach(k=>{const d=el('div',k.cls);
@@ -852,35 +853,29 @@ function refreshLic(){
   renderAll(false);
 }
 function renderDeepseek(sheet){
-  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>Cálculo (igual ao seu script): <code>gasto = total depositado − saldo</code>, via <code>GET /user/balance</code>. Cole a API key + o total; roda no seu navegador (a key fica só neste dispositivo). <strong>No preview do artifact o navegador bloqueia essa chamada</strong> — funciona no arquivo aberto localmente ou com o backend.</span>`));
-  const grid=el('div','ds-grid');
-  grid.innerHTML=`
-    <div class="ds-field"><span class="uplabel">DeepSeek API Key</span><input id="dsKey" type="password" placeholder="sk-..." value="${lsGet('ds-key')||CONFIG.deepseekKey||''}"></div>
-    <div class="ds-field"><span class="uplabel">Total já depositado (USD)</span><input id="dsTot" type="number" min="0" step="0.01" placeholder="ex: 2.00" value="${lsGet('ds-total')||CONFIG.deepseekTotal||''}"></div>`;
-  sheet.appendChild(grid);
-  const cards=el('div','ds-cards');
-  cards.innerHTML=`
-    <div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv" id="dsSaldo">${state.dsBalance!=null?fUSD(state.dsBalance):'—'}</div></div>
-    <div class="ds-card"><div class="st">Gasto (USD)</div><div class="sv" id="dsGasto">${state.dsUsd?fUSD(state.dsUsd):'—'}</div></div>
-    <div class="ds-card total"><div class="st">Total BRL</div><div class="sv" id="dsBrl">${fBRL(dsBrl())}</div></div>
-    <button class="btn-ghost" id="dsCalc" style="align-self:center">${IC.refresh} Calcular agora</button>`;
-  sheet.appendChild(cards);
-  const msg=el('div','dsmsg'); msg.id='dsStatus'; sheet.appendChild(msg);
-  const refreshCards=(txt)=>{
-    const s=document.getElementById('dsSaldo'),gg=document.getElementById('dsGasto'),bb=document.getElementById('dsBrl'),st=document.getElementById('dsStatus');
-    if(s)s.textContent=state.dsBalance!=null?fUSD(state.dsBalance):'—';
-    if(gg)gg.textContent=state.dsUsd?fUSD(state.dsUsd):'—'; if(bb)bb.textContent=fBRL(dsBrl());
-    if(st&&txt!=null)st.textContent=txt;
-  };
-  const save=()=>{lsSet('ds-key',grid.querySelector('#dsKey').value.trim());lsSet('ds-total',grid.querySelector('#dsTot').value.trim());};
-  const run=async()=>{save(); await deepseekAuto(true,refreshCards);};
-  grid.querySelector('#dsKey').addEventListener('input',()=>{save();});
-  grid.querySelector('#dsKey').addEventListener('change',run);       // calcula ao terminar de colar
-  grid.querySelector('#dsTot').addEventListener('input',()=>{save();});
-  grid.querySelector('#dsTot').addEventListener('change',run);
-  cards.querySelector('#dsCalc').onclick=run;
-  // tenta calcular já ao abrir, se houver key
-  if((lsGet('ds-key')||CONFIG.deepseekKey)) run();
+  // CONECTADO AO BACKEND: só mostra o valor (backend usa DEEPSEEK_API_KEY do .env). Nada de key no front.
+  if(state.apiMode){
+    sheet.appendChild(el('div','banner ok',`${IC.warn}<span>Calculado <strong>automaticamente pelo backend</strong> com a <code>DEEPSEEK_API_KEY</code> do <code>.env</code>: <code>gasto = total depositado − saldo</code> (via <code>/user/balance</code>).</span>`));
+    const cards=el('div','ds-cards');
+    cards.innerHTML=`
+      <div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv">${state.dsBalance!=null?fUSD(state.dsBalance):'—'}</div></div>
+      <div class="ds-card"><div class="st">Gasto (USD)</div><div class="sv">${state.dsUsd?fUSD(state.dsUsd):'—'}</div></div>
+      <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>
+      <button class="btn-ghost" id="dsCalc" style="align-self:center">${IC.refresh} Atualizar</button>`;
+    sheet.appendChild(cards);
+    if(state.dsBalance==null)sheet.appendChild(el('div','dsmsg','Sem valor: confira DEEPSEEK_API_KEY e DEEPSEEK_TOTAL_TOPPED_UP no .env do backend.'));
+    cards.querySelector('#dsCalc').onclick=()=>loadData();
+    return;
+  }
+  // SEM BACKEND (snapshot offline): não pede key — orienta a rodar o backend.
+  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O DeepSeek é calculado <strong>automaticamente pelo backend</strong> usando a <code>DEEPSEEK_API_KEY</code> do <code>.env</code> (o mesmo cálculo do seu script). Você está no <strong>snapshot offline</strong>, por isso está zerado.</span>`));
+  const box=el('div','ds-cards');
+  box.innerHTML=`
+    <div class="ds-card"><div class="st">Saldo</div><div class="sv">—</div></div>
+    <div class="ds-card"><div class="st">Gasto</div><div class="sv">—</div></div>
+    <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">R$ 0,00</div></div>`;
+  sheet.appendChild(box);
+  sheet.appendChild(el('div','dsmsg',`Para o valor aparecer sozinho: no .env coloque DEEPSEEK_API_KEY e DEEPSEEK_TOTAL_TOPPED_UP=2.00, rode "cd dashboard/server && npm start" e abra http://localhost:8787. Pronto — sem digitar key.`));
 }
 
 /* ============ DeepSeek automático (client-side) ============ */
