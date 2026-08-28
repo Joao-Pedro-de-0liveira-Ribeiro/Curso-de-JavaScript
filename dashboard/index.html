@@ -160,6 +160,9 @@ svg{display:block}
 .donut-center .dc-t{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--muted)}
 .donut-center .dc-v{font-size:13px; font-weight:800; line-height:1.15; margin-top:1px}
 .donut-center .dc-s{font-size:9px; color:var(--muted-2); margin-top:1px}
+.monthly #monthly text.mlbl{fill:var(--muted-2); font-size:10px; font-weight:700}
+.monthly #monthly text.mtot{fill:var(--txt); font-size:9.5px; font-weight:800; font-variant-numeric:tabular-nums}
+.monthly #monthly rect{cursor:default}
 .legend{display:flex; flex-direction:column; gap:7px; min-width:0; flex:1}
 .legrow{display:flex; align-items:center; gap:9px; font-size:12px; cursor:pointer; border-radius:8px; padding:4px 6px; margin:-2px -4px}
 .legrow:hover,.legrow.active{background:var(--panel-2)}
@@ -337,10 +340,14 @@ svg{display:block}
 
   <div class="mid">
     <div class="card donut-card">
-      <h3 class="uplabel">Distribuição de gastos · clique para abrir</h3>
+      <h3 class="uplabel">Distribuição de gastos · clique numa fatia</h3>
       <div class="donut-flex">
         <div class="donut-wrap"><svg id="donut" width="132" height="132" viewBox="0 0 132 132"></svg><div class="donut-center" id="donutCenter"></div></div>
         <div class="legend" id="legend"></div>
+      </div>
+      <div class="monthly">
+        <p class="uplabel" style="margin:14px 0 6px">Custo estimado por mês</p>
+        <div id="monthly"></div>
       </div>
     </div>
     <div>
@@ -349,8 +356,6 @@ svg{display:block}
     </div>
   </div>
 
-  <p class="hint">Selecione uma plataforma para ver os recursos (clique)</p>
-  <div class="plats" id="plats"></div>
   <div class="foot" id="foot"></div>
 </div>
 
@@ -603,13 +608,12 @@ const total=()=>doBrl()+awsBrl()+licBrl()+dsBrl();
 /* ============ KPIs ============ */
 function renderKpis(){
   const c=document.getElementById('kpis');c.innerHTML='';
-  const proMax=licCount('pro')*licUnit('pro')+licCount('max')*licUnit('max');
   const items=[
     {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',n:total(),fmt:fBRL,s:`${state.days} dias`,key:'total'},
-    {cls:'kpi',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do'},
-    {cls:'kpi',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws'},
-    {cls:'kpi',ic:LOGO.claude,t:'Claude',n:proMax,fmt:fBRL,s:`${licCount('pro')} Pro · ${licCount('max')} Max`,key:'claude'},
-    {cls:'kpi',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',key:'ds'},
+    {cls:'kpi click',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do',click:()=>openDrawer('do')},
+    {cls:'kpi click',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws',click:()=>openDrawer('aws')},
+    {cls:'kpi click',ic:LOGO.claude,t:'Licenças',n:licBrl(),fmt:fBRL,s:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`,key:'lic',click:()=>openDrawer('lic')},
+    {cls:'kpi click',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',key:'ds',click:()=>openDrawer('ds')},
     {cls:'kpi warn click',ic:IC.warn,t:'IPs Ociosos DO',n:idleBrl(),fmt:fBRL,s:DATA.idleIps.length+' IPs · clique p/ ver',key:'idle',click:openIpModal},
   ];
   items.forEach(k=>{const d=el('div',k.cls);
@@ -666,19 +670,25 @@ function renderAlerts(){
   list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
 }
 
-/* ============ Platform buttons ============ */
-function renderPlats(){
-  const c=document.getElementById('plats');c.innerHTML='';
-  const awsDelta=DATA.aws.reduce((s,r)=>s+(r.atual-r.anterior),0)*pf();
-  const btns=[
-    {id:'do',label:'Digital Ocean',v:fBRL(doBrl()),sub:`${fUSD(doUsd())} × ${state.usd.toFixed(2)}`,foot:`${DATA.doDroplets.length} droplets · ${DATA.doDatabases.length} DB · ${DATA.doSnapshots.length} snap`},
-    {id:'aws',label:'Amazon AWS',v:fBRL(awsBrl()),sub:fUSD(awsUsd()),foot:`${awsDelta<=0?'▼':'▲'} ${fUSD(Math.abs(awsDelta))} vs anterior`,ok:awsDelta<=0},
-    {id:'lic',label:'Licenças',v:fBRL(licBrl()),sub:'Cadastre pessoas por licença',foot:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`},
-    {id:'ds',label:'DeepSeek',v:fBRL(dsBrl()),sub:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):'configure a key',foot:'gasto calculado pela API'},
-  ];
-  btns.forEach(b=>{const btn=el('button','plat');btn.dataset.c=b.id;
-    btn.innerHTML=`<div class="ph">${PLOGO[b.id]}<span class="chev">${IC.chev}</span></div><div><div class="plabel">${b.label}</div><div class="pval">${b.v}</div><div class="psub">${b.sub}</div></div><div class="pfoot ${b.ok?'ok':''}">${b.foot}</div>`;
-    btn.onclick=()=>openDrawer(b.id);c.appendChild(btn);});
+/* ============ Gráfico estimado por mês (abaixo da pizza) ============ */
+// AWS: totais mensais REAIS do Cost Explorer (USD). DO/Licenças/DeepSeek: run-rate atual.
+const AWS_MONTHLY=[{m:'Jun/26',usd:0.31},{m:'Jul/26',usd:1859.46},{m:'Ago/26',usd:1308.69}];
+function renderMonthly(){
+  const cont=document.getElementById('monthly'); if(!cont)return;
+  const doF=baseDoUsd()*state.usd, lic=licBrl(), ds=dsBrl();
+  const data=AWS_MONTHLY.map(x=>{const aws=x.usd*state.usd; return {m:x.m,do:doF,aws,lic,ds,total:doF+aws+lic+ds};});
+  const max=Math.max(...data.map(d=>d.total))||1;
+  const W=300,H=138,bw=44,n=data.length,gap=(W-bw*n)/(n+1),baseY=H-20,top=16;
+  const segs=[['do','#1d4ed8'],['aws','#d97706'],['lic','#7c3aed'],['ds','#059669']];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:100%">`;
+  data.forEach((d,i)=>{
+    const x=gap+i*(bw+gap); let y=baseY;
+    segs.forEach(([k,c])=>{const h=(d[k]/max)*(baseY-top); if(h<=0.4)return; y-=h;
+      svg+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="${c}" rx="2"><title>${k.toUpperCase()}: ${fBRL(d[k])}</title></rect>`;});
+    svg+=`<text class="mtot" x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle">${fCompact(d.total)}</text>`;
+    svg+=`<text class="mlbl" x="${(x+bw/2).toFixed(1)}" y="${baseY+13}" text-anchor="middle">${d.m}</text>`;
+  });
+  svg+=`</svg>`; cont.innerHTML=svg;
 }
 
 /* ============ Resource card ============ */
@@ -800,8 +810,7 @@ function refreshLic(){
   renderAll(false);
 }
 function renderDeepseek(sheet){
-  const hasKey=!!lsGet('ds-key');
-  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O gasto é <strong>calculado automaticamente</strong> pela API do DeepSeek: <code>total depositado − saldo</code>. Preencha a key e o total; o cálculo é feito no seu navegador (a key fica só neste dispositivo).</span>`));
+  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>Cálculo (igual ao seu script): <code>gasto = total depositado − saldo</code>, via <code>GET /user/balance</code>. Cole a API key + o total; roda no seu navegador (a key fica só neste dispositivo). <strong>No preview do artifact o navegador bloqueia essa chamada</strong> — funciona no arquivo aberto localmente ou com o backend.</span>`));
   const grid=el('div','ds-grid');
   grid.innerHTML=`
     <div class="ds-field"><span class="uplabel">DeepSeek API Key</span><input id="dsKey" type="password" placeholder="sk-..." value="${lsGet('ds-key')||CONFIG.deepseekKey||''}"></div>
@@ -814,27 +823,47 @@ function renderDeepseek(sheet){
     <div class="ds-card total"><div class="st">Total BRL</div><div class="sv" id="dsBrl">${fBRL(dsBrl())}</div></div>
     <button class="btn-ghost" id="dsCalc" style="align-self:center">${IC.refresh} Calcular agora</button>`;
   sheet.appendChild(cards);
-  sheet.appendChild(el('div','dsmsg',hasKey?'':'Sem backend, o cálculo roda direto no navegador (CORS liberado pelo DeepSeek). Com o backend, a key fica no servidor.'));
-  const save=()=>{lsSet('ds-key',grid.querySelector('#dsKey').value.trim());lsSet('ds-total',grid.querySelector('#dsTot').value.trim());};
-  grid.querySelector('#dsKey').oninput=save; grid.querySelector('#dsTot').oninput=save;
-  cards.querySelector('#dsCalc').onclick=async()=>{save();await deepseekAuto(true);
-    const s=document.getElementById('dsSaldo'),gg=document.getElementById('dsGasto'),bb=document.getElementById('dsBrl');
+  const msg=el('div','dsmsg'); msg.id='dsStatus'; sheet.appendChild(msg);
+  const refreshCards=(txt)=>{
+    const s=document.getElementById('dsSaldo'),gg=document.getElementById('dsGasto'),bb=document.getElementById('dsBrl'),st=document.getElementById('dsStatus');
     if(s)s.textContent=state.dsBalance!=null?fUSD(state.dsBalance):'—';
-    if(gg)gg.textContent=state.dsUsd?fUSD(state.dsUsd):'—'; if(bb)bb.textContent=fBRL(dsBrl());};
+    if(gg)gg.textContent=state.dsUsd?fUSD(state.dsUsd):'—'; if(bb)bb.textContent=fBRL(dsBrl());
+    if(st&&txt!=null)st.textContent=txt;
+  };
+  const save=()=>{lsSet('ds-key',grid.querySelector('#dsKey').value.trim());lsSet('ds-total',grid.querySelector('#dsTot').value.trim());};
+  const run=async()=>{save(); await deepseekAuto(true,refreshCards);};
+  grid.querySelector('#dsKey').addEventListener('input',()=>{save();});
+  grid.querySelector('#dsKey').addEventListener('change',run);       // calcula ao terminar de colar
+  grid.querySelector('#dsTot').addEventListener('input',()=>{save();});
+  grid.querySelector('#dsTot').addEventListener('change',run);
+  cards.querySelector('#dsCalc').onclick=run;
+  // tenta calcular já ao abrir, se houver key
+  if((lsGet('ds-key')||CONFIG.deepseekKey)) run();
 }
 
 /* ============ DeepSeek automático (client-side) ============ */
-async function deepseekAuto(force){
-  if(state.apiMode&&!force) return;             // com backend já vem pronto
+async function deepseekAuto(force,onStatus){
   const key=((lsGet('ds-key')||CONFIG.deepseekKey)||'').trim();
   let tot=parseFloat(lsGet('ds-total')); if(isNaN(tot))tot=CONFIG.deepseekTotal;
-  if(!key||isNaN(tot)) return;
+  if(state.apiMode&&!force) return;             // com backend já vem pronto
+  if(!key){ onStatus&&onStatus('Cole a API key do DeepSeek para calcular.'); return; }
+  if(isNaN(tot)){ onStatus&&onStatus('Informe o total já depositado (USD).'); return; }
+  onStatus&&onStatus('Calculando…');
   try{
     const r=await fetchT('https://api.deepseek.com/user/balance',8000,{headers:{Authorization:'Bearer '+key,Accept:'application/json'}});
-    if(!r.ok) return;
-    const j=await r.json();const info=(j.balance_infos||[]).find(b=>b.currency==='USD')||(j.balance_infos||[])[0];
-    if(info){state.dsBalance=+info.total_balance;state.dsUsd=Math.max(0,+(tot-(+info.topped_up_balance)).toFixed(2));renderAll();}
-  }catch(_){/* CSP do preview do artifact bloqueia; funciona no arquivo local/backend */}
+    if(r.status===401||r.status===403){ onStatus&&onStatus('Key inválida ('+r.status+'). Confira a API key do DeepSeek.'); return; }
+    if(!r.ok){ onStatus&&onStatus('Erro HTTP '+r.status+' ao consultar o DeepSeek.'); return; }
+    const j=await r.json();
+    const info=(j.balance_infos||[]).find(b=>b.currency==='USD')||(j.balance_infos||[])[0];
+    if(!info){ onStatus&&onStatus('Resposta sem saldo (balance_infos vazio).'); return; }
+    state.dsBalance=+info.total_balance;
+    const toppedUp=+info.topped_up_balance;
+    state.dsUsd=Math.max(0,+(tot-toppedUp).toFixed(2));   // gasto = total depositado − saldo topped-up
+    renderAll();
+    onStatus&&onStatus(`✓ gasto ${fUSD(state.dsUsd)} = ${fUSD(tot)} depositado − ${fUSD(toppedUp)} de saldo`);
+  }catch(_){
+    onStatus&&onStatus('Chamada bloqueada aqui (preview do artifact/sem rede). Funciona no arquivo local aberto no navegador ou com o backend.');
+  }
 }
 
 /* ============ Modal detalhe ============ */
@@ -889,11 +918,21 @@ function showOv(id){document.getElementById(id).classList.add('on');}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
 window.closeOv=closeOv;
 ['drawer','modal'].forEach(id=>document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id)closeOv(id);}));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeOv('modal');if(!document.getElementById('modal').classList.contains('on'))closeOv('drawer');}});
+// Esc/voltar navega UM nível por vez (guia por guia): calendário → modal → serviço → lista → fecha
+function goBack(){
+  if(document.getElementById('datepop').classList.contains('on')){closeDP();return;}
+  if(document.getElementById('modal').classList.contains('on')){closeOv('modal');return;}
+  const dr=document.getElementById('drawer');
+  if(dr.classList.contains('on')){
+    if((drawerState.plat==='aws'||drawerState.plat==='do')&&drawerState.group!=null){drawerState.group=null;renderDrawer();}
+    else closeOv('drawer');
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')goBack();});
 
 /* ============ render ============ */
 function renderAll(rebuild=true){
-  renderKpis();renderDonut();renderAlerts();if(rebuild)renderPlats();
+  renderKpis();renderDonut();renderAlerts();renderMonthly();
   document.getElementById('daysTag').textContent=`${state.days} dias · ${brDate(state.start)}–${brDate(state.end)}`;
   document.getElementById('modeTag').textContent=state.apiMode?'tempo real':'estimativa proporcional aos dias';
   document.getElementById('foot').innerHTML=`Snapshot: <strong>${brDate(CONFIG.snapshotDate)}</strong> · USD/BRL <strong>${state.usd.toFixed(2)}</strong> · `+(state.apiMode?'<strong>modo tempo real</strong> (backend)':'modo snapshot — valores rateados por dia; configure CONFIG.apiBase p/ dados exatos');
@@ -927,7 +966,6 @@ document.getElementById('dpPrev').onclick=()=>{dpView.setMonth(dpView.getMonth()
 document.getElementById('dpNext').onclick=()=>{dpView.setMonth(dpView.getMonth()+1);renderDP();};
 document.getElementById('dpToday').onclick=()=>{const iso=CONFIG.today; if(dpTarget==='start')state.start=iso; else state.end=iso; if(state.end<state.start){if(dpTarget==='start')state.end=iso;else state.start=iso;} closeDP();syncDateFields();loadData();};
 document.addEventListener('click',e=>{const pop=document.getElementById('datepop'); if(pop.classList.contains('on')&&!pop.contains(e.target)&&!e.target.closest('.dinput'))closeDP();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDP();});
 window.addEventListener('scroll',()=>closeDP(),{passive:true});
 document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.value||CONFIG.fxDefault;renderAll();});
 
