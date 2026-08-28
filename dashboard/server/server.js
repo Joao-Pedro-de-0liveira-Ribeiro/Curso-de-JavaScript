@@ -30,6 +30,10 @@
  * ==========================================================================*/
 'use strict';
 
+// Carrega o .env ANTES de qualquer process.env (sem isto, as variáveis ficam
+// undefined e nada do .env é lido). Silencioso se o pacote não existir.
+try { require('dotenv').config(); } catch (_) { console.warn('[custos-ti] dotenv não instalado — rode "npm install"'); }
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

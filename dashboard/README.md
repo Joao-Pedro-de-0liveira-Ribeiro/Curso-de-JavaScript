@@ -24,14 +24,20 @@ usando o `.env`, e **atualiza conforme as datas** que você escolher:
 ```bash
 cd dashboard/server
 cp .env.example .env      # preencha DO_TOKEN, AWS_*, DEEPSEEK_API_KEY, DEEPSEEK_TOTAL_TOPPED_UP=2.00
-npm install
+npm install               # instala tudo, inclusive o dotenv (que lê o .env)
 npm start                 # abra http://localhost:8787 no navegador
 ```
+
+O `server.js` carrega o `.env` automaticamente (`require('dotenv').config()` na
+primeira linha) — sem isso, as variáveis ficam `undefined` e nada é lido.
 
 Aí: AWS vem do Cost Explorer **pelo período escolhido** (Julho mostra Julho,
 Agosto mostra Agosto), DigitalOcean e DeepSeek pela API, câmbio ao vivo, e os
 alertas mostram o que **aumentou/diminuiu no período** + recursos ociosos
 (IPs, volumes soltos, ECS parado). Nada fica “mockado” no front.
+
+> **Porta 8787 ocupada** (`EADDRINUSE`)? Um `npm start` anterior ficou vivo.
+> Mate antes: `kill $(lsof -t -i:8787)` (ou mude `PORT` no `.env`).
 
 ## 1. Só ver o layout (snapshot offline)
 
