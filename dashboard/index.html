@@ -293,13 +293,17 @@ svg{display:block}
 .ds-field{display:flex; flex-direction:column; gap:5px}
 .ds-field input{border:1px solid var(--border); background:var(--panel); color:var(--txt); border-radius:9px; padding:8px 11px; font-size:13px; outline:none}
 .ds-field input:focus{border-color:#3b82f6}
-.ds-cards{display:flex; gap:12px; flex-wrap:wrap; padding:0 22px 18px}
-.ds-card{border-radius:12px; padding:10px 18px; border:1px solid var(--border); background:var(--panel-2)}
+.ds-wrap{display:block}
+.ds-cards{display:flex; gap:12px; flex-wrap:wrap; align-items:center; padding:16px 22px 10px}
+.ds-card{border-radius:12px; padding:10px 16px; border:1px solid var(--border); background:var(--panel-2); min-width:118px}
 .ds-card .st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .ds-card.total{border-color:var(--emerald-bd); background:var(--emerald-bg)}
 .ds-card.total .st{color:var(--emerald-ink)} .ds-card.total .sv{color:var(--emerald)}
-.ds-card .sv{font-size:20px;font-weight:800}
-.dsmsg{padding:0 22px 14px; font-size:11.5px; color:var(--muted)}
+.ds-card .sv{font-size:20px;font-weight:800; margin-top:2px}
+.ds-card .cu{font-size:10px; color:var(--muted-2); margin-top:1px}
+.ds-btn{align-self:center; white-space:nowrap}
+.dsmsg{padding:2px 22px 16px; font-size:12px; color:var(--muted); line-height:1.5}
+.dsmsg.dserr{color:var(--red); font-weight:600}
 .foot{margin-top:22px; text-align:center; font-size:11px; color:var(--muted-2)}
 
 @media (max-width:1024px){
@@ -510,9 +514,13 @@ function seedLicenses(){
     figma:['Designer 1'],
   };
 }
-function saveLicenses(){ try{localStorage.setItem('lic-people',JSON.stringify(state.licenses));}catch(_){}}
+function saveLicenses(){
+  try{localStorage.setItem('lic-people',JSON.stringify(state.licenses));}catch(_){}
+  // com backend: salva no servidor para ficar sempre configurado (compartilhado)
+  if(state.api){ fetchT(state.api+'/api/pessoas',6000,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state.licenses)}).catch(()=>{}); }
+}
 const state={usd:CONFIG.fxDefault, licenses:seedLicenses(),
-  dsUsd:0, dsBalance:null, dsProj:'',
+  dsUsd:0, dsBalance:null, dsProj:'', dsError:null, dsCurrency:null,
   start:'', end:'', days:30, apiMode:false, api:''};
 const drawerState={plat:null, group:null};
 
@@ -853,29 +861,34 @@ function refreshLic(){
   renderAll(false);
 }
 function renderDeepseek(sheet){
-  // CONECTADO AO BACKEND: só mostra o valor (backend usa DEEPSEEK_API_KEY do .env). Nada de key no front.
+  const wrap=el('div','ds-wrap');
   if(state.apiMode){
-    sheet.appendChild(el('div','banner ok',`${IC.warn}<span>Calculado <strong>automaticamente pelo backend</strong> com a <code>DEEPSEEK_API_KEY</code> do <code>.env</code>: <code>gasto = total depositado − saldo</code> (via <code>/user/balance</code>).</span>`));
-    const cards=el('div','ds-cards');
-    cards.innerHTML=`
-      <div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv">${state.dsBalance!=null?fUSD(state.dsBalance):'—'}</div></div>
-      <div class="ds-card"><div class="st">Gasto (USD)</div><div class="sv">${state.dsUsd?fUSD(state.dsUsd):'—'}</div></div>
-      <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>
-      <button class="btn-ghost" id="dsCalc" style="align-self:center">${IC.refresh} Atualizar</button>`;
-    sheet.appendChild(cards);
-    if(state.dsBalance==null)sheet.appendChild(el('div','dsmsg','Sem valor: confira DEEPSEEK_API_KEY e DEEPSEEK_TOTAL_TOPPED_UP no .env do backend.'));
-    cards.querySelector('#dsCalc').onclick=()=>loadData();
+    // CONECTADO AO BACKEND: só mostra o valor (backend usa DEEPSEEK_API_KEY do .env). Nada de key no front.
+    const cur=state.dsCurrency||'USD';
+    wrap.innerHTML=`
+      <div class="banner ok">${IC.warn}<span>Calculado <strong>automaticamente pelo backend</strong> com a <code>DEEPSEEK_API_KEY</code> do <code>.env</code>: <code>gasto = total depositado − saldo</code> (via <code>/user/balance</code>).</span></div>
+      <div class="ds-cards">
+        <div class="ds-card"><div class="st">Saldo (ao vivo)</div><div class="sv">${state.dsBalance!=null?fUSD(state.dsBalance):'—'}</div><div class="cu">${cur}</div></div>
+        <div class="ds-card"><div class="st">Gasto (${cur})</div><div class="sv">${state.dsUsd?fUSD(state.dsUsd):'—'}</div></div>
+        <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">${fBRL(dsBrl())}</div></div>
+        <button class="btn-ghost ds-btn" id="dsCalc">${IC.refresh} Atualizar</button>
+      </div>
+      ${state.dsError?`<div class="dsmsg dserr">⚠️ ${state.dsError}</div>`:''}
+      ${(state.dsCurrency&&state.dsCurrency!=='USD')?`<div class="dsmsg">Sua conta DeepSeek está em <strong>${state.dsCurrency}</strong>. O <code>DEEPSEEK_TOTAL_TOPPED_UP</code> no .env deve estar na mesma moeda (${state.dsCurrency}) para o gasto bater.</div>`:''}`;
+    sheet.appendChild(wrap);
+    wrap.querySelector('#dsCalc').onclick=()=>loadData();
     return;
   }
   // SEM BACKEND (snapshot offline): não pede key — orienta a rodar o backend.
-  sheet.appendChild(el('div','banner warn',`${IC.warn}<span>O DeepSeek é calculado <strong>automaticamente pelo backend</strong> usando a <code>DEEPSEEK_API_KEY</code> do <code>.env</code> (o mesmo cálculo do seu script). Você está no <strong>snapshot offline</strong>, por isso está zerado.</span>`));
-  const box=el('div','ds-cards');
-  box.innerHTML=`
-    <div class="ds-card"><div class="st">Saldo</div><div class="sv">—</div></div>
-    <div class="ds-card"><div class="st">Gasto</div><div class="sv">—</div></div>
-    <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">R$ 0,00</div></div>`;
-  sheet.appendChild(box);
-  sheet.appendChild(el('div','dsmsg',`Para o valor aparecer sozinho: no .env coloque DEEPSEEK_API_KEY e DEEPSEEK_TOTAL_TOPPED_UP=2.00, rode "cd dashboard/server && npm start" e abra http://localhost:8787. Pronto — sem digitar key.`));
+  wrap.innerHTML=`
+    <div class="banner warn">${IC.warn}<span>O DeepSeek é calculado <strong>automaticamente pelo backend</strong> com a <code>DEEPSEEK_API_KEY</code> do <code>.env</code> (o mesmo cálculo do seu script). Você está no <strong>snapshot offline</strong>, por isso está zerado.</span></div>
+    <div class="ds-cards">
+      <div class="ds-card"><div class="st">Saldo</div><div class="sv">—</div></div>
+      <div class="ds-card"><div class="st">Gasto</div><div class="sv">—</div></div>
+      <div class="ds-card total"><div class="st">Total BRL</div><div class="sv">R$ 0,00</div></div>
+    </div>
+    <div class="dsmsg">Para o valor aparecer sozinho: no <code>.env</code> coloque <code>DEEPSEEK_API_KEY</code> e <code>DEEPSEEK_TOTAL_TOPPED_UP=2.00</code>, rode <code>cd dashboard/server &amp;&amp; npm start</code> e abra <code>http://localhost:8787</code>.</div>`;
+  sheet.appendChild(wrap);
 }
 
 /* ============ DeepSeek automático (client-side) ============ */
@@ -1000,7 +1013,12 @@ async function loadData(){
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources; // Cost Explorer p/ o período
       if(j.waste)DATA.waste=j.waste;                                   // recursos ociosos (DO+AWS) do backend
       if(j.licencas&&!j.licencas.error)LIC_BACKEND=j.licencas;         // preço oficial × dólar
-      if(j.deepseek&&!j.deepseek.error){state.dsBalance=j.deepseek.balanceUsd;if(j.deepseek.spentUsd!=null)state.dsUsd=j.deepseek.spentUsd;} // gasto via .env
+      if(j.pessoas){                                                   // pessoas das licenças salvas no servidor
+        const bp=j.pessoas, hasAny=(bp.pro&&bp.pro.length)||(bp.max&&bp.max.length)||(bp.figma&&bp.figma.length);
+        if(hasAny) state.licenses={pro:bp.pro||[],max:bp.max||[],figma:bp.figma||[]};
+        else saveLicenses();                                          // servidor vazio -> sobe o que já existe
+      }
+      if(j.deepseek){ state.dsBalance=j.deepseek.balanceUsd??null; state.dsUsd=(j.deepseek.spentUsd!=null)?j.deepseek.spentUsd:0; state.dsError=j.deepseek.error||null; state.dsCurrency=j.deepseek.currency||null; } // gasto via .env
       if(j.fx&&j.fx.rate)state.usd=+(+j.fx.rate).toFixed(4);
       state.apiMode=true;
     }catch(_){state.apiMode=false;DATA=JSON.parse(JSON.stringify(SNAP));}

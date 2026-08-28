@@ -205,29 +205,40 @@ function shortService(name) {
 // Devolvemos:
 //   balanceUsd -> saldo total ao vivo   |  spentUsd -> gasto calculado
 async function getDeepseek(range) {
-  const key = process.env.DEEPSEEK_API_KEY;
-  const totalToppedUp = process.env.DEEPSEEK_TOTAL_TOPPED_UP != null && process.env.DEEPSEEK_TOTAL_TOPPED_UP !== ''
-    ? +process.env.DEEPSEEK_TOTAL_TOPPED_UP : null;
-  let balanceUsd = null, spentUsd = null;
-  if (key) {
+  // limpa aspas/espaços que às vezes vão parar no .env
+  const key = (process.env.DEEPSEEK_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const rawTot = (process.env.DEEPSEEK_TOTAL_TOPPED_UP || '').trim().replace(/^["']|["']$/g, '');
+  const totalToppedUp = rawTot !== '' && !isNaN(+rawTot) ? +rawTot : null;
+  let balanceUsd = null, spentUsd = null, currency = null, error = null, status = null;
+  if (!key) {
+    error = 'DEEPSEEK_API_KEY não definida no .env';
+  } else {
     try {
       const r = await fetch('https://api.deepseek.com/user/balance', {
         headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
       });
-      if (r.ok) {
-        const j = await r.json();
-        const info = (j.balance_infos || []).find((b) => b.currency === 'USD') || (j.balance_infos || [])[0];
-        if (info) {
+      status = r.status;
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        error = (j.error && j.error.message) || `HTTP ${r.status}`;
+      } else {
+        const info = (j.balance_infos || [])[0];             // igual ao seu script: balance_infos[0]
+        if (!info) {
+          error = 'resposta sem balance_infos (verifique a conta DeepSeek)';
+        } else {
+          currency = info.currency;                          // normalmente CNY ou USD
           balanceUsd = +info.total_balance;
           const toppedUpRestante = +info.topped_up_balance;
           if (totalToppedUp != null) spentUsd = +(totalToppedUp - toppedUpRestante).toFixed(2);
         }
       }
-    } catch (_) { /* mantém null; não vaza erro */ }
+    } catch (e) {
+      error = 'falha de rede ao chamar o DeepSeek: ' + String(e.message || e);
+    }
   }
   return {
-    balanceUsd, spentUsd, totalToppedUp, periodo: range,
-    note: 'gasto = total depositado (DEEPSEEK_TOTAL_TOPPED_UP) − saldo topped-up, via /user/balance.',
+    balanceUsd, spentUsd, totalToppedUp, currency, status, error, periodo: range,
+    note: 'gasto = DEEPSEEK_TOTAL_TOPPED_UP − topped_up_balance, via /user/balance.',
   };
 }
 
@@ -310,6 +321,30 @@ async function getWaste() {
   });
 }
 
+/* --------------------- 7) Pessoas das licenças (persistidas) -------------- */
+// Salva num arquivo no servidor para ficar sempre configurado (compartilhado).
+const PEOPLE_FILE = path.join(__dirname, 'data', 'pessoas.json');
+function readPeople() {
+  try { return JSON.parse(fs.readFileSync(PEOPLE_FILE, 'utf8')); }
+  catch (_) { return { pro: [], max: [], figma: [] }; }
+}
+function writePeople(obj) {
+  const clean = {
+    pro:   Array.isArray(obj.pro)   ? obj.pro.map(String).slice(0, 500)   : [],
+    max:   Array.isArray(obj.max)   ? obj.max.map(String).slice(0, 500)   : [],
+    figma: Array.isArray(obj.figma) ? obj.figma.map(String).slice(0, 500) : [],
+  };
+  fs.mkdirSync(path.dirname(PEOPLE_FILE), { recursive: true });
+  fs.writeFileSync(PEOPLE_FILE, JSON.stringify(clean, null, 2));
+  return clean;
+}
+function readBody(req) {
+  return new Promise((resolve) => {
+    let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e6) req.destroy(); });
+    req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch (_) { resolve({}); } });
+  });
+}
+
 /* ------------------------------ static ----------------------------------- */
 function serveIndex(res) {
   try {
@@ -338,6 +373,9 @@ const server = http.createServer(async (req, res) => {
       case '/api/deepseek':     return send(res, 200, await getDeepseek(range));
       case '/api/licencas':     return send(res, 200, await getLicencas());
       case '/api/waste':        return send(res, 200, await getWaste());
+      case '/api/pessoas':
+        if (req.method === 'POST') return send(res, 200, { ok: true, pessoas: writePeople(await readBody(req)) });
+        return send(res, 200, { pessoas: readPeople() });
       case '/api/all': {
         const [fx, dobj, aws, ds, lic, waste] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
@@ -347,7 +385,7 @@ const server = http.createServer(async (req, res) => {
           getLicencas().catch((e) => ({ error: String(e.message) })),
           getWaste().catch(() => []),
         ]);
-        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, waste, periodo: range });
+        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: lic, waste, pessoas: readPeople(), periodo: range });
       }
       default: return send(res, 404, { error: 'not found' });
     }
