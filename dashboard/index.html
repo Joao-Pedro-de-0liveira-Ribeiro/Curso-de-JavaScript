@@ -805,7 +805,7 @@ function openDrawer(plat){drawerState.plat=plat;drawerState.group=null;renderDra
 function renderDrawer(){
   const {plat,group}=drawerState;const sheet=document.getElementById('drawerSheet');
   const meta={
-    do:{label:'Digital Ocean',badge:`${fBRL(doBrl())} · ${fUSD(doUsd())}`,logo:LOGO.do},
+    do:{label:'Digital Ocean',badge:`${fBRL(doBrl())} · ${fUSD(doUsd())}${DATA.doBilling?' · '+DATA.doBilling:''}`,logo:LOGO.do},
     aws:{label:'AWS — Cost Explorer',badge:`${fBRL(awsBrl())} · ${fUSD(awsUsd())}`,logo:LOGO.aws},
     lic:{label:'Licenças de Software',badge:fBRL(licBrl()),logo:LOGO.claude},
     ds:{label:'DeepSeek',badge:state.dsBalance!=null?`saldo ${fUSD(state.dsBalance)}`:fBRL(dsBrl()),logo:LOGO.deepseek},
@@ -1028,7 +1028,7 @@ async function loadData(){
     const qs=`?start=${state.start}&end=${state.end}`;
     try{
       const r=await fetchT(state.api+'/api/all'+qs,12000);const j=await r.json();
-      if(j.digitalocean&&!j.digitalocean.error){DATA.doDroplets=j.digitalocean.droplets||DATA.doDroplets;DATA.doDatabases=j.digitalocean.databases||DATA.doDatabases;DATA.doSnapshots=j.digitalocean.snapshots||DATA.doSnapshots;DATA.idleIps=(j.digitalocean.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);}
+      if(j.digitalocean&&!j.digitalocean.error){const D=j.digitalocean;DATA.doDroplets=D.droplets||DATA.doDroplets;DATA.doDatabases=D.databases||DATA.doDatabases;DATA.doSnapshots=D.snapshots||DATA.doSnapshots;DATA.idleIps=(D.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);DATA.doBilling=D.billingFonte||null;} // total já reconciliado ao billing real
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources; // Cost Explorer p/ o período
       if(j.waste)DATA.waste=j.waste;                                   // recursos ociosos (DO+AWS) do backend
       if(j.licencas&&!j.licencas.error)LIC_BACKEND=j.licencas;         // preço oficial × dólar

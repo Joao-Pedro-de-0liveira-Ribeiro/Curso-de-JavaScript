@@ -117,8 +117,9 @@ async function getDigitalOcean() {
   const token = process.env.DO_TOKEN;
   if (!token) throw new Error('DO_TOKEN ausente no ambiente');
   const headers = { Authorization: `Bearer ${token}` };
+  const DO_BASE = process.env.DO_BASE || 'https://api.digitalocean.com/v2/'; // override p/ testes
   const api = async (path) => {
-    const r = await fetch(`https://api.digitalocean.com/v2/${path}`, { headers });
+    const r = await fetch(`${DO_BASE}${path}`, { headers });
     if (!r.ok) throw new Error(`DO ${path} -> HTTP ${r.status}`);
     return r.json();
   };
@@ -149,7 +150,32 @@ async function getDigitalOcean() {
     const reservedIps = (ips.reserved_ips || []).map((i) => ({
       ip: i.ip, regiao: i.region && i.region.slug, atribuido: !!i.droplet, // idle = sem droplet -> $4/mês
     }));
-    return { droplets, databases, snapshots, reservedIps, updatedAt: new Date().toISOString() };
+
+    // ---- Valor REAL de billing da DO (para os totais baterem com a conta) ----
+    // /v2/customers/my/balance -> month_to_date_usage (gasto real do mês até agora).
+    let totalUsdMonth = null, mtdUsage = null, billingFonte = 'estimativa';
+    try {
+      const bal = await api('customers/my/balance');
+      mtdUsage = +bal.month_to_date_usage;
+      if (!isNaN(mtdUsage) && mtdUsage > 0) {
+        const now = new Date();
+        const dia = now.getUTCDate();
+        const diasNoMes = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate();
+        totalUsdMonth = +(mtdUsage / dia * diasNoMes).toFixed(2); // projeta o mês -> run-rate real
+        billingFonte = 'billing DO (month_to_date_usage)';
+      }
+    } catch (_) { /* token sem escopo de billing -> mantém estimativa */ }
+
+    // Reconcilia os custos por item para SOMAREM o total real (mantém IPs em $4).
+    const sum = (a) => a.reduce((s, x) => s + (+x.usd || 0), 0);
+    const idleCost = reservedIps.filter((i) => !i.atribuido).length * 4;
+    const estSum = sum(droplets) + sum(databases) + sum(snapshots);
+    if (totalUsdMonth != null && estSum > 0) {
+      const k = Math.max(0, totalUsdMonth - idleCost) / estSum;
+      [droplets, databases, snapshots].forEach((arr) => arr.forEach((x) => { x.usd = +(x.usd * k).toFixed(2); }));
+    }
+    const totalUsd = (totalUsdMonth != null) ? totalUsdMonth : (estSum + idleCost);
+    return { droplets, databases, snapshots, reservedIps, totalUsd, mtdUsage, billingFonte, updatedAt: new Date().toISOString() };
   });
 }
 
