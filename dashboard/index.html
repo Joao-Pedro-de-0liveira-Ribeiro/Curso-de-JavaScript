@@ -466,6 +466,8 @@ const SNAP={
     {nome:'ubuntu-3RN-PROD-4vcpu-...886582',tipo:'Snapshot',regiao:'sfo3',usd:1.50,spec:'25.06 GB'},
     {nome:'ubuntu-3RN-PROD-4vcpu-...811535',tipo:'Snapshot',regiao:'sfo3',usd:8.71,spec:'145.13 GB'},
   ],
+  doBackups:[],
+  doOutros:[],
   aws:[
     {nome:'banking-dev-postgres',servico:'RDS',detalhe:'db.t4g.micro · pg16.14 · 20GB gp3 · Single-AZ',jul:76.97,ago:42.2,projeto:'banking-dev'},
     {nome:'motor-credito-advanced',servico:'RDS',detalhe:'db.t4g.large · pg16.14 · 100GB gp3 · Single-AZ',jul:615.74,ago:337.62,projeto:'motor-credito'},
@@ -555,7 +557,9 @@ function animateNum(elem,key,to,fmt){
     elem.textContent=fmt(from+(to-from)*e); if(p<1)elem._raf=requestAnimationFrame(step);};
   elem._raf=requestAnimationFrame(step);
 }
-const idleAsItems=()=>DATA.idleIps.map(ip=>({nome:ip,tipo:'IP',regiao:'',usd:4,spec:'IP reservado ocioso · $4/mês'}));
+const idleAsItems=()=> (DATA.doIps&&DATA.doIps.length)
+  ? DATA.doIps.map(i=>({nome:i.ip,tipo:'IP',regiao:i.regiao||'',usd:+i.usd||0,spec:'IP reservado ocioso'}))
+  : DATA.idleIps.map(ip=>({nome:ip,tipo:'IP',regiao:'',usd:4,spec:'IP reservado ocioso · $4/mês'}));
 
 /* ============ datas ============ */
 function readDates(){
@@ -627,8 +631,11 @@ function prevRange(){ const s=parseIso(state.start), e=parseIso(state.end); cons
 
 /* ============ computeds ============ */
 const sum=(a,f)=>a.reduce((s,r)=>s+(+f(r)||0),0);
-const baseDoUsd=()=>sum(DATA.doDroplets,r=>r.usd)+sum(DATA.doDatabases,r=>r.usd)+sum(DATA.doSnapshots,r=>r.usd)+DATA.idleIps.length*4;
-const doUsd=()=>baseDoUsd()*pf();
+// no modo API os itens já vêm no valor do período (backend); offline rateia por dia
+const doMult=()=>state.apiMode?1:pf();
+const baseDoUsd=()=>sum(DATA.doDroplets,r=>r.usd)+sum(DATA.doDatabases,r=>r.usd)+sum(DATA.doSnapshots,r=>r.usd)+sum(DATA.doBackups||[],r=>r.usd)+sum(DATA.doOutros||[],r=>r.usd)+(DATA.doIps?sum(DATA.doIps,r=>r.usd):DATA.idleIps.length*4);
+// KPI/total da DO: no modo API vem PRONTO do billing por fatura (sincronizado com a data); offline rateia
+const doUsd=()=>(state.apiMode&&DATA.doTotalUsd!=null)?DATA.doTotalUsd:baseDoUsd()*pf();
 const awsUsd=()=>sum(DATA.aws,r=>awsResVal(r,state.start,state.end));
 const awsPrevUsd=()=>{const p=prevRange();return sum(DATA.aws,r=> r.anterior!=null?(+r.anterior||0):awsResVal(r,p.s,p.e));};
 const licCount=t=>state.licenses[t].length;
@@ -728,10 +735,19 @@ function renderAlerts(){
 /* ============ Gráfico estimado por mês (abaixo da pizza) ============ */
 // AWS: totais mensais REAIS do Cost Explorer (USD). DO/Licenças/DeepSeek: run-rate atual.
 const AWS_MONTHLY=[{m:'Jun/26',usd:0.31},{m:'Jul/26',usd:1859.46},{m:'Ago/26',usd:1308.69}];
+const MON_PT={Jan:'01',Fev:'02',Mar:'03',Abr:'04',Mai:'05',Jun:'06',Jul:'07',Ago:'08',Set:'09',Out:'10',Nov:'11',Dez:'12'};
+const labelToYm=m=>{const[mm,yy]=m.split('/');return '20'+yy+'-'+(MON_PT[mm]||'01');};
 function renderMonthly(){
   const cont=document.getElementById('monthly'); if(!cont)return;
-  const doF=baseDoUsd()*state.usd, lic=licBrl(), ds=dsBrl();
-  const data=AWS_MONTHLY.map(x=>{const aws=x.usd*state.usd; return {m:x.m,do:doF,aws,lic,ds,total:doF+aws+lic+ds};});
+  const lic=licBrl(), ds=dsBrl();
+  const doByM=(state.apiMode&&DATA.doByMonth)?DATA.doByMonth:null; // DO real por mês (faturas)
+  const doFallback=baseDoUsd()*(state.apiMode?1:pf())*state.usd;
+  const data=AWS_MONTHLY.map(x=>{
+    const aws=x.usd*state.usd;
+    const dm=doByM?doByM[labelToYm(x.m)]:null;
+    const doF=(dm!=null)?dm*state.usd:doFallback;
+    return {m:x.m,do:doF,aws,lic,ds,total:doF+aws+lic+ds};
+  });
   const max=Math.max(...data.map(d=>d.total))||1;
   const W=300,H=138,bw=44,n=data.length,gap=(W-bw*n)/(n+1),baseY=H-20,top=16;
   const segs=[['do','#1d4ed8'],['aws','#d97706'],['lic','#7c3aed'],['ds','#059669']];
@@ -759,7 +775,7 @@ function resourceCard(r,kind){
     if(r.projeto&&r.projeto!=='—')html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
     html+=`<div class="rmore">Clique para detalhar →</div>`;d.className='res click';d.dataset.c='aws';d.onclick=()=>openModal('aws',r);
   }else{
-    d.dataset.c='do';const val=(+r.usd||0)*pf();
+    d.dataset.c='do';const val=(+r.usd||0)*doMult();
     if(+r.usd>0)html+=`<div class="rprice">${fUSD(val)}</div><div class="rbrl">${fBRL(val*state.usd)} no período</div>`;
     else html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
     html+=`<div class="rdet">${r.spec||''}${r.regiao?(' · '+r.regiao):''}${r.ip&&r.ip!=='—'?(' · '+r.ip):''}</div><div class="rmore">Clique para detalhar →</div>`;
@@ -796,10 +812,12 @@ function doGroups(){
   const cats=[
     {key:'droplets',title:'Droplets',desc:'Servidores virtuais (VMs) que rodam suas aplicações.',items:DATA.doDroplets},
     {key:'databases',title:'Managed Databases',desc:'Bancos PostgreSQL gerenciados pela DigitalOcean.',items:DATA.doDatabases},
-    {key:'snapshots',title:'Snapshots',desc:'Backups de imagem dos droplets (cobrados por GB).',items:DATA.doSnapshots},
-    {key:'ips',title:'Reserved IPs ociosos',desc:'IPs reservados sem droplet — $4/mês cada. Libere ou atribua.',items:idleAsItems()},
-  ];
-  return cats.map(c=>{const usd=sum(c.items,r=>r.usd)*pf();return Object.assign({},c,{usd,brl:usd*state.usd,count:c.items.length});});
+    {key:'backups',title:'Backups',desc:'Backups automáticos dos droplets (cobrados no plano de backup).',items:DATA.doBackups||[]},
+    {key:'snapshots',title:'Snapshots',desc:'Snapshots de imagem dos droplets (cobrados por GB).',items:DATA.doSnapshots},
+    {key:'ips',title:'Reserved IPs ociosos',desc:'IPs reservados sem droplet — cobrados por mês. Libere ou atribua.',items:idleAsItems()},
+    {key:'outros',title:'Outros',desc:'Demais itens da fatura (Spaces, Load Balancers, volumes…).',items:DATA.doOutros||[]},
+  ].filter(c=>c.items.length);
+  return cats.map(c=>{const usd=sum(c.items,r=>r.usd)*doMult();return Object.assign({},c,{usd,brl:usd*state.usd,count:c.items.length});});
 }
 function openDrawer(plat){drawerState.plat=plat;drawerState.group=null;renderDrawer();showOv('drawer');}
 function renderDrawer(){
@@ -1028,7 +1046,11 @@ async function loadData(){
     const qs=`?start=${state.start}&end=${state.end}`;
     try{
       const r=await fetchT(state.api+'/api/all'+qs,12000);const j=await r.json();
-      if(j.digitalocean&&!j.digitalocean.error){const D=j.digitalocean;DATA.doDroplets=D.droplets||DATA.doDroplets;DATA.doDatabases=D.databases||DATA.doDatabases;DATA.doSnapshots=D.snapshots||DATA.doSnapshots;DATA.idleIps=(D.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);DATA.doBilling=D.billingFonte||null;} // total já reconciliado ao billing real
+      if(j.digitalocean&&!j.digitalocean.error){const D=j.digitalocean;
+        DATA.doDroplets=D.droplets||[];DATA.doDatabases=D.databases||[];DATA.doBackups=D.backups||[];DATA.doSnapshots=D.snapshots||[];DATA.doOutros=D.outros||[];
+        DATA.doIps=D.reservedIps||[];DATA.idleIps=(D.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);
+        DATA.doTotalUsd=(D.totalUsd!=null)?D.totalUsd:null;DATA.doByMonth=D.byMonth||null;DATA.doBilling=D.billingFonte||null;
+      } // DO por FATURA mensal real, sincronizada com a data (total bate com a conta)
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources; // Cost Explorer p/ o período
       if(j.waste)DATA.waste=j.waste;                                   // recursos ociosos (DO+AWS) do backend
       if(j.licencas&&!j.licencas.error)LIC_BACKEND=j.licencas;         // preço oficial × dólar

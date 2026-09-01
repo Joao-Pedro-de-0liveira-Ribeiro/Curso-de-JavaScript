@@ -19,7 +19,7 @@
  * Endpoints (todos GET, somente leitura):
  *   GET /api/health                         -> status
  *   GET /api/usd-brl                        -> { rate, updatedAt }
- *   GET /api/digitalocean                   -> { droplets, databases, reservedIps }
+ *   GET /api/digitalocean?start=&end=       -> total da(s) fatura(s) do período + itens reais por categoria + byMonth
  *   GET /api/aws?start=&end=                -> { resources[], total, periodo }
  *   GET /api/deepseek?start=&end=           -> { balanceUsd, spentUsdManual, note }
  *   GET /api/licencas                       -> { claudeUsers, claudeUnitBrl, figmaLicencas, figmaUnitBrl }
@@ -84,6 +84,22 @@ function previousRange(start, end) {
   const prevStart = new Date(s.getTime() - len);
   return { start: isoDay(prevStart), end: isoDay(prevEnd) };
 }
+// Fração da fatura do mês "ym" (YYYY-MM) coberta pelo intervalo [start,end).
+// Meses passados: rateia pelos dias do mês. Mês CORRENTE: a fatura já é
+// "month-to-date" (acumulado até hoje), então o denominador é o que já correu.
+function monthCoverage(start, end, ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const mStart = Date.UTC(y, m - 1, 1);
+  const mEndFull = Date.UTC(y, m, 1); // exclusivo
+  const now = new Date();
+  const isCurrent = (y === now.getUTCFullYear() && m === now.getUTCMonth() + 1);
+  const billedEnd = isCurrent ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) : mEndFull;
+  const s = Date.parse(start + 'T00:00:00Z'), e = Date.parse(end + 'T00:00:00Z');
+  const lo = Math.max(mStart, s), hi = Math.min(billedEnd, e);
+  if (hi <= lo) return 0;
+  const denom = billedEnd - mStart;
+  return denom > 0 ? (hi - lo) / denom : 0;
+}
 
 /* --------------------------- 1) USD / BRL -------------------------------- */
 // Fonte primária INTRADIÁRIA (AwesomeAPI, comercial BR); fallback diário (open.er-api).
@@ -113,7 +129,115 @@ const DB_PRICES = {
   'gd-8vcpu-32gb': 488.70, 'gd-8vcpu-32gb-intel': 488.70,
   'so1_5-2vcpu-16gb-intel': 244.35, 'so1_5-4vcpu-32gb-intel': 488.70, 'so1_5-8vcpu-64gb-intel': 977.40,
 };
-async function getDigitalOcean() {
+// chamada REST genérica na DigitalOcean (Bearer token READ + billing)
+async function doApi(path) {
+  const token = process.env.DO_TOKEN;
+  if (!token) throw new Error('DO_TOKEN ausente no ambiente');
+  const DO_BASE = process.env.DO_BASE || 'https://api.digitalocean.com/v2/'; // override p/ testes
+  const r = await fetch(`${DO_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`DO ${path} -> HTTP ${r.status}`);
+  return r.json();
+}
+// faturas mensais (imutáveis p/ meses fechados; o mês corrente é o acumulado)
+const getDoInvoiceList = () => cached('do-invlist', 30 * 60 * 1000, () => doApi('customers/my/invoices?per_page=200'));
+// itens da fatura são PAGINADOS — junta TODAS as páginas p/ o total bater com a conta
+const getDoInvoiceDetail = (uuid) => cached('do-inv:' + uuid, 30 * 60 * 1000, async () => {
+  const items = [];
+  let path = `customers/my/invoices/${uuid}?per_page=200`, guard = 0;
+  while (path && guard++ < 40) {
+    const d = await doApi(path);
+    for (const it of (d.invoice_items || [])) items.push(it);
+    const next = d && d.links && d.links.pages && d.links.pages.next;
+    const m = next && String(next).match(/\/v2\/(.+)$/);
+    path = m ? m[1] : null;
+  }
+  return { invoice_items: items };
+});
+
+// quebra os itens de uma fatura nas categorias do painel (valores REAIS da conta)
+function categorizeInvoice(detail) {
+  const parseAmt = (s) => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
+  const catOf = (p) => { p = String(p || '');
+    if (/Backup/i.test(p)) return 'backups';
+    if (/Snapshot/i.test(p)) return 'snapshots';
+    if (/Database/i.test(p)) return 'databases';
+    if (/Floating IP|Reserved IP/i.test(p)) return 'ips';
+    if (/Droplet/i.test(p)) return 'droplets';
+    return 'outros';
+  };
+  const cats = { droplets: [], databases: [], backups: [], snapshots: [], ips: [], outros: [] };
+  for (const it of (detail.invoice_items || [])) {
+    const usd = +parseAmt(it.amount).toFixed(2);
+    if (!usd) continue;
+    cats[catOf(it.product)].push({
+      nome: (it.description || it.product || '').trim(), tipo: it.product || '',
+      projeto: it.project_name || '', regiao: '', spec: '', usd,
+    });
+  }
+  for (const k in cats) cats[k].sort((a, b) => b.usd - a.usd);
+  return cats;
+}
+
+// DO baseada nas FATURAS mensais reais + sincronizada com a data (igual à AWS)
+async function getDoFromInvoices(range) {
+  const key = `do-inv-range:${range.start}:${range.end}`;
+  return cached(key, 15 * 60 * 1000, async () => {
+    const list = await getDoInvoiceList();
+    const invs = (list.invoices || []).filter((i) => /^\d{4}-\d{2}/.test(i.invoice_period || ''));
+    if (!invs.length) throw new Error('nenhuma fatura DO disponível');
+    const byMonth = {}, uuidByMonth = {}, statusByMonth = {};
+    for (const i of invs) {
+      const ym = i.invoice_period.slice(0, 7);
+      byMonth[ym] = +i.amount || 0;
+      uuidByMonth[ym] = i.invoice_uuid;
+      statusByMonth[ym] = i.status;
+    }
+    // total sincronizado com a data: soma cada fatura × cobertura do intervalo
+    let totalUsd = 0, primary = null, primaryContrib = -1;
+    for (const ym of Object.keys(byMonth)) {
+      const w = monthCoverage(range.start, range.end, ym);
+      if (w <= 0) continue;
+      const contrib = byMonth[ym] * w;
+      totalUsd += contrib;
+      if (contrib > primaryContrib) { primaryContrib = contrib; primary = ym; }
+    }
+    // intervalo fora de qualquer fatura (ex.: futuro) -> usa a mais recente
+    if (primary == null) { primary = Object.keys(byMonth).sort().slice(-1)[0]; totalUsd = byMonth[primary]; }
+    totalUsd = +totalUsd.toFixed(2);
+    // detalhe do mês dominante -> itens reais por categoria (drawer bate com a fatura)
+    const cats = categorizeInvoice(await getDoInvoiceDetail(uuidByMonth[primary]));
+    // período parcial: escala os itens p/ somarem o total do período (mês cheio -> fator 1)
+    const primaryTotal = byMonth[primary] || totalUsd;
+    const k = primaryTotal > 0 ? totalUsd / primaryTotal : 1;
+    if (Math.abs(k - 1) > 1e-6) for (const key in cats) cats[key].forEach((x) => { x.usd = +(x.usd * k).toFixed(2); });
+    const reservedIps = cats.ips.map((it) => ({
+      ip: ((it.nome.match(/(\d+\.\d+\.\d+\.\d+)/) || [])[1]) || it.nome, atribuido: false, usd: it.usd, regiao: '',
+    }));
+    const byMonthOut = {};
+    Object.keys(byMonth).sort().slice(-8).forEach((ym) => { byMonthOut[ym] = +byMonth[ym].toFixed(2); });
+    return {
+      droplets: cats.droplets, databases: cats.databases, backups: cats.backups,
+      snapshots: cats.snapshots, outros: cats.outros, reservedIps,
+      totalUsd, byMonth: byMonthOut, primaryMonth: primary, primaryStatus: statusByMonth[primary],
+      billingFonte: `faturas DO (${primary})`, updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+// ponto de entrada: tenta faturas reais; se o token não tiver billing, estima
+async function getDigitalOcean(range) {
+  range = range || resolveRange(new URLSearchParams());
+  try {
+    return await getDoFromInvoices(range);
+  } catch (e) {
+    const est = await getDoEstimate();
+    est.billingFonte = 'estimativa (faturas indisponíveis: ' + String(e.message) + ')';
+    return est;
+  }
+}
+
+// FALLBACK: estimativa por recursos vivos + balance (usado se não houver faturas)
+async function getDoEstimate() {
   const token = process.env.DO_TOKEN;
   if (!token) throw new Error('DO_TOKEN ausente no ambiente');
   const headers = { Authorization: `Bearer ${token}` };
@@ -476,7 +600,7 @@ const server = http.createServer(async (req, res) => {
     switch (u.pathname) {
       case '/api/health':       return send(res, 200, { ok: true, ts: Date.now() });
       case '/api/usd-brl':      return send(res, 200, await getUsdBrl());
-      case '/api/digitalocean': return send(res, 200, await getDigitalOcean());
+      case '/api/digitalocean': return send(res, 200, await getDigitalOcean(range));
       case '/api/aws':          return send(res, 200, await getAws(range));
       case '/api/deepseek':     return send(res, 200, await getDeepseek(range));
       case '/api/licencas':     return send(res, 200, getLicencas());
@@ -487,7 +611,7 @@ const server = http.createServer(async (req, res) => {
       case '/api/all': {
         const [fx, dobj, aws, ds, waste] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
-          getDigitalOcean().catch((e) => ({ error: String(e.message) })),
+          getDigitalOcean(range).catch((e) => ({ error: String(e.message) })),
           getAws(range).catch((e) => ({ error: String(e.message) })),
           getDeepseek(range).catch((e) => ({ error: String(e.message) })),
           getWaste().catch(() => []),

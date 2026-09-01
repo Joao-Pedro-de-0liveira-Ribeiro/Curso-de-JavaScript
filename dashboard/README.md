@@ -52,7 +52,7 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 - **Gráfico de rosca interativo**: passe o mouse numa fatia (mostra valor e % no centro) e **clique** para abrir a plataforma; a legenda também é clicável.
 - **Filtro por datas** (sem atalhos): você escolhe **De** e **Até**; o painel gera os valores para o intervalo. No modo snapshot os custos de DO/AWS são **rateados proporcionalmente aos dias** (licenças ficam fixas); com backend, os valores são exatos do Cost Explorer.
 - **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…) com o que é cada um e o subtotal; **clique** num serviço para ver os recursos; clique num recurso para o **detalhe**.
-- **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Snapshots, IPs ociosos) → clique para ver os itens → clique no item para o **detalhe**.
+- **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Backups, Snapshots, IPs ociosos) vindas da **fatura real** → clique para ver os itens → clique no item para o **detalhe**. O subtotal de cada categoria e o total **batem com a fatura da DO**.
 - **Licenças por pessoa**: no card **Licenças** você cadastra cada pessoa em Claude Pro, Claude Max e Figma (nome → chip; × remove). O custo é `nº de pessoas × valor unitário`; **zero pessoas = R$0**. As pessoas ficam salvas no navegador (`localStorage`); o **valor unitário é buscado dos preços oficiais** (Claude Pro US$20, Claude Max US$100/5x, Figma ~US$16) convertidos pelo **dólar ao vivo** — então acompanham o câmbio.
 - **Datas**: o seletor **De/Até** usa um calendário próprio no tema do site (sem o calendário branco do navegador).
 - **IPs ociosos**: clique no card **IPs Ociosos DO** para ver o detalhe e **quanto dá para economizar** (por IP, por mês e por ano).
@@ -103,7 +103,7 @@ O seletor **Período** (Este mês · Mês passado · Últimos 7/30 dias · Perso
 `?start=YYYY-MM-DD&end=YYYY-MM-DD` e envia ao backend:
 - **AWS Cost Explorer** consulta exatamente esse intervalo e calcula a **janela anterior de mesmo tamanho** para o comparativo (▲/▼).
 - **DeepSeek** usa o intervalo só como rótulo (a API não dá custo por data).
-- **DigitalOcean** é *run-rate* mensal atual (a API não expõe custo histórico por dia), então não muda com a data.
+- **DigitalOcean** usa as **faturas mensais reais** (`/v2/customers/my/invoices`): o total do período é a soma de cada fatura mensal ponderada pelos dias cobertos pelo intervalo (o mês corrente é o acumulado *month-to-date*). Assim **Julho mostra a fatura de Julho, Agosto a de Agosto** — bate com a conta da DO. O detalhamento (Droplets, Managed Databases, Backups, Snapshots, IPs) vem dos itens reais da fatura do mês dominante e **soma exatamente o total**.
 
 ### Custo do DeepSeek — CALCULADO pela API
 A API do DeepSeek expõe só o **saldo** (`/user/balance`), não o custo por período.
@@ -123,7 +123,7 @@ gasto = DEEPSEEK_TOTAL_TOPPED_UP  −  saldo topped-up atual (da API)
 |------|---------|
 | `/api/health` | status |
 | `/api/usd-brl` | `{ rate, updatedAt }` — câmbio |
-| `/api/digitalocean` | droplets, databases, IPs reservados (idle = sem droplet) |
+| `/api/digitalocean?start=&end=` | total da(s) **fatura(s) mensal(is)** no período + itens reais por categoria (droplets, databases, backups, snapshots, IPs) + `byMonth` |
 | `/api/aws?start=&end=` | custo por serviço no intervalo × janela anterior (Cost Explorer) |
 | `/api/deepseek` | `{ balanceUsd, spentUsd, totalToppedUp }` (gasto calculado) |
 | `/api/licencas` | `{ fx, pro, max, figma }` — preço oficial (USD) × dólar, em BRL |
