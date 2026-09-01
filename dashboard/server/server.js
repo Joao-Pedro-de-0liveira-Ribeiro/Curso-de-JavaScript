@@ -129,13 +129,23 @@ const DB_PRICES = {
   'gd-8vcpu-32gb': 488.70, 'gd-8vcpu-32gb-intel': 488.70,
   'so1_5-2vcpu-16gb-intel': 244.35, 'so1_5-4vcpu-32gb-intel': 488.70, 'so1_5-8vcpu-64gb-intel': 977.40,
 };
+// tira aspas/espaços/quebras que às vezes vão parar no .env (DO_TOKEN="dop_..." etc.)
+function doToken() {
+  const t = (process.env.DO_TOKEN || '').trim().replace(/^["']|["']$/g, '').trim();
+  if (!t) throw new Error('DO_TOKEN ausente no ambiente');
+  return t;
+}
 // chamada REST genérica na DigitalOcean (Bearer token READ + billing)
 async function doApi(path) {
-  const token = process.env.DO_TOKEN;
-  if (!token) throw new Error('DO_TOKEN ausente no ambiente');
+  const token = doToken();
   const DO_BASE = process.env.DO_BASE || 'https://api.digitalocean.com/v2/'; // override p/ testes
-  const r = await fetch(`${DO_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!r.ok) throw new Error(`DO ${path} -> HTTP ${r.status}`);
+  const r = await fetch(`${DO_BASE}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
+  if (!r.ok) {
+    // 403 no billing = token sem escopo de faturamento; 401 = token inválido
+    if (r.status === 403 && /invoices|balance|billing/.test(path))
+      throw new Error(`DO ${path} -> HTTP 403: o DO_TOKEN do .env não tem permissão de BILLING/faturas. Gere um token com escopo de leitura de Billing (ou use o mesmo token do seu script que já lê /invoices).`);
+    throw new Error(`DO ${path} -> HTTP ${r.status}`);
+  }
   return r.json();
 }
 // faturas mensais (imutáveis p/ meses fechados; o mês corrente é o acumulado)
@@ -243,22 +253,25 @@ async function getDoFromInvoices(range) {
   });
 }
 
-// ponto de entrada: tenta faturas reais; se o token não tiver billing, estima
+// ponto de entrada: SEMPRE usa as faturas reais (bate com a conta da DO).
+// Erro de billing (403/401) é SURFACED no card — nunca mascarado por estimativa,
+// que confunde por não bater com a fatura. Só cai na estimativa em falha de rede.
 async function getDigitalOcean(range) {
   range = range || resolveRange(new URLSearchParams());
   try {
     return await getDoFromInvoices(range);
   } catch (e) {
-    const est = await getDoEstimate();
-    est.billingFonte = 'estimativa (faturas indisponíveis: ' + String(e.message) + ')';
+    const msg = String(e.message || e);
+    if (/HTTP 40[13]|BILLING|DO_TOKEN/i.test(msg)) throw e; // problema de token/escopo -> mostra no card
+    const est = await getDoEstimate();                       // falha de rede -> estimativa temporária
+    est.billingFonte = 'estimativa temporária (faturas indisponíveis: ' + msg + ')';
     return est;
   }
 }
 
 // FALLBACK: estimativa por recursos vivos + balance (usado se não houver faturas)
 async function getDoEstimate() {
-  const token = process.env.DO_TOKEN;
-  if (!token) throw new Error('DO_TOKEN ausente no ambiente');
+  const token = doToken();
   const headers = { Authorization: `Bearer ${token}` };
   const DO_BASE = process.env.DO_BASE || 'https://api.digitalocean.com/v2/'; // override p/ testes
   const api = async (path) => {
@@ -451,7 +464,8 @@ async function getWaste() {
     const isoDate = (t) => new Date(t).toISOString().slice(0, 10);
 
     /* ================= DigitalOcean ================= */
-    const token = process.env.DO_TOKEN;
+    let token = null;
+    try { token = doToken(); } catch (_) {}
     if (token) {
       const H = { Authorization: `Bearer ${token}` };
       const doGet = async (p) => (await fetch(`https://api.digitalocean.com/v2/${p}`, { headers: H })).json();

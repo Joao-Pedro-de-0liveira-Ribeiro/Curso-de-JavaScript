@@ -850,6 +850,10 @@ function renderDrawer(){
   if(plat==='lic'){renderLicencas(sheet);showOv('drawer');return;}
   if(plat==='ds'){renderDeepseek(sheet);showOv('drawer');return;}
 
+  if(plat==='do'&&DATA.doError){
+    sheet.appendChild(el('div','banner warn',`${IC.warn}<span><strong>DigitalOcean não carregou pela fatura:</strong><br>${DATA.doError}<br><br>Coloque no <code>.env</code> um <strong>DO_TOKEN com escopo de leitura de Billing</strong> (o mesmo token do seu script funciona) e reinicie o <code>npm start</code>.</span>`));
+    showOv('drawer');return;
+  }
   const groups=plat==='aws'?awsGroups():doGroups();
   if(group==null){
     const hint=plat==='aws'?'Clique num serviço para ver os recursos que ele contém.':'Clique numa categoria para ver os itens; depois clique no item para o detalhe.';
