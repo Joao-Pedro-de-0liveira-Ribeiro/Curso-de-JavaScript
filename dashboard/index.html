@@ -835,7 +835,8 @@ function awsGroups(){
     map[k].cur+=awsResVal(r,state.start,state.end);
     map[k].prev+=(r.anterior!=null?(+r.anterior||0):awsResVal(r,p.s,p.e));});
   return Object.keys(map).map(k=>{const m=map[k];const meta=AWS_SVC[k]||{name:k,desc:''};
-    return {key:k,chip:k,title:meta.name,desc:meta.desc,usd:m.cur,brl:m.cur*state.usd,anterior:m.prev,count:m.items.length,items:m.items};})
+    const title=(m.items[0]&&m.items[0].servicoNome)||meta.name;   // nome legível do backend
+    return {key:k,chip:k,title,desc:meta.desc,usd:m.cur,brl:m.cur*state.usd,anterior:m.prev,count:m.items.length,items:m.items};})
     .sort((a,b)=>b.usd-a.usd);
 }
 function doGroups(){

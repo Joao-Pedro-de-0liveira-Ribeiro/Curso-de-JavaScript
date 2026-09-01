@@ -438,7 +438,8 @@ async function getAws(range) {
     const resources = Object.keys(curMap).map((k) => {
       const i = k.indexOf('|'); const servico = k.slice(0, i), usageType = k.slice(i + 1);
       return {
-        nome: friendlyUsage(usageType, servico), servico: shortService(servico), servicoFull: servico,
+        nome: friendlyUsage(usageType, servico), servico: shortService(servico),
+        servicoFull: servico, servicoNome: serviceNome(servico),
         usageType, atual: +curMap[k].toFixed(2), anterior: +(prevMap[k] || 0).toFixed(2),
         detalhe: usageType, projeto: '—',
       };
@@ -458,8 +459,9 @@ async function getAws(range) {
     resources.forEach((r) => {
       if (fargateSet.has(r)) return; // Fargate é tratado à parte (rateado por serviço)
       let m;
-      if ((m = r.usageType.match(/BoxUsage:([\w.]+)/i)) && ec2ByType[m[1]]) {
-        r.nome = ec2ByType[m[1]].map((d) => d.nome).join(', '); r.detalhe = `EC2 ${m[1]} · ${r.usageType}`;
+      if ((m = r.usageType.match(/BoxUsage:([\w.]+)/i))) {
+        if (ec2ByType[m[1]]) { r.nome = ec2ByType[m[1]].map((d) => d.nome).join(', '); r.detalhe = `EC2 ${m[1]} · ${r.usageType}`; }
+        else { r.nome = `EC2 ${m[1]} (instância não ativa hoje)`; r.detalhe = `${r.usageType} · sem instância ${m[1]} no inventário atual`; }
       }
       out.push(r);
     });
@@ -493,7 +495,7 @@ async function getAws(range) {
         const atual = +(fVcpuCur * wV + fGbCur * wG).toFixed(2);
         if (atual < 0.005) return;
         out.push({
-          nome: s.nome, servico: 'ECS', servicoFull: 'Amazon Elastic Container Service',
+          nome: s.nome, servico: 'ECS', servicoFull: 'Amazon Elastic Container Service', servicoNome: 'Amazon ECS',
           usageType: 'Fargate', detalhe: `${s.cluster} · ${s.vcpu} vCPU / ${s.gb} GB · ${s.running}/${s.desired} tasks · rateio Fargate`,
           atual, anterior: +(fVcpuPrev * wV + fGbPrev * wG).toFixed(2), projeto: s.cluster,
         });
@@ -504,9 +506,24 @@ async function getAws(range) {
     return { resources: out, total: +total.toFixed(2), inventory: inv, periodo: range, periodoAnterior: prev, updatedAt: new Date().toISOString() };
   });
 }
-// "SAE1-InstanceUsage:db.m6g.xl" -> "Instância db.m6g.xl" (nome legível do recurso)
+// "SAE1-InstanceUsage:db.m6g.xl" -> "Instância db.m6g.xl" (nome legível do recurso).
+// Ciente do SERVIÇO: p/ S3/ECR distingue classe de armazenamento e contextualiza.
 function friendlyUsage(ut, servico) {
+  const svc = String(servico || '');
   let s = String(ut || '').replace(/^[A-Z]{2,4}\d?-/, ''); // tira prefixo de região (SAE1-, USE1-…)
+  const isS3 = /Simple Storage Service/i.test(svc);
+  const isECR = /Container Registry/i.test(svc);
+  // ---- armazenamento por classe (evita vários "Armazenamento" iguais) ----
+  if (/TimedStorage/i.test(s)) {
+    if (isECR) return 'Armazenamento de imagens';
+    if (/INT-AIA/i.test(s)) return 'Armazenamento (Int-Tiering Archive IA)';
+    if (/INT-IA/i.test(s)) return 'Armazenamento (Int-Tiering IA)';
+    if (/INT-FA/i.test(s)) return 'Armazenamento (Int-Tiering Frequent)';
+    if (/INT-/i.test(s)) return 'Armazenamento (Int-Tiering)';
+    if (/Glacier|GDA/i.test(s)) return 'Armazenamento (Glacier)';
+    if (/IA-/i.test(s) || /StandardIA/i.test(s)) return 'Armazenamento (Standard-IA)';
+    return isS3 ? 'Armazenamento (Standard)' : 'Armazenamento';
+  }
   const rules = [
     [/^InstanceUsage:(.+)/i, (m) => 'Instância ' + m[1]],
     [/^InstanceUsage$/i, () => 'Instância'],
@@ -526,16 +543,20 @@ function friendlyUsage(ut, servico) {
     [/VpcEndpoint-Hours/i, () => 'VPC Endpoint (horas)'],
     [/VpcEndpoint-Bytes/i, () => 'VPC Endpoint (dados)'],
     [/VPN-Usage-Hours/i, () => 'VPN (horas)'],
-    [/DataTransfer-Out-Bytes/i, () => 'Transferência (saída)'],
+    [/DataTransfer-Out-Bytes/i, () => isECR ? 'Transferência de imagens (saída)' : 'Transferência (saída)'],
     [/DataTransfer-Regional-Bytes/i, () => 'Transferência (regional)'],
     [/AWS-Out-Bytes/i, () => 'Transferência (inter-região)'],
+    [/Monitoring-Automation-INT/i, () => 'Int-Tiering (monitoramento)'],
+    [/Requests-INT-Tier1/i, () => 'Requisições Int-Tiering (Tier 1)'],
+    [/Requests-INT-Tier2/i, () => 'Requisições Int-Tiering (Tier 2)'],
+    [/Requests-Annotation-Tier1/i, () => 'Requisições anotação (Tier 1)'],
     [/CW:MetricMonitorUsage/i, () => 'CloudWatch métricas'],
     [/CW:AlarmMonitorUsage/i, () => 'CloudWatch alarmes'],
     [/CW:GMD-Metrics/i, () => 'CloudWatch GetMetricData'],
     [/DataProcessing-Bytes/i, () => 'Processamento de dados'],
-    [/TimedStorage/i, () => 'Armazenamento'],
     [/Requests-Tier1/i, () => 'Requisições (Tier 1)'],
     [/Requests-Tier2/i, () => 'Requisições (Tier 2)'],
+    [/Requests-Tier8/i, () => 'Requisições (Tier 8)'],
     [/AWSSecretsManager-Secrets/i, () => 'Segredos ativos'],
     [/SecretsManagerAPIRequest/i, () => 'Secrets Manager (API)'],
     [/WebACLV2/i, () => 'WAF Web ACL'],
@@ -543,10 +564,32 @@ function friendlyUsage(ut, servico) {
     [/RequestV2/i, () => 'WAF requisições'],
     [/OutboundSMS/i, () => 'SMS (saída)'],
     [/APIRequest/i, () => 'Requisições de API'],
-    [/^NoUsageType$/i, () => (shortService(servico) || 'Uso geral')],
+    [/^NoUsageType$/i, () => (serviceNome(servico) || 'Uso geral')],
   ];
   for (const [re, fn] of rules) { const m = s.match(re); if (m) return fn(m); }
   return s || 'Uso';
+}
+// nome LEGÍVEL do serviço p/ o título do card (o Cost Explorer manda o nome longo)
+function serviceNome(name) {
+  const map = {
+    'Amazon Relational Database Service': 'Amazon RDS',
+    'Amazon Elastic Container Service': 'Amazon ECS',
+    'Amazon Elastic Compute Cloud - Compute': 'Amazon EC2',
+    'EC2 - Other': 'Amazon EC2',
+    'Amazon Virtual Private Cloud': 'Amazon VPC',
+    'Amazon Elastic Load Balancing': 'Elastic Load Balancing',
+    'AmazonCloudWatch': 'Amazon CloudWatch',
+    'AWS Secrets Manager': 'AWS Secrets Manager',
+    'Amazon Simple Storage Service': 'Amazon S3',
+    'AWS WAF': 'AWS WAF',
+    'Amazon EC2 Container Registry (ECR)': 'Amazon ECR',
+    'Amazon Simple Notification Service': 'Amazon SNS',
+    'Amazon Simple Queue Service': 'Amazon SQS',
+    'AWS Cost Explorer': 'AWS Cost Explorer',
+    'AWS End User Messaging': 'AWS End User Messaging',
+    'Tax': 'Impostos (Tax)',
+  };
+  return map[name] || name;
 }
 // abrevia "Amazon Elastic Compute Cloud - Compute" -> "EC2" p/ o chip do card
 function shortService(name) {
