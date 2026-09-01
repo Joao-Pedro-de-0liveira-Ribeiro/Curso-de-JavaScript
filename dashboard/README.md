@@ -55,7 +55,8 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 - **6 KPIs** no topo: total consolidado, DO, AWS, **Claude Pro (em R$)**, DeepSeek e IPs ociosos.
 - **Gráfico de rosca interativo**: passe o mouse numa fatia (mostra valor e % no centro) e **clique** para abrir a plataforma; a legenda também é clicável.
 - **Filtro por datas** (sem atalhos): você escolhe **De** e **Até**; o painel gera os valores para o intervalo. No modo snapshot os custos de DO/AWS são **rateados proporcionalmente aos dias** (licenças ficam fixas); com backend, os valores são exatos do Cost Explorer.
-- **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…) com o que é cada um e o subtotal; **clique** num serviço para ver os recursos; clique num recurso para o **detalhe**.
+- **Exportar relatório** (no topo, ao lado das datas): **PDF** (abre o relatório com o mesmo design do painel e manda imprimir → *Salvar como PDF*) e **Excel** (`.xlsx` com abas Resumo / DigitalOcean / AWS / Licenças / Ociosos; se estiver sem internet, cai num CSV que o Excel abre). O relatório usa **o período selecionado** e os valores atuais.
+- **AWS em 2 níveis**: primeiro os **serviços** (RDS, ECS, EC2…); **clique** num serviço para ver os **recursos nomeados** (ex.: *Instância db.m6g.xl*, *Fargate vCPU*, *NAT Gateway*, *Storage GP3*), vindos do Cost Explorer por `USAGE_TYPE` — dinâmico (recurso novo aparece sozinho). Clique num recurso para o **detalhe**.
 - **DigitalOcean em 2 níveis**: categorias (Droplets, Managed Databases, Backups, Snapshots, IPs ociosos) vindas da **fatura real** → clique para ver os itens → clique no item para o **detalhe**. O subtotal de cada categoria e o total **batem com a fatura da DO**.
 - **Licenças por pessoa**: no card **Licenças** você cadastra cada pessoa em Claude Pro, Claude Max e Figma (nome → chip; × remove). O custo é `nº de pessoas × valor unitário`; **zero pessoas = R$0**. As pessoas ficam salvas no navegador (`localStorage`); o **valor unitário é buscado dos preços oficiais** (Claude Pro US$20, Claude Max US$100/5x, Figma ~US$16) convertidos pelo **dólar ao vivo** — então acompanham o câmbio.
 - **Datas**: o seletor **De/Até** usa um calendário próprio no tema do site (sem o calendário branco do navegador).
@@ -128,7 +129,7 @@ gasto = DEEPSEEK_TOTAL_TOPPED_UP  −  saldo topped-up atual (da API)
 | `/api/health` | status |
 | `/api/usd-brl` | `{ rate, updatedAt }` — câmbio |
 | `/api/digitalocean?start=&end=` | total da(s) **fatura(s) mensal(is)** no período + itens reais por categoria (droplets, databases, backups, snapshots, IPs) + `byMonth` |
-| `/api/aws?start=&end=` | custo por serviço no intervalo × janela anterior (Cost Explorer) |
+| `/api/aws?start=&end=` | custo por **serviço + recurso** (`USAGE_TYPE`) no intervalo × janela anterior (Cost Explorer) |
 | `/api/deepseek` | `{ balanceUsd, spentUsd, totalToppedUp }` (gasto calculado) |
 | `/api/licencas` | `{ fx, pro, max, figma }` — preço oficial (USD) × dólar, em BRL |
 | `/api/all?start=&end=` | tudo junto (o painel usa este quando `apiBase` está setado) |

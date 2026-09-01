@@ -131,6 +131,10 @@ svg{display:block}
 .pill-live{background:rgba(16,185,129,.14); color:#059669}
 :root[data-theme="dark"] .pill-live{color:#6ee7b7}
 .pill-mut{background:rgba(100,116,139,.15); color:var(--muted)}
+.exp-wrap{display:inline-flex; gap:8px; margin-left:auto}
+.expbtn{font-weight:700} .expbtn svg{width:15px;height:15px}
+.expbtn.pdf{border-color:rgba(220,38,38,.35)} .expbtn.pdf:hover{background:rgba(220,38,38,.10)}
+.expbtn.xls{border-color:rgba(16,185,129,.4)} .expbtn.xls:hover{background:rgba(16,185,129,.10)}
 
 /* Controls */
 .controls{display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; padding:14px 16px; margin-bottom:14px}
@@ -344,7 +348,11 @@ svg{display:block}
     <div class="datefield"><span class="uplabel">De</span><button type="button" class="dinput" id="btnStart"></button></div>
     <div class="datefield"><span class="uplabel">Até</span><button type="button" class="dinput" id="btnEnd"></button></div>
     <span class="pill" id="daysTag">—</span>
-    <span class="pill pill-live" id="modeTag"></span>
+    <span class="pill pill-live" id="modeTag" hidden></span>
+    <div class="exp-wrap">
+      <button type="button" class="btn-ghost expbtn" id="btnPdf" title="Exportar relatório em PDF"></button>
+      <button type="button" class="btn-ghost expbtn" id="btnXls" title="Exportar relatório em Excel"></button>
+    </div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -713,7 +721,11 @@ const wasteBrlMes=()=>wasteList().reduce((s,x)=>s+(+x.usdMes||0),0)*state.usd;
 
 /* ============ Alertas automáticos (variação · novos · ociosos) ============ */
 function renderAlerts(){
-  const c=document.getElementById('alerts');c.innerHTML='';const list=[];
+  const c=document.getElementById('alerts');c.innerHTML='';
+  alertList().forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
+}
+function alertList(){
+  const list=[];
   const p=prevRange();
   const nome=k=>(AWS_SVC[k]?AWS_SVC[k].name:k);
   // 1) variação por SERVIÇO da AWS (período vs anterior) + serviços NOVOS
@@ -744,7 +756,7 @@ function renderAlerts(){
   }
   if(revisar.length) list.push({t:'info',m:`${revisar.length} recurso(s) sem métrica de uso pela API — confirme manualmente se estão em uso.`});
   if(!list.length)list.push({t:'ok',m:'Sem variações relevantes no período selecionado.'});
-  list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
+  return list;
 }
 
 /* ============ Gráfico estimado por mês (abaixo da pizza) ============ */
@@ -1119,10 +1131,108 @@ async function fetchFx(){
   const url=state.api?`${state.api}/api/usd-brl`:'https://open.er-api.com/v6/latest/USD';
   try{const r=await fetchT(url,6000);const j=await r.json();const rate=state.api?j.rate:j.rates.BRL;
     if(rate){state.usd=+(+rate).toFixed(4);document.getElementById('usd').value=state.usd.toFixed(2);tag.textContent='ao vivo';renderAll();}
-    else tag.textContent='27/08';
-  }catch(_){tag.textContent='27/08';}
+    else tag.textContent='offline';
+  }catch(_){tag.textContent='offline';}
 }
 document.getElementById('fxBtn').onclick=fetchFx;
+
+/* ============ Exportar relatório (PDF + Excel) ============ */
+// Monta o modelo do relatório a partir do estado/DADOS atuais (mesmo período do painel).
+function reportData(){
+  const usd=state.usd, mult=(state.apiMode?1:pf());
+  const period=`${brDate(state.start)} a ${brDate(state.end)} · ${state.days} dias`;
+  const doRows=[]; doGroups().forEach(g=>g.items.forEach(it=>{const u=(+it.usd||0)*mult;doRows.push({cat:g.title,nome:it.nome,projeto:it.projeto||'',usd:u,brl:u*usd});}));
+  const awsRows=DATA.aws.map(r=>{const u=awsResVal(r,state.start,state.end);return {servico:r.servico,nome:r.nome,usd:u,brl:u*usd};}).filter(r=>r.usd>0).sort((a,b)=>b.usd-a.usd);
+  const licRows=[['pro','Claude Pro'],['max','Claude Max'],['figma','Figma']].map(([k,label])=>{const qt=licCount(k),unit=licUnit(k);return {label,qtd:qt,unit,total:qt*unit,pessoas:(state.licenses[k]||[]).join(', ')};});
+  const kpis=[
+    {k:'Total Consolidado',brl:total()},{k:'DigitalOcean',brl:doBrl(),usd:doUsd()},{k:'Amazon AWS',brl:awsBrl(),usd:awsUsd()},
+    {k:'Licenças',brl:licBrl()},{k:'DeepSeek',brl:dsBrl(),usd:state.dsUsd},{k:'Recursos Ociosos (mês)',brl:wasteBrlMes()},
+  ];
+  const waste=wasteList().map(x=>({plataforma:x.plataforma,tipo:x.tipo,nome:String(x.nome),motivo:x.motivo||'',brlMes:(+x.usdMes>0?x.usdMes*usd:null)}));
+  const alerts=alertList().map(a=>a.m.replace(/<[^>]+>/g,''));
+  return {period,usd,kpis,doRows,awsRows,licRows,waste,alerts,doTotalBrl:doBrl(),awsTotalBrl:awsBrl()};
+}
+function buildReportHTML(d){
+  const kc=d.kpis.map(k=>`<div class="rk"><div class="rkt">${k.k}</div><div class="rkv">${fBRL(k.brl)}</div>${k.usd!=null?`<div class="rks">${fUSD(k.usd)}</div>`:''}</div>`).join('');
+  const doBody=d.doRows.map(r=>`<tr><td>${r.cat}</td><td>${r.nome}</td><td class="mut">${r.projeto}</td><td class="num">${fUSD(r.usd)}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
+  const awsBody=d.awsRows.map(r=>`<tr><td>${r.servico}</td><td>${r.nome}</td><td class="num">${fUSD(r.usd)}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
+  const licBody=d.licRows.map(r=>`<tr><td>${r.label}</td><td class="num">${r.qtd}</td><td class="num">${fBRL(r.unit)}</td><td class="num b">${fBRL(r.total)}</td><td class="mut">${r.pessoas||'—'}</td></tr>`).join('');
+  const wBody=d.waste.map(r=>`<tr><td>${r.plataforma}</td><td>${r.tipo}</td><td>${r.nome}</td><td class="num b">${r.brlMes!=null?fBRL(r.brlMes)+'/mês':'revisar'}</td></tr>`).join('');
+  const alBody=d.alerts.map(a=>`<li>${a}</li>`).join('')||'<li>Sem variações relevantes.</li>';
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório de Custos TI — Grupo 3RN</title>
+<style>*{box-sizing:border-box}body{margin:0;font:13px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;background:#fff}
+.wrap{max-width:900px;margin:0 auto;padding:26px}
+.rhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e40af;padding-bottom:14px;margin-bottom:16px}
+.rh-l{display:flex;gap:12px;align-items:center}.rh-badge{width:42px;height:42px;border-radius:11px;background:#1e40af;color:#fff;display:flex;align-items:center;justify-content:center}.rh-badge svg{width:24px;height:24px}
+.rh-t{font-size:19px;font-weight:800}.rh-s{font-size:12px;color:#64748b}.rh-r{text-align:right;font-size:12px;color:#475569}.rh-r b{color:#0f172a}
+.rkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 22px}
+.rk{border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;background:#f8fafc}.rkt{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;font-weight:700}.rkv{font-size:19px;font-weight:800;margin-top:2px}.rks{font-size:11px;color:#64748b}
+.sec{margin:22px 0 8px;display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;page-break-after:avoid}.sec .lg,.sec .lg svg{width:22px;height:22px}.sec .amt{margin-left:auto;font-size:13px;color:#1e40af}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}th{background:#eff2f7;text-align:left;padding:6px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:#475569;border-bottom:1px solid #cbd5e1}
+td{padding:5px 9px;border-bottom:1px solid #eef2f7}tr:nth-child(even) td{background:#fafbfc}.num{text-align:right;font-variant-numeric:tabular-nums}.b{font-weight:700}.mut{color:#94a3b8;font-size:11px}
+.tot td{background:#eef4ff!important;font-weight:800;border-top:2px solid #1e40af}
+ul.al{margin:6px 0;padding-left:18px}ul.al li{margin:3px 0;font-size:12px}
+.foot{margin-top:24px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
+@media print{.wrap{padding:0}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:13mm}table{page-break-inside:auto}tr{page-break-inside:avoid}}
+</style></head><body><div class="wrap">
+<div class="rhead"><div class="rh-l"><div class="rh-badge">${IC.chart}</div><div><div class="rh-t">Painel de Custos TI — Grupo 3RN</div><div class="rh-s">Relatório consolidado · DigitalOcean · AWS · Licenças · DeepSeek</div></div></div>
+<div class="rh-r"><div>Período: <b>${d.period}</b></div><div>Gerado em: <b>${brDate(CONFIG.today)}</b></div><div>USD/BRL: <b>${d.usd.toFixed(2)}</b></div></div></div>
+<div class="rkgrid">${kc}</div>
+<div class="sec"><span class="lg">${LOGO.do}</span> DigitalOcean <span class="amt">${fBRL(d.doTotalBrl)}</span></div>
+${d.doRows.length?`<table><thead><tr><th>Categoria</th><th>Recurso</th><th>Projeto</th><th class="num">USD</th><th class="num">BRL</th></tr></thead><tbody>${doBody}<tr class="tot"><td colspan="4">Total DigitalOcean</td><td class="num">${fBRL(d.doTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de DigitalOcean no período.</p>'}
+<div class="sec"><span class="lg">${LOGO.aws}</span> Amazon AWS <span class="amt">${fBRL(d.awsTotalBrl)}</span></div>
+${d.awsRows.length?`<table><thead><tr><th>Serviço</th><th>Recurso</th><th class="num">USD</th><th class="num">BRL</th></tr></thead><tbody>${awsBody}<tr class="tot"><td colspan="3">Total AWS</td><td class="num">${fBRL(d.awsTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de AWS no período.</p>'}
+<div class="sec"><span class="lg">${LOGO.claude}</span> Licenças de Software <span class="amt">${fBRL(d.kpis[3].brl)}</span></div>
+<table><thead><tr><th>Licença</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Total</th><th>Pessoas</th></tr></thead><tbody>${licBody}</tbody></table>
+${d.waste.length?`<div class="sec">⚠ Recursos ociosos gerando custo</div><table><thead><tr><th>Plataforma</th><th>Tipo</th><th>Recurso</th><th class="num">Custo</th></tr></thead><tbody>${wBody}</tbody></table>`:''}
+<div class="sec">Alertas automáticos do período</div><ul class="al">${alBody}</ul>
+<div class="foot"><span>Grupo 3RN — Painel de Custos TI</span><span>Valores em USD convertidos a R$ ${d.usd.toFixed(2)}</span></div>
+</div></body></html>`;
+}
+function exportPDF(){
+  const w=window.open('','_blank','width=920,height=1000');
+  if(!w){alert('Permita pop-ups para exportar o relatório em PDF.');return;}
+  w.document.open();w.document.write(buildReportHTML(reportData()));w.document.close();
+  let done=false;const go=()=>{if(done)return;done=true;try{w.focus();w.print();}catch(_){}}; w.onload=go;setTimeout(go,600);
+}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=res;s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+async function exportExcel(){
+  const d=reportData();const fname=`custos-ti_${state.start}_a_${state.end}`;
+  try{
+    if(!window.XLSX) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const X=window.XLSX;if(!X)throw new Error('xlsx');
+    const wb=X.utils.book_new();
+    const resumo=[['Painel de Custos TI — Grupo 3RN'],['Período',d.period],['USD/BRL',+d.usd.toFixed(4)],[],['Indicador','BRL','USD']];
+    d.kpis.forEach(k=>resumo.push([k.k,+k.brl.toFixed(2),k.usd!=null?+k.usd.toFixed(2):'']));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(resumo),'Resumo');
+    const doA=[['Categoria','Recurso','Projeto','USD','BRL']];d.doRows.forEach(r=>doA.push([r.cat,r.nome,r.projeto,+r.usd.toFixed(2),+r.brl.toFixed(2)]));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(doA),'DigitalOcean');
+    const awsA=[['Serviço','Recurso','USD','BRL']];d.awsRows.forEach(r=>awsA.push([r.servico,r.nome,+r.usd.toFixed(2),+r.brl.toFixed(2)]));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(awsA),'AWS');
+    const licA=[['Licença','Qtd','Unitário BRL','Total BRL','Pessoas']];d.licRows.forEach(r=>licA.push([r.label,r.qtd,+r.unit.toFixed(2),+r.total.toFixed(2),r.pessoas]));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(licA),'Licenças');
+    const wA=[['Plataforma','Tipo','Recurso','Motivo','BRL/mês']];d.waste.forEach(r=>wA.push([r.plataforma,r.tipo,r.nome,r.motivo,r.brlMes!=null?+r.brlMes.toFixed(2):'']));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(wA),'Ociosos');
+    X.writeFile(wb,fname+'.xlsx');
+  }catch(_){ exportCSV(d,fname); }   // offline / CDN bloqueado -> CSV que o Excel abre
+}
+function exportCSV(d,fname){
+  const esc=(v)=>{v=String(v==null?'':v);return /[;"\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v;};
+  const n=(x)=>String((+x||0).toFixed(2)).replace('.',','); const L=[];
+  L.push('Painel de Custos TI — Grupo 3RN');L.push('Período;'+esc(d.period));L.push('USD/BRL;'+n(d.usd));L.push('');
+  L.push('RESUMO;BRL;USD');d.kpis.forEach(k=>L.push([esc(k.k),n(k.brl),k.usd!=null?n(k.usd):''].join(';')));L.push('');
+  L.push('DIGITALOCEAN;Recurso;Projeto;USD;BRL');d.doRows.forEach(r=>L.push([esc(r.cat),esc(r.nome),esc(r.projeto),n(r.usd),n(r.brl)].join(';')));L.push('');
+  L.push('AWS;Recurso;USD;BRL');d.awsRows.forEach(r=>L.push([esc(r.servico),esc(r.nome),n(r.usd),n(r.brl)].join(';')));L.push('');
+  L.push('LICENÇAS;Qtd;Unitário;Total;Pessoas');d.licRows.forEach(r=>L.push([esc(r.label),r.qtd,n(r.unit),n(r.total),esc(r.pessoas)].join(';')));L.push('');
+  L.push('OCIOSOS;Tipo;Recurso;BRL/mês');d.waste.forEach(r=>L.push([esc(r.plataforma),esc(r.tipo),esc(r.nome),r.brlMes!=null?n(r.brlMes):'revisar'].join(';')));
+  dl(new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),fname+'.csv');
+}
+(function wireExport(){
+  const ICdl='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>';
+  const p=document.getElementById('btnPdf');p.className='btn-ghost expbtn pdf';p.innerHTML=ICdl+' PDF';p.onclick=exportPDF;
+  const x=document.getElementById('btnXls');x.className='btn-ghost expbtn xls';x.innerHTML=ICdl+' Excel';x.onclick=exportExcel;
+})();
 
 /* ============ init ============ */
 document.getElementById('topBadge').innerHTML=IC.chart;

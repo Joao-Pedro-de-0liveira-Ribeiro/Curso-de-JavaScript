@@ -367,31 +367,79 @@ async function getAws(range) {
   const key = `aws:${range.start}:${range.end}`;
   return cached(key, 30 * 60 * 1000, async () => {
     const client = new CostExplorerClient({ region: CE_REGION });
+    // agrupa por SERVIÇO + TIPO DE USO -> cada linha vira um "recurso" com nome
     const query = (s, e) => client.send(new GetCostAndUsageCommand({
       TimePeriod: { Start: s, End: e },
       Granularity: 'MONTHLY',
       Metrics: ['UnblendedCost'],
-      GroupBy: [{ Type: 'DIMENSION', Key: 'SERVICE' }],
+      GroupBy: [{ Type: 'DIMENSION', Key: 'SERVICE' }, { Type: 'DIMENSION', Key: 'USAGE_TYPE' }],
     }));
     const [cur, pr] = await Promise.all([query(range.start, range.end), query(prev.start, prev.end)]);
     const toMap = (r) => {
       const m = {};
       (r.ResultsByTime || []).forEach((t) =>
         (t.Groups || []).forEach((g) => {
-          m[g.Keys[0]] = (m[g.Keys[0]] || 0) + (+g.Metrics.UnblendedCost.Amount);
+          const k = g.Keys[0] + '|' + (g.Keys[1] || '');
+          m[k] = (m[k] || 0) + (+g.Metrics.UnblendedCost.Amount);
         }));
       return m;
     };
     const curMap = toMap(cur), prevMap = toMap(pr);
-    const resources = Object.keys(curMap).map((servico) => ({
-      nome: servico, servico: shortService(servico),
-      atual: +curMap[servico].toFixed(2),
-      anterior: +(prevMap[servico] || 0).toFixed(2),
-      detalhe: '', projeto: '—',
-    })).sort((a, b) => b.atual - a.atual);
+    const resources = Object.keys(curMap).map((k) => {
+      const i = k.indexOf('|'); const servico = k.slice(0, i), usageType = k.slice(i + 1);
+      return {
+        nome: friendlyUsage(usageType, servico), servico: shortService(servico), servicoFull: servico,
+        usageType, atual: +curMap[k].toFixed(2), anterior: +(prevMap[k] || 0).toFixed(2),
+        detalhe: usageType, projeto: '—',
+      };
+    }).filter((r) => r.atual >= 0.005).sort((a, b) => b.atual - a.atual);
     const total = resources.reduce((s, r) => s + r.atual, 0);
     return { resources, total: +total.toFixed(2), periodo: range, periodoAnterior: prev, updatedAt: new Date().toISOString() };
   });
+}
+// "SAE1-InstanceUsage:db.m6g.xl" -> "Instância db.m6g.xl" (nome legível do recurso)
+function friendlyUsage(ut, servico) {
+  let s = String(ut || '').replace(/^[A-Z]{2,4}\d?-/, ''); // tira prefixo de região (SAE1-, USE1-…)
+  const rules = [
+    [/^InstanceUsage:(.+)/i, (m) => 'Instância ' + m[1]],
+    [/^InstanceUsage$/i, () => 'Instância'],
+    [/Fargate-vCPU-Hours/i, () => 'Fargate vCPU (horas)'],
+    [/Fargate-GB-Hours/i, () => 'Fargate memória (GB-h)'],
+    [/NatGateway-Hours/i, () => 'NAT Gateway (horas)'],
+    [/NatGateway-Bytes/i, () => 'NAT Gateway (dados)'],
+    [/LoadBalancerUsage/i, () => 'Load Balancer (horas)'],
+    [/LCUUsage/i, () => 'Load Balancer (LCU)'],
+    [/^BoxUsage:(.+)/i, (m) => 'EC2 ' + m[1]],
+    [/RDS:GP3-Storage/i, () => 'Storage GP3 (RDS)'],
+    [/GP3-Storage|VolumeUsage\.gp3/i, () => 'Storage GP3'],
+    [/RDS:ChargedBackupUsage|ChargedBackupUsage/i, () => 'Backup'],
+    [/EBS:SnapshotUsage/i, () => 'EBS Snapshot'],
+    [/PublicIPv4:IdleAddress/i, () => 'IPv4 público OCIOSO'],
+    [/PublicIPv4:InUseAddress/i, () => 'IPv4 público (em uso)'],
+    [/VpcEndpoint-Hours/i, () => 'VPC Endpoint (horas)'],
+    [/VpcEndpoint-Bytes/i, () => 'VPC Endpoint (dados)'],
+    [/VPN-Usage-Hours/i, () => 'VPN (horas)'],
+    [/DataTransfer-Out-Bytes/i, () => 'Transferência (saída)'],
+    [/DataTransfer-Regional-Bytes/i, () => 'Transferência (regional)'],
+    [/AWS-Out-Bytes/i, () => 'Transferência (inter-região)'],
+    [/CW:MetricMonitorUsage/i, () => 'CloudWatch métricas'],
+    [/CW:AlarmMonitorUsage/i, () => 'CloudWatch alarmes'],
+    [/CW:GMD-Metrics/i, () => 'CloudWatch GetMetricData'],
+    [/DataProcessing-Bytes/i, () => 'Processamento de dados'],
+    [/TimedStorage/i, () => 'Armazenamento'],
+    [/Requests-Tier1/i, () => 'Requisições (Tier 1)'],
+    [/Requests-Tier2/i, () => 'Requisições (Tier 2)'],
+    [/AWSSecretsManager-Secrets/i, () => 'Segredos ativos'],
+    [/SecretsManagerAPIRequest/i, () => 'Secrets Manager (API)'],
+    [/WebACLV2/i, () => 'WAF Web ACL'],
+    [/RuleV2/i, () => 'WAF regra'],
+    [/RequestV2/i, () => 'WAF requisições'],
+    [/OutboundSMS/i, () => 'SMS (saída)'],
+    [/APIRequest/i, () => 'Requisições de API'],
+    [/^NoUsageType$/i, () => (shortService(servico) || 'Uso geral')],
+  ];
+  for (const [re, fn] of rules) { const m = s.match(re); if (m) return fn(m); }
+  return s || 'Uso';
 }
 // abrevia "Amazon Elastic Compute Cloud - Compute" -> "EC2" p/ o chip do card
 function shortService(name) {
@@ -407,6 +455,10 @@ function shortService(name) {
     'Amazon Simple Storage Service': 'S3',
     'AWS WAF': 'WAF',
     'Amazon EC2 Container Registry (ECR)': 'ECR',
+    'Amazon Simple Notification Service': 'SNS',
+    'Amazon Simple Queue Service': 'SQS',
+    'AWS Cost Explorer': 'CostExpl',
+    'AWS End User Messaging': 'Messaging',
     'Tax': 'Tax',
   };
   return map[name] || (name.length > 10 ? name.slice(0, 10) : name);
