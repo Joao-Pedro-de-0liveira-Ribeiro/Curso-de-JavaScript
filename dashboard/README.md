@@ -32,9 +32,13 @@ O `server.js` carrega o `.env` automaticamente (`require('dotenv').config()` na
 primeira linha) — sem isso, as variáveis ficam `undefined` e nada é lido.
 
 Aí: AWS vem do Cost Explorer **pelo período escolhido** (Julho mostra Julho,
-Agosto mostra Agosto), DigitalOcean e DeepSeek pela API, câmbio ao vivo, e os
-alertas mostram o que **aumentou/diminuiu no período** + recursos ociosos
-(IPs, volumes soltos, ECS parado). Nada fica “mockado” no front.
+Agosto mostra Agosto), DigitalOcean pelas **faturas mensais reais**, DeepSeek
+pela API, câmbio ao vivo. Os **alertas automáticos** mostram: o que
+**aumentou/diminuiu** por serviço no período, **serviços novos ou que cresceram
+gerando custo** (ex.: backups, um banco maior — comparando com o mês anterior da
+fatura), e **recursos ociosos com o custo REAL** (IPs cobrados como *Unused* na
+fatura, volumes soltos, ECS parado). Nada fica “mockado” no front — se a API da
+DO falhar, o card mostra o erro em vez de um número falso.
 
 > **Porta 8787 ocupada** (`EADDRINUSE`)? Um `npm start` anterior ficou vivo.
 > Mate antes: `kill $(lsof -t -i:8787)` (ou mude `PORT` no `.env`).
@@ -103,7 +107,7 @@ O seletor **Período** (Este mês · Mês passado · Últimos 7/30 dias · Perso
 `?start=YYYY-MM-DD&end=YYYY-MM-DD` e envia ao backend:
 - **AWS Cost Explorer** consulta exatamente esse intervalo e calcula a **janela anterior de mesmo tamanho** para o comparativo (▲/▼).
 - **DeepSeek** usa o intervalo só como rótulo (a API não dá custo por data).
-- **DigitalOcean** usa as **faturas mensais reais** (`/v2/customers/my/invoices`): o total do período é a soma de cada fatura mensal ponderada pelos dias cobertos pelo intervalo (o mês corrente é o acumulado *month-to-date*). Assim **Julho mostra a fatura de Julho, Agosto a de Agosto** — bate com a conta da DO. O detalhamento (Droplets, Managed Databases, Backups, Snapshots, IPs) vem dos itens reais da fatura do mês dominante e **soma exatamente o total**.
+- **DigitalOcean** usa as **faturas mensais reais** (`/v2/customers/my/invoices` + o detalhe paginado de cada fatura): o total do período é a soma de cada fatura mensal ponderada pelos dias cobertos pelo intervalo (o mês corrente é o acumulado *month-to-date*). Assim **Julho mostra a fatura de Julho, Agosto a de Agosto** — bate com a conta da DO. O detalhamento traz **cada recurso individual** (cada droplet, cada banco, cada backup/snapshot, cada IP) com **nome, projeto e valor reais** da fatura, e **soma exatamente o total**.
 
 ### Custo do DeepSeek — CALCULADO pela API
 A API do DeepSeek expõe só o **saldo** (`/user/balance`), não o custo por período.

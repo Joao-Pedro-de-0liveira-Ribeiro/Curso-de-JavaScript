@@ -468,6 +468,8 @@ const SNAP={
   ],
   doBackups:[],
   doOutros:[],
+  doProdutos:[],
+  doNovos:[],
   aws:[
     {nome:'banking-dev-postgres',servico:'RDS',detalhe:'db.t4g.micro · pg16.14 · 20GB gp3 · Single-AZ',jul:76.97,ago:42.2,projeto:'banking-dev'},
     {nome:'motor-credito-advanced',servico:'RDS',detalhe:'db.t4g.large · pg16.14 · 100GB gp3 · Single-AZ',jul:615.74,ago:337.62,projeto:'motor-credito'},
@@ -651,7 +653,7 @@ function renderKpis(){
   const c=document.getElementById('kpis');c.innerHTML='';
   const items=[
     {cls:'kpi dark',ic:IC.banknotes,t:'Total Consolidado',n:total(),fmt:fBRL,s:`${state.days} dias`,key:'total'},
-    {cls:'kpi click',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:fUSD(doUsd()),key:'do',click:()=>openDrawer('do')},
+    {cls:'kpi click',ic:LOGO.do,t:'Digital Ocean',n:doBrl(),fmt:fBRL,s:DATA.doError?('⚠ '+DATA.doError.slice(0,42)):fUSD(doUsd()),key:'do',click:()=>openDrawer('do')},
     {cls:'kpi click',ic:LOGO.aws,t:'Amazon AWS',n:awsBrl(),fmt:fBRL,s:fUSD(awsUsd()),key:'aws',click:()=>openDrawer('aws')},
     {cls:'kpi click',ic:LOGO.claude,t:'Licenças',n:licBrl(),fmt:fBRL,s:`Pro ${licCount('pro')} · Max ${licCount('max')} · Figma ${licCount('figma')}`,key:'lic',click:()=>openDrawer('lic')},
     {cls:'kpi click',ic:LOGO.deepseek,t:'DeepSeek',n:dsBrl(),fmt:fBRL,s:state.dsBalance!=null?('saldo '+fUSD(state.dsBalance)):(state.apiMode?'sem key no .env':'rode o backend'),key:'ds',click:()=>openDrawer('ds')},
@@ -708,26 +710,38 @@ function wasteList(){
 }
 const wasteBrlMes=()=>wasteList().reduce((s,x)=>s+(+x.usdMes||0),0)*state.usd;
 
-/* ============ Alertas por período (o que aumentou/diminuiu) ============ */
+/* ============ Alertas automáticos (variação · novos · ociosos) ============ */
 function renderAlerts(){
   const c=document.getElementById('alerts');c.innerHTML='';const list=[];
   const p=prevRange();
-  // variações por SERVIÇO da AWS no período filtrado vs período anterior
+  const nome=k=>(AWS_SVC[k]?AWS_SVC[k].name:k);
+  // 1) variação por SERVIÇO da AWS (período vs anterior) + serviços NOVOS
   const bySvc={};
   DATA.aws.forEach(r=>{const k=r.servico;(bySvc[k]=bySvc[k]||{cur:0,prev:0});
     bySvc[k].cur+=awsResVal(r,state.start,state.end);
     bySvc[k].prev+=(r.anterior!=null?(+r.anterior||0):awsResVal(r,p.s,p.e));});
   const deltas=Object.keys(bySvc).map(k=>({k,...bySvc[k],d:bySvc[k].cur-bySvc[k].prev}))
     .filter(x=>Math.abs(x.d)>=1).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
-  const nome=k=>(AWS_SVC[k]?AWS_SVC[k].name:k);
-  deltas.slice(0,4).forEach(x=>{
-    const up=x.d>0, pct=x.prev>0?Math.round(Math.abs(x.d)/x.prev*100):null;
-    list.push({t:up?'warn':'ok',
-      m:`${nome(x.k)} ${up?'subiu':'reduziu'} ${fUSD(Math.abs(x.d))} (${fBRL(Math.abs(x.d)*state.usd)})${pct!=null?` · ${up?'+':'−'}${pct}%`:''} vs período anterior`});
+  deltas.slice(0,3).forEach(x=>{
+    const isNew=x.prev<0.01&&x.cur>0.01, up=x.d>0, pct=x.prev>0?Math.round(Math.abs(x.d)/x.prev*100):null;
+    if(isNew) list.push({t:'warn',m:`Novo serviço AWS <strong>${nome(x.k)}</strong> gerando ${fUSD(x.cur)} (${fBRL(x.cur*state.usd)}) no período`});
+    else list.push({t:up?'warn':'ok',m:`AWS ${nome(x.k)} ${up?'subiu':'reduziu'} ${fUSD(Math.abs(x.d))} (${fBRL(Math.abs(x.d)*state.usd)})${pct!=null?` · ${up?'+':'−'}${pct}%`:''} vs período anterior`});
   });
-  // desperdício
+  // 2) DigitalOcean: serviços NOVOS / que aumentaram (vs mês anterior da fatura)
+  (DATA.doNovos||[]).slice(0,3).forEach(n=>{
+    if(n.tipo==='novo') list.push({t:'warn',m:`Novo serviço DO <strong>${n.produto}</strong> gerando ${fUSD(n.usd)} (${fBRL(n.usd*state.usd)})/mês — não existia no mês anterior`});
+    else list.push({t:'warn',m:`DO <strong>${n.produto}</strong> aumentou ${fUSD(n.delta)} (${fBRL(n.delta*state.usd)})/mês vs mês anterior — agora ${fUSD(n.usd)}/mês`});
+  });
+  // 3) recursos OCIOSOS gerando custo (custo REAL) + os que precisam revisão manual
   const w=wasteList();
-  if(w.length)list.push({t:'info',m:`${w.length} recurso(s) ocioso(s)/sem uso há 7+ dias gerando custo — ${fBRL(wasteBrlMes())}/mês. Clique no card <strong>Recursos Ociosos</strong>.`});
+  const comCusto=w.filter(x=>x.usdMes!=null&&+x.usdMes>0);
+  const revisar=w.filter(x=>(x.usdMes==null)||x.revisar);
+  if(comCusto.length){
+    const brlMes=comCusto.reduce((s,x)=>s+(+x.usdMes||0),0)*state.usd;
+    const ex=comCusto.slice(0,2).map(x=>`${x.tipo} ${x.nome}`).join(', ');
+    list.push({t:'warn',m:`${comCusto.length} recurso(s) ocioso(s) gerando custo — <strong>${fBRL(brlMes)}/mês</strong> (${ex}${comCusto.length>2?'…':''}). Clique no card <strong>Recursos Ociosos</strong>.`});
+  }
+  if(revisar.length) list.push({t:'info',m:`${revisar.length} recurso(s) sem métrica de uso pela API — confirme manualmente se estão em uso.`});
   if(!list.length)list.push({t:'ok',m:'Sem variações relevantes no período selecionado.'});
   list.forEach(a=>c.appendChild(el('div',`alert ${a.t}`,`<span class="dot"></span><span>${a.m}</span>`)));
 }
@@ -778,7 +792,10 @@ function resourceCard(r,kind){
     d.dataset.c='do';const val=(+r.usd||0)*doMult();
     if(+r.usd>0)html+=`<div class="rprice">${fUSD(val)}</div><div class="rbrl">${fBRL(val*state.usd)} no período</div>`;
     else html+=`<div class="rprice" style="font-size:13px;font-style:italic;color:var(--muted-2)">Consultar painel DO</div>`;
-    html+=`<div class="rdet">${r.spec||''}${r.regiao?(' · '+r.regiao):''}${r.ip&&r.ip!=='—'?(' · '+r.ip):''}</div><div class="rmore">Clique para detalhar →</div>`;
+    const det=[r.spec,r.regiao,(r.ip&&r.ip!=='—'?r.ip:'')].filter(Boolean).join(' · ');
+    html+=`<div class="rdet">${det||r.tipo||'—'}</div>`;
+    if(r.projeto&&r.projeto!=='—'&&r.projeto!=='')html+=`<div class="rproj">projeto: ${r.projeto}</div>`;
+    html+=`<div class="rmore">Clique para detalhar →</div>`;
     d.className='res click';d.onclick=()=>openModal('do',r);
   }
   d.innerHTML=html;return d;
@@ -1050,6 +1067,10 @@ async function loadData(){
         DATA.doDroplets=D.droplets||[];DATA.doDatabases=D.databases||[];DATA.doBackups=D.backups||[];DATA.doSnapshots=D.snapshots||[];DATA.doOutros=D.outros||[];
         DATA.doIps=D.reservedIps||[];DATA.idleIps=(D.reservedIps||[]).filter(i=>!i.atribuido).map(i=>i.ip);
         DATA.doTotalUsd=(D.totalUsd!=null)?D.totalUsd:null;DATA.doByMonth=D.byMonth||null;DATA.doBilling=D.billingFonte||null;
+        DATA.doProdutos=D.produtos||[];DATA.doNovos=D.novos||[];DATA.doError=null;
+      } else if(j.digitalocean&&j.digitalocean.error){ // NÃO mascara com snapshot: mostra o erro real
+        DATA.doError=j.digitalocean.error;DATA.doTotalUsd=null;DATA.doByMonth=null;
+        DATA.doDroplets=[];DATA.doDatabases=[];DATA.doBackups=[];DATA.doSnapshots=[];DATA.doOutros=[];DATA.doIps=[];DATA.idleIps=[];DATA.doProdutos=[];DATA.doNovos=[];
       } // DO por FATURA mensal real, sincronizada com a data (total bate com a conta)
       if(j.aws&&!j.aws.error&&j.aws.resources&&j.aws.resources.length)DATA.aws=j.aws.resources; // Cost Explorer p/ o período
       if(j.waste)DATA.waste=j.waste;                                   // recursos ociosos (DO+AWS) do backend

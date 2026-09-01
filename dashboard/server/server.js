@@ -206,7 +206,26 @@ async function getDoFromInvoices(range) {
     totalUsd = +totalUsd.toFixed(2);
     // detalhe do mês dominante -> itens reais por categoria (drawer bate com a fatura)
     const cats = categorizeInvoice(await getDoInvoiceDetail(uuidByMonth[primary]));
-    // período parcial: escala os itens p/ somarem o total do período (mês cheio -> fator 1)
+    // ---- por PRODUTO no mês (valores CHEIOS, p/ os alertas de custo) ----
+    const productTotals = (co) => { const p = {}; for (const kk in co) for (const it of co[kk]) { const nm = it.tipo || kk; p[nm] = +(((p[nm] || 0) + it.usd)).toFixed(2); } return p; };
+    const prodFull = productTotals(cats);
+    // ---- comparação com o mês ANTERIOR -> serviços NOVOS / que aumentaram ----
+    let novos = [];
+    const ms = Object.keys(byMonth).sort();
+    const prevYm = ms.indexOf(primary) > 0 ? ms[ms.indexOf(primary) - 1] : null;
+    if (prevYm && uuidByMonth[prevYm]) {
+      try {
+        const prevProd = productTotals(categorizeInvoice(await getDoInvoiceDetail(uuidByMonth[prevYm])));
+        for (const [prod, usd] of Object.entries(prodFull)) {
+          const prev = prevProd[prod] || 0;
+          if (prev === 0 && usd >= 1) novos.push({ produto: prod, usd: +usd.toFixed(2), prevUsd: 0, delta: +usd.toFixed(2), tipo: 'novo' });
+          else if (usd - prev >= Math.max(5, prev * 0.25)) novos.push({ produto: prod, usd: +usd.toFixed(2), prevUsd: +prev.toFixed(2), delta: +(usd - prev).toFixed(2), tipo: 'aumento' });
+        }
+        novos.sort((a, b) => b.delta - a.delta);
+      } catch (_) { /* sem mês anterior detalhável */ }
+    }
+    const produtos = Object.entries(prodFull).map(([produto, usd]) => ({ produto, usd })).sort((a, b) => b.usd - a.usd);
+    // período parcial: escala os itens do DRAWER p/ somarem o total do período (mês cheio -> fator 1)
     const primaryTotal = byMonth[primary] || totalUsd;
     const k = primaryTotal > 0 ? totalUsd / primaryTotal : 1;
     if (Math.abs(k - 1) > 1e-6) for (const key in cats) cats[key].forEach((x) => { x.usd = +(x.usd * k).toFixed(2); });
@@ -218,7 +237,7 @@ async function getDoFromInvoices(range) {
     return {
       droplets: cats.droplets, databases: cats.databases, backups: cats.backups,
       snapshots: cats.snapshots, outros: cats.outros, reservedIps,
-      totalUsd, byMonth: byMonthOut, primaryMonth: primary, primaryStatus: statusByMonth[primary],
+      totalUsd, byMonth: byMonthOut, produtos, novos, primaryMonth: primary, prevMonth: prevYm, primaryStatus: statusByMonth[primary],
       billingFonte: `faturas DO (${primary})`, updatedAt: new Date().toISOString(),
     };
   });
@@ -436,11 +455,31 @@ async function getWaste() {
     if (token) {
       const H = { Authorization: `Bearer ${token}` };
       const doGet = async (p) => (await fetch(`https://api.digitalocean.com/v2/${p}`, { headers: H })).json();
-      // ociosos "estruturais"
+      // FONTE DA VERDADE: a própria fatura marca itens "Unused" (a DO cobra por ocioso).
+      // Pega TODO item cuja descrição diz "Unused/Idle" -> ocioso com CUSTO REAL da conta.
+      try {
+        const list = await getDoInvoiceList();
+        const recent = (list.invoices || []).filter((i) => /^\d{4}-\d{2}/.test(i.invoice_period || '')).sort((a, b) => b.invoice_period.localeCompare(a.invoice_period))[0];
+        if (recent) {
+          const det = await getDoInvoiceDetail(recent.invoice_uuid);
+          for (const it of (det.invoice_items || [])) {
+            const usd = +(parseFloat(String(it.amount).replace(/[^0-9.\-]/g, '')) || 0).toFixed(2);
+            if (usd <= 0) continue;
+            const desc = String(it.description || '');
+            if (/unused|idle|não usad|nao usad/i.test(desc)) {
+              const isIp = /Floating IP|Reserved IP/i.test(it.product || '') || /reserved ip/i.test(desc);
+              items.push({ plataforma: 'DigitalOcean', tipo: isIp ? 'Reserved IP ocioso' : `${it.product || 'Recurso'} ocioso`,
+                nome: desc.replace(/^Unused\s+(Reserved IP\s*-\s*)?/i, '').trim() || desc, motivo: `cobrado como "Unused" na fatura de ${recent.invoice_period}`, usdMes: usd });
+            }
+          }
+        }
+      } catch (_) {}
+      // supl.: IP reservado que a API ao vivo mostra sem droplet (se a fatura não pegou)
       try {
         const ips = await doGet('reserved_ips?per_page=200');
-        (ips.reserved_ips || []).filter((i) => !i.droplet).forEach((i) =>
-          items.push({ plataforma: 'DigitalOcean', tipo: 'Reserved IP ocioso', nome: i.ip, motivo: 'IP reservado sem droplet', usdMes: 4 }));
+        const jaTem = new Set(items.filter((x) => x.tipo === 'Reserved IP ocioso').map((x) => x.nome));
+        (ips.reserved_ips || []).filter((i) => !i.droplet && !jaTem.has(i.ip)).forEach((i) =>
+          items.push({ plataforma: 'DigitalOcean', tipo: 'Reserved IP ocioso', nome: i.ip, motivo: 'IP reservado sem droplet', usdMes: 5 }));
       } catch (_) {}
       try {
         const vol = await doGet('volumes?per_page=200');
