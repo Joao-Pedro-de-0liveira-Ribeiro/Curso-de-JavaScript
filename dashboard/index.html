@@ -1141,8 +1141,10 @@ document.getElementById('fxBtn').onclick=fetchFx;
 function reportData(){
   const usd=state.usd, mult=(state.apiMode?1:pf());
   const period=`${brDate(state.start)} a ${brDate(state.end)} · ${state.days} dias`;
-  const doRows=[]; doGroups().forEach(g=>g.items.forEach(it=>{const u=(+it.usd||0)*mult;doRows.push({cat:g.title,nome:it.nome,projeto:it.projeto||'',usd:u,brl:u*usd});}));
-  const awsRows=DATA.aws.map(r=>{const u=awsResVal(r,state.start,state.end);return {servico:r.servico,nome:r.nome,usd:u,brl:u*usd};}).filter(r=>r.usd>0).sort((a,b)=>b.usd-a.usd);
+  const p=prevRange();
+  const doRows=[]; doGroups().forEach(g=>g.items.forEach(it=>{const u=(+it.usd||0)*mult;doRows.push({cat:g.title,nome:it.nome,detalhe:it.spec||it.tipo||'',projeto:it.projeto||'',usd:u,brl:u*usd});}));
+  const awsRows=DATA.aws.map(r=>{const u=awsResVal(r,state.start,state.end);const pv=r.anterior!=null?(+r.anterior||0):awsResVal(r,p.s,p.e);
+    return {servico:r.servico,nome:r.nome,detalhe:r.detalhe||r.usageType||'',delta:u-pv,usd:u,brl:u*usd};}).filter(r=>r.usd>0).sort((a,b)=>b.usd-a.usd);
   const licRows=[['pro','Claude Pro'],['max','Claude Max'],['figma','Figma']].map(([k,label])=>{const qt=licCount(k),unit=licUnit(k);return {label,qtd:qt,unit,total:qt*unit,pessoas:(state.licenses[k]||[]).join(', ')};});
   const kpis=[
     {k:'Total Consolidado',brl:total()},{k:'DigitalOcean',brl:doBrl(),usd:doUsd()},{k:'Amazon AWS',brl:awsBrl(),usd:awsUsd()},
@@ -1154,8 +1156,8 @@ function reportData(){
 }
 function buildReportHTML(d){
   const kc=d.kpis.map(k=>`<div class="rk"><div class="rkt">${k.k}</div><div class="rkv">${fBRL(k.brl)}</div>${k.usd!=null?`<div class="rks">${fUSD(k.usd)}</div>`:''}</div>`).join('');
-  const doBody=d.doRows.map(r=>`<tr><td>${r.cat}</td><td>${r.nome}</td><td class="mut">${r.projeto}</td><td class="num">${fUSD(r.usd)}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
-  const awsBody=d.awsRows.map(r=>`<tr><td>${r.servico}</td><td>${r.nome}</td><td class="num">${fUSD(r.usd)}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
+  const doBody=d.doRows.map(r=>`<tr><td>${r.cat}</td><td>${r.nome}</td><td class="mut">${r.detalhe||''}</td><td class="mut">${r.projeto||'—'}</td><td class="num">${fUSD(r.usd)}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
+  const awsBody=d.awsRows.map(r=>`<tr><td>${r.servico}</td><td>${r.nome}</td><td class="mut">${r.detalhe||''}</td><td class="num">${fUSD(r.usd)}</td><td class="num ${r.delta>=0?'up':'dn'}">${Math.abs(r.delta)>=0.01?(r.delta>=0?'▲':'▼')+' '+fUSD(Math.abs(r.delta)):'—'}</td><td class="num b">${fBRL(r.brl)}</td></tr>`).join('');
   const licBody=d.licRows.map(r=>`<tr><td>${r.label}</td><td class="num">${r.qtd}</td><td class="num">${fBRL(r.unit)}</td><td class="num b">${fBRL(r.total)}</td><td class="mut">${r.pessoas||'—'}</td></tr>`).join('');
   const wBody=d.waste.map(r=>`<tr><td>${r.plataforma}</td><td>${r.tipo}</td><td>${r.nome}</td><td class="num b">${r.brlMes!=null?fBRL(r.brlMes)+'/mês':'revisar'}</td></tr>`).join('');
   const alBody=d.alerts.map(a=>`<li>${a}</li>`).join('')||'<li>Sem variações relevantes.</li>';
@@ -1169,7 +1171,7 @@ function buildReportHTML(d){
 .rk{border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;background:#f8fafc}.rkt{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;font-weight:700}.rkv{font-size:19px;font-weight:800;margin-top:2px}.rks{font-size:11px;color:#64748b}
 .sec{margin:22px 0 8px;display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;page-break-after:avoid}.sec .lg,.sec .lg svg{width:22px;height:22px}.sec .amt{margin-left:auto;font-size:13px;color:#1e40af}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}th{background:#eff2f7;text-align:left;padding:6px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:#475569;border-bottom:1px solid #cbd5e1}
-td{padding:5px 9px;border-bottom:1px solid #eef2f7}tr:nth-child(even) td{background:#fafbfc}.num{text-align:right;font-variant-numeric:tabular-nums}.b{font-weight:700}.mut{color:#94a3b8;font-size:11px}
+td{padding:5px 9px;border-bottom:1px solid #eef2f7}tr:nth-child(even) td{background:#fafbfc}.num{text-align:right;font-variant-numeric:tabular-nums}.b{font-weight:700}.mut{color:#94a3b8;font-size:11px}.up{color:#b91c1c;font-weight:700}.dn{color:#047857;font-weight:700}
 .tot td{background:#eef4ff!important;font-weight:800;border-top:2px solid #1e40af}
 ul.al{margin:6px 0;padding-left:18px}ul.al li{margin:3px 0;font-size:12px}
 .foot{margin-top:24px;border-top:1px solid #e2e8f0;padding-top:10px;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
@@ -1179,9 +1181,9 @@ ul.al{margin:6px 0;padding-left:18px}ul.al li{margin:3px 0;font-size:12px}
 <div class="rh-r"><div>Período: <b>${d.period}</b></div><div>Gerado em: <b>${brDate(CONFIG.today)}</b></div><div>USD/BRL: <b>${d.usd.toFixed(2)}</b></div></div></div>
 <div class="rkgrid">${kc}</div>
 <div class="sec"><span class="lg">${LOGO.do}</span> DigitalOcean <span class="amt">${fBRL(d.doTotalBrl)}</span></div>
-${d.doRows.length?`<table><thead><tr><th>Categoria</th><th>Recurso</th><th>Projeto</th><th class="num">USD</th><th class="num">BRL</th></tr></thead><tbody>${doBody}<tr class="tot"><td colspan="4">Total DigitalOcean</td><td class="num">${fBRL(d.doTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de DigitalOcean no período.</p>'}
+${d.doRows.length?`<table><thead><tr><th>Categoria</th><th>Recurso</th><th>Detalhe / origem</th><th>Projeto</th><th class="num">USD</th><th class="num">BRL</th></tr></thead><tbody>${doBody}<tr class="tot"><td colspan="5">Total DigitalOcean</td><td class="num">${fBRL(d.doTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de DigitalOcean no período.</p>'}
 <div class="sec"><span class="lg">${LOGO.aws}</span> Amazon AWS <span class="amt">${fBRL(d.awsTotalBrl)}</span></div>
-${d.awsRows.length?`<table><thead><tr><th>Serviço</th><th>Recurso</th><th class="num">USD</th><th class="num">BRL</th></tr></thead><tbody>${awsBody}<tr class="tot"><td colspan="3">Total AWS</td><td class="num">${fBRL(d.awsTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de AWS no período.</p>'}
+${d.awsRows.length?`<table><thead><tr><th>Serviço</th><th>Recurso</th><th>Origem (usage type)</th><th class="num">USD</th><th class="num">Δ ant.</th><th class="num">BRL</th></tr></thead><tbody>${awsBody}<tr class="tot"><td colspan="5">Total AWS</td><td class="num">${fBRL(d.awsTotalBrl)}</td></tr></tbody></table>`:'<p class="mut">Sem dados de AWS no período.</p>'}
 <div class="sec"><span class="lg">${LOGO.claude}</span> Licenças de Software <span class="amt">${fBRL(d.kpis[3].brl)}</span></div>
 <table><thead><tr><th>Licença</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Total</th><th>Pessoas</th></tr></thead><tbody>${licBody}</tbody></table>
 ${d.waste.length?`<div class="sec">⚠ Recursos ociosos gerando custo</div><table><thead><tr><th>Plataforma</th><th>Tipo</th><th>Recurso</th><th class="num">Custo</th></tr></thead><tbody>${wBody}</tbody></table>`:''}
@@ -1206,9 +1208,9 @@ async function exportExcel(){
     const resumo=[['Painel de Custos TI — Grupo 3RN'],['Período',d.period],['USD/BRL',+d.usd.toFixed(4)],[],['Indicador','BRL','USD']];
     d.kpis.forEach(k=>resumo.push([k.k,+k.brl.toFixed(2),k.usd!=null?+k.usd.toFixed(2):'']));
     X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(resumo),'Resumo');
-    const doA=[['Categoria','Recurso','Projeto','USD','BRL']];d.doRows.forEach(r=>doA.push([r.cat,r.nome,r.projeto,+r.usd.toFixed(2),+r.brl.toFixed(2)]));
+    const doA=[['Categoria','Recurso','Detalhe / origem','Projeto','USD','BRL']];d.doRows.forEach(r=>doA.push([r.cat,r.nome,r.detalhe||'',r.projeto,+r.usd.toFixed(2),+r.brl.toFixed(2)]));
     X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(doA),'DigitalOcean');
-    const awsA=[['Serviço','Recurso','USD','BRL']];d.awsRows.forEach(r=>awsA.push([r.servico,r.nome,+r.usd.toFixed(2),+r.brl.toFixed(2)]));
+    const awsA=[['Serviço','Recurso','Origem (usage type)','USD','Δ vs anterior','BRL']];d.awsRows.forEach(r=>awsA.push([r.servico,r.nome,r.detalhe||'',+r.usd.toFixed(2),+r.delta.toFixed(2),+r.brl.toFixed(2)]));
     X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(awsA),'AWS');
     const licA=[['Licença','Qtd','Unitário BRL','Total BRL','Pessoas']];d.licRows.forEach(r=>licA.push([r.label,r.qtd,+r.unit.toFixed(2),+r.total.toFixed(2),r.pessoas]));
     X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(licA),'Licenças');
@@ -1222,8 +1224,8 @@ function exportCSV(d,fname){
   const n=(x)=>String((+x||0).toFixed(2)).replace('.',','); const L=[];
   L.push('Painel de Custos TI — Grupo 3RN');L.push('Período;'+esc(d.period));L.push('USD/BRL;'+n(d.usd));L.push('');
   L.push('RESUMO;BRL;USD');d.kpis.forEach(k=>L.push([esc(k.k),n(k.brl),k.usd!=null?n(k.usd):''].join(';')));L.push('');
-  L.push('DIGITALOCEAN;Recurso;Projeto;USD;BRL');d.doRows.forEach(r=>L.push([esc(r.cat),esc(r.nome),esc(r.projeto),n(r.usd),n(r.brl)].join(';')));L.push('');
-  L.push('AWS;Recurso;USD;BRL');d.awsRows.forEach(r=>L.push([esc(r.servico),esc(r.nome),n(r.usd),n(r.brl)].join(';')));L.push('');
+  L.push('DIGITALOCEAN;Recurso;Detalhe/origem;Projeto;USD;BRL');d.doRows.forEach(r=>L.push([esc(r.cat),esc(r.nome),esc(r.detalhe),esc(r.projeto),n(r.usd),n(r.brl)].join(';')));L.push('');
+  L.push('AWS;Recurso;Origem;USD;Δ;BRL');d.awsRows.forEach(r=>L.push([esc(r.servico),esc(r.nome),esc(r.detalhe),n(r.usd),n(r.delta),n(r.brl)].join(';')));L.push('');
   L.push('LICENÇAS;Qtd;Unitário;Total;Pessoas');d.licRows.forEach(r=>L.push([esc(r.label),r.qtd,n(r.unit),n(r.total),esc(r.pessoas)].join(';')));L.push('');
   L.push('OCIOSOS;Tipo;Recurso;BRL/mês');d.waste.forEach(r=>L.push([esc(r.plataforma),esc(r.tipo),esc(r.nome),r.brlMes!=null?n(r.brlMes):'revisar'].join(';')));
   dl(new Blob(['﻿'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}),fname+'.csv');

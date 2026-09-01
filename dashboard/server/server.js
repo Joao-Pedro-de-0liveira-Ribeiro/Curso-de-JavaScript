@@ -355,6 +355,56 @@ async function getDoEstimate() {
 }
 
 /* ----------------------------- 3) AWS ------------------------------------ */
+// Inventário VIVO da AWS (nomes reais): ECS (serviço + vCPU/GB), RDS, EC2.
+// Usado p/ dar NOME ao custo do Cost Explorer (que só vem por SERVICE+USAGE_TYPE).
+async function getAwsInventory() {
+  return cached('aws-inv', 30 * 60 * 1000, async () => {
+    const inv = { ecs: [], rds: [], ec2: [], region: DESCRIBE_REGION };
+    try {
+      const { ECSClient, ListClustersCommand, ListServicesCommand, DescribeServicesCommand, DescribeTaskDefinitionCommand } = require('@aws-sdk/client-ecs');
+      const ecs = new ECSClient({ region: DESCRIBE_REGION });
+      const tdCache = {};
+      const cl = await ecs.send(new ListClustersCommand({}));
+      for (const cArn of (cl.clusterArns || [])) {
+        const cluster = cArn.split('/').pop();
+        let next;
+        do {
+          const sv = await ecs.send(new ListServicesCommand({ cluster: cArn, maxResults: 100, nextToken: next }));
+          next = sv.nextToken;
+          const arns = sv.serviceArns || [];
+          for (let i = 0; i < arns.length; i += 10) {
+            const dd = await ecs.send(new DescribeServicesCommand({ cluster: cArn, services: arns.slice(i, i + 10) }));
+            for (const s of (dd.services || [])) {
+              let vcpu = 0, gb = 0;
+              try {
+                if (!tdCache[s.taskDefinition]) tdCache[s.taskDefinition] = (await ecs.send(new DescribeTaskDefinitionCommand({ taskDefinition: s.taskDefinition }))).taskDefinition;
+                const td = tdCache[s.taskDefinition];
+                vcpu = (+(td.cpu || 0)) / 1024; gb = (+(td.memory || 0)) / 1024;
+              } catch (_) {}
+              inv.ecs.push({ cluster, nome: s.serviceName, vcpu, gb, running: s.runningCount || 0, desired: s.desiredCount || 0 });
+            }
+          }
+        } while (next);
+      }
+    } catch (_) {}
+    try {
+      const { RDSClient, DescribeDBInstancesCommand } = require('@aws-sdk/client-rds');
+      const rds = new RDSClient({ region: DESCRIBE_REGION });
+      const dd = await rds.send(new DescribeDBInstancesCommand({}));
+      inv.rds = (dd.DBInstances || []).map((d) => ({ nome: d.DBInstanceIdentifier, classe: d.DBInstanceClass, engine: d.Engine, status: d.DBInstanceStatus, multiAz: d.MultiAZ }));
+    } catch (_) {}
+    try {
+      const { EC2Client, DescribeInstancesCommand } = require('@aws-sdk/client-ec2');
+      const ec2 = new EC2Client({ region: DESCRIBE_REGION });
+      const rr = await ec2.send(new DescribeInstancesCommand({}));
+      (rr.Reservations || []).forEach((res) => (res.Instances || []).forEach((i) => {
+        const tag = (i.Tags || []).find((t) => t.Key === 'Name');
+        inv.ec2.push({ nome: (tag && tag.Value) || i.InstanceId, id: i.InstanceId, tipo: i.InstanceType, status: i.State && i.State.Name });
+      }));
+    } catch (_) {}
+    return inv;
+  });
+}
 // Cost Explorer: custo por serviço no período pedido. IAM MÍNIMO: ce:GetCostAndUsage.
 async function getAws(range) {
   let CostExplorerClient, GetCostAndUsageCommand;
@@ -393,8 +443,65 @@ async function getAws(range) {
         detalhe: usageType, projeto: '—',
       };
     }).filter((r) => r.atual >= 0.005).sort((a, b) => b.atual - a.atual);
-    const total = resources.reduce((s, r) => s + r.atual, 0);
-    return { resources, total: +total.toFixed(2), periodo: range, periodoAnterior: prev, updatedAt: new Date().toISOString() };
+
+    // ---- enriquece com NOMES REAIS (inventário vivo) e rateia o Fargate por serviço ----
+    let inv = { ecs: [], rds: [], ec2: [] };
+    try { inv = await getAwsInventory(); } catch (_) {}
+    const rdsByClass = {}; inv.rds.forEach((d) => (rdsByClass[d.classe] = rdsByClass[d.classe] || []).push(d));
+    const ec2ByType = {}; inv.ec2.forEach((d) => (ec2ByType[d.tipo] = ec2ByType[d.tipo] || []).push(d));
+    const fVcpu = resources.filter((r) => /Fargate-vCPU-Hours/i.test(r.usageType));
+    const fGb = resources.filter((r) => /Fargate-GB-Hours/i.test(r.usageType));
+    const fargateSet = new Set([...fVcpu, ...fGb]);
+    const fVcpuCur = fVcpu.reduce((s, r) => s + r.atual, 0), fVcpuPrev = fVcpu.reduce((s, r) => s + r.anterior, 0);
+    const fGbCur = fGb.reduce((s, r) => s + r.atual, 0), fGbPrev = fGb.reduce((s, r) => s + r.anterior, 0);
+    const out = [];
+    resources.forEach((r) => {
+      if (fargateSet.has(r)) return; // Fargate é tratado à parte (rateado por serviço)
+      let m;
+      if ((m = r.usageType.match(/BoxUsage:([\w.]+)/i)) && ec2ByType[m[1]]) {
+        r.nome = ec2ByType[m[1]].map((d) => d.nome).join(', '); r.detalhe = `EC2 ${m[1]} · ${r.usageType}`;
+      }
+      out.push(r);
+    });
+    // RDS: casa InstanceUsage:db.X pela classe atual; o que sobrar (classe mudou entre
+    // meses) é inferido 1-para-1 com a instância que restou.
+    const usedRds = new Set();
+    const rdsLines = out.filter((r) => /InstanceUsage:db\./i.test(r.usageType));
+    rdsLines.forEach((r) => {
+      const cls = (r.usageType.match(/InstanceUsage:(db\.[\w.]+)/i) || [])[1];
+      const ms = (rdsByClass[cls] || []);
+      if (ms.length) { r.nome = ms.map((d) => d.nome).join(', '); r.detalhe = `${ms[0].engine} · ${cls} · ${r.usageType}`; ms.forEach((d) => usedRds.add(d.nome)); }
+    });
+    const semNome = rdsLines.filter((r) => /^Instância\s+db\./.test(r.nome));
+    const livres = inv.rds.filter((d) => !usedRds.has(d.nome));
+    if (semNome.length === 1 && livres.length === 1) {
+      const cls = (semNome[0].usageType.match(/db\.[\w.]+/) || [''])[0];
+      semNome[0].nome = livres[0].nome;
+      semNome[0].detalhe = `${livres[0].engine} · classe no período: ${cls} (hoje ${livres[0].classe}) · provável`;
+    }
+    // Fargate: rateia o custo real por serviço ECS (peso = vCPU e GB em execução)
+    if (inv.ecs.length && (fVcpuCur > 0 || fGbCur > 0)) {
+      // peso = tamanho da task × réplicas DESEJADAS (estado configurado; estável e
+      // mostra todo serviço). Rateia o custo REAL de Fargate do período entre eles.
+      const tasks = (s) => (s.desired > 0 ? s.desired : (s.running || 1));
+      const active = inv.ecs.filter((s) => s.desired > 0 || s.running > 0);
+      const base = active.length ? active : inv.ecs;
+      const totV = base.reduce((s, x) => s + x.vcpu * tasks(x), 0) || 1;
+      const totG = base.reduce((s, x) => s + x.gb * tasks(x), 0) || 1;
+      base.forEach((s) => {
+        const wV = (s.vcpu * tasks(s)) / totV, wG = (s.gb * tasks(s)) / totG;
+        const atual = +(fVcpuCur * wV + fGbCur * wG).toFixed(2);
+        if (atual < 0.005) return;
+        out.push({
+          nome: s.nome, servico: 'ECS', servicoFull: 'Amazon Elastic Container Service',
+          usageType: 'Fargate', detalhe: `${s.cluster} · ${s.vcpu} vCPU / ${s.gb} GB · ${s.running}/${s.desired} tasks · rateio Fargate`,
+          atual, anterior: +(fVcpuPrev * wV + fGbPrev * wG).toFixed(2), projeto: s.cluster,
+        });
+      });
+    } else { fVcpu.forEach((r) => out.push(r)); fGb.forEach((r) => out.push(r)); }
+    out.sort((a, b) => b.atual - a.atual);
+    const total = out.reduce((s, r) => s + r.atual, 0);
+    return { resources: out, total: +total.toFixed(2), inventory: inv, periodo: range, periodoAnterior: prev, updatedAt: new Date().toISOString() };
   });
 }
 // "SAE1-InstanceUsage:db.m6g.xl" -> "Instância db.m6g.xl" (nome legível do recurso)
