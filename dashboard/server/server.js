@@ -164,7 +164,9 @@ const getDoInvoiceDetail = (uuid) => cached('do-inv:' + uuid, 30 * 60 * 1000, as
   return { invoice_items: items };
 });
 
-// quebra os itens de uma fatura nas categorias do painel (valores REAIS da conta)
+// quebra os itens de uma fatura nas categorias do painel (valores REAIS da conta).
+// Agrupa por RECURSO (resource_uuid) para cada banco/droplet virar UM card com o
+// nome real do cluster (group_description) e o total somado das suas linhas.
 function categorizeInvoice(detail) {
   const parseAmt = (s) => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
   const catOf = (p) => { p = String(p || '');
@@ -175,14 +177,31 @@ function categorizeInvoice(detail) {
     if (/Droplet/i.test(p)) return 'droplets';
     return 'outros';
   };
-  const cats = { droplets: [], databases: [], backups: [], snapshots: [], ips: [], outros: [] };
+  // "db-postgresql-nyc3-75053 (PostgreSQL)" -> "db-postgresql-nyc3-75053"
+  const cleanName = (s) => String(s || '').replace(/\s*\((PostgreSQL|Advanced PostgreSQL|MySQL|Redis|Valkey|MongoDB|Kafka|OpenSearch|Droplet|Managed Database)\)\s*$/i, '').trim();
+  const groups = new Map();
   for (const it of (detail.invoice_items || [])) {
-    const usd = +parseAmt(it.amount).toFixed(2);
+    const usd = parseAmt(it.amount);
     if (!usd) continue;
-    cats[catOf(it.product)].push({
-      nome: (it.description || it.product || '').trim(), tipo: it.product || '',
-      projeto: it.project_name || '', regiao: '', spec: '', usd,
-    });
+    const cat = catOf(it.product);
+    const gd = cleanName(it.group_description);
+    // banco: agrupa por resource_uuid (várias linhas = mesmo cluster). Demais: 1 linha = 1 recurso.
+    const key = it.resource_uuid ? ('r:' + it.resource_uuid) : ('l:' + cat + '|' + (it.description || it.product || '') + '|' + gd);
+    let g = groups.get(key);
+    if (!g) { g = { cat, nome: gd || (it.description || it.product || '').trim(), tipo: it.product || '', projeto: it.project_name || '', regiao: '', usd: 0, _linhas: [] }; groups.set(key, g); }
+    g.usd = +(g.usd + usd).toFixed(2);
+    g._linhas.push((it.description || '').trim());
+    if (!g.projeto && it.project_name) g.projeto = it.project_name;
+  }
+  const cats = { droplets: [], databases: [], backups: [], snapshots: [], ips: [], outros: [] };
+  for (const g of groups.values()) {
+    // spec = os "tiers" (Primary Node..., Additional Storage...) quando o nome já é o cluster
+    const tiers = g._linhas.filter(Boolean);
+    if (tiers.length > 1) g.spec = tiers.slice(0, 6).join(' + ');
+    else if (tiers[0] && tiers[0] !== g.nome) g.spec = tiers[0];
+    else g.spec = '';
+    delete g._linhas;
+    (cats[g.cat] || cats.outros).push(g);
   }
   for (const k in cats) cats[k].sort((a, b) => b.usd - a.usd);
   return cats;

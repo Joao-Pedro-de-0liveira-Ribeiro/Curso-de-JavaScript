@@ -387,7 +387,8 @@ svg{display:block}
 
 <script>
 /* ============ CONFIG ============ */
-const CONFIG={ apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15, today:'2026-08-27',
+const todayIso=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const CONFIG={ apiBase:'', snapshotDate:'2026-08-27', fxDefault:5.15, today:todayIso(), // data REAL de hoje (não chumbada)
   // DeepSeek: preencha aqui para calcular direto no navegador SEM backend
   // (ou deixe vazio e use o .env do backend). O total já vem 2.00.
   deepseekKey:'', deepseekTotal:2.00 };
@@ -1064,7 +1065,10 @@ async function resolveApi(){
 async function loadData(){
   readDates();
   if(state.api){
-    const qs=`?start=${state.start}&end=${state.end}`;
+    // "Até" é INCLUSIVO no painel; as APIs (AWS Cost Explorer / faturas DO) usam
+    // fim EXCLUSIVO -> manda dia+1 p/ o mês fechar certo (31/07 inclui o dia 31).
+    const apiEnd=isoDay(new Date(parseIso(state.end).getTime()+86400000));
+    const qs=`?start=${state.start}&end=${apiEnd}`;
     try{
       const r=await fetchT(state.api+'/api/all'+qs,12000);const j=await r.json();
       if(j.digitalocean&&!j.digitalocean.error){const D=j.digitalocean;
