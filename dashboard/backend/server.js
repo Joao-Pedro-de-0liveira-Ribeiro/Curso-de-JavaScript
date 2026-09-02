@@ -64,6 +64,7 @@ async function cached(key, ttlMs, fn) {
   cache.set(key, { t: Date.now(), v });
   return v;
 }
+function clearCache() { cache.clear(); } // usado pelo botão "atualizar" (refresh=1)
 
 const isoDay = (d) => d.toISOString().slice(0, 10);
 // normaliza start/end recebidos; default = mês corrente
@@ -613,6 +614,24 @@ function shortService(name) {
   };
   return map[name] || (name.length > 10 ? name.slice(0, 10) : name);
 }
+// Totais AWS por MÊS (últimos 6 meses) — valor FIXO de cada mês p/ o gráfico.
+async function getAwsMonthly() {
+  return cached('aws-monthly', 6 * 60 * 60 * 1000, async () => {
+    let CostExplorerClient, GetCostAndUsageCommand;
+    try { ({ CostExplorerClient, GetCostAndUsageCommand } = require('@aws-sdk/client-cost-explorer')); }
+    catch (_) { return {}; }
+    const now = new Date();
+    const start = isoDay(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1)));
+    const end = isoDay(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))); // início do próximo mês (exclusivo)
+    const client = new CostExplorerClient({ region: CE_REGION });
+    const r = await client.send(new GetCostAndUsageCommand({
+      TimePeriod: { Start: start, End: end }, Granularity: 'MONTHLY', Metrics: ['UnblendedCost'],
+    }));
+    const byMonth = {};
+    (r.ResultsByTime || []).forEach((t) => { const ym = t.TimePeriod.Start.slice(0, 7); byMonth[ym] = +(+t.Total.UnblendedCost.Amount).toFixed(2); });
+    return byMonth;
+  });
+}
 
 /* --------------------------- 4) DeepSeek --------------------------------- */
 // A API do DeepSeek expõe SALDO (endpoint /user/balance) — não o custo por
@@ -854,7 +873,11 @@ function readBody(req) {
 /* ------------------------------ static ----------------------------------- */
 function serveIndex(res) {
   try {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'));
+    // index.html fica em ../frontend/ (backend e frontend em pastas separadas);
+    // cai no layout antigo (../index.html) se necessário.
+    let htmlPath = path.join(__dirname, '..', 'frontend', 'index.html');
+    if (!fs.existsSync(htmlPath)) htmlPath = path.join(__dirname, '..', 'index.html');
+    const html = fs.readFileSync(htmlPath);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
   } catch (e) {
@@ -867,6 +890,7 @@ function serveIndex(res) {
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://${req.headers.host}`);
   const range = resolveRange(u.searchParams);
+  if (u.searchParams.get('refresh') === '1') clearCache(); // botão "atualizar": ignora cache
   if (req.method === 'OPTIONS') return send(res, 204, {});
   // serve o painel (para o front auto-conectar ao mesmo host)
   if (req.method === 'GET' && (u.pathname === '/' || u.pathname === '/index.html')) return serveIndex(res);
@@ -883,14 +907,15 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'POST') return send(res, 200, { ok: true, pessoas: writePeople(await readBody(req)) });
         return send(res, 200, { pessoas: readPeople() });
       case '/api/all': {
-        const [fx, dobj, aws, ds, waste] = await Promise.all([
+        const [fx, dobj, aws, ds, waste, awsMensal] = await Promise.all([
           getUsdBrl().catch((e) => ({ error: String(e.message) })),
           getDigitalOcean(range).catch((e) => ({ error: String(e.message) })),
           getAws(range).catch((e) => ({ error: String(e.message) })),
           getDeepseek(range).catch((e) => ({ error: String(e.message) })),
           getWaste().catch(() => []),
+          getAwsMonthly().catch(() => ({})),
         ]);
-        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: getLicencas(), waste, pessoas: readPeople(), periodo: range });
+        return send(res, 200, { fx, digitalocean: dobj, aws, deepseek: ds, licencas: getLicencas(), waste, awsByMonth: awsMensal, pessoas: readPeople(), periodo: range });
       }
       default: return send(res, 404, { error: 'not found' });
     }

@@ -4,13 +4,15 @@ Dashboard consolidado de custos de infraestrutura: **DigitalOcean + AWS + Licen�
 
 ```
 dashboard/
-├── index.html          ← o dashboard (arquivo único, sem build, abre no navegador)
 ├── README.md           ← este guia
-└── server/             ← backend seguro para DADOS EM TEMPO REAL
-    ├── server.js
+├── frontend/           ← o painel (arquivo único, sem build, abre no navegador)
+│   └── index.html
+└── backend/            ← backend seguro para DADOS EM TEMPO REAL (guarda os segredos)
+    ├── server.js       ← serve o frontend e as APIs /api/*
     ├── package.json
-    ├── .env.example
-    └── .gitignore
+    ├── .env.example    ← modelo das credenciais (copie para .env)
+    ├── .gitignore
+    └── data/           ← pessoas das licenças (gerado em runtime, fora do git)
 ```
 
 ---
@@ -22,7 +24,7 @@ Um comando só: o backend serve o `index.html` e o painel **se conecta sozinho**
 usando o `.env`, e **atualiza conforme as datas** que você escolher:
 
 ```bash
-cd dashboard/server
+cd dashboard/backend
 cp .env.example .env      # preencha DO_TOKEN, AWS_*, DEEPSEEK_API_KEY, DEEPSEEK_TOTAL_TOPPED_UP=2.00
 npm install               # instala tudo, inclusive o dotenv (que lê o .env)
 npm start                 # abra http://localhost:8787 no navegador
@@ -74,7 +76,7 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 > **Regra de ouro:** token da DigitalOcean, chave da AWS e key do DeepSeek **NUNCA** entram no HTML/JS do frontend. Qualquer pessoa que abrir a página veria o código-fonte e roubaria os segredos. Por isso os segredos ficam num **backend** e o dashboard só conversa com esse backend.
 
 ```
-  Navegador (index.html)  ──HTTPS──►  Backend proxy (server/)  ──►  DigitalOcean API
+  Navegador (index.html)  ──HTTPS──►  Backend proxy (backend/)  ──►  DigitalOcean API
    sem nenhum segredo                 guarda os segredos             AWS Cost Explorer
                                       em variáveis de ambiente       API de câmbio
 ```
@@ -88,7 +90,7 @@ Vem com o **snapshot real de 27/08/2026**: os custos da **AWS** são os valores 
 
 2. **Configure o backend (é aqui que você coloca as credenciais):**
    ```bash
-   cd dashboard/server
+   cd dashboard/backend
    cp .env.example .env      # preencha DO_TOKEN, AWS_*, DEEPSEEK_*, licenças…
    npm install               # instala o SDK do Cost Explorer
    npm start                 # sobe em http://localhost:8787
