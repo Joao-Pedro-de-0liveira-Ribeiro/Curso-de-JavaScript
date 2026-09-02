@@ -133,6 +133,9 @@ svg{display:block}
 .pill-mut{background:rgba(100,116,139,.15); color:var(--muted)}
 #btnRefresh svg{width:16px;height:16px} #btnRefresh.spin svg{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* transição de tema (claro↔escuro) suave e elegante — só durante o toggle */
+:root.theming, :root.theming *:not(svg *){transition:background-color .45s ease, color .45s ease, border-color .45s ease, box-shadow .45s ease, fill .45s ease !important}
+@media (prefers-reduced-motion: reduce){:root.theming, :root.theming *{transition:none !important}}
 .exp-wrap{display:inline-flex; gap:8px; margin-left:auto}
 .expbtn{font-weight:700} .expbtn svg{width:15px;height:15px}
 .expbtn.pdf{border-color:rgba(220,38,38,.35)} .expbtn.pdf:hover{background:rgba(220,38,38,.10)}
@@ -409,7 +412,7 @@ const LOGO={
   do:`<svg class="brand" viewBox="0 0 32 32" aria-label="DigitalOcean"><g fill="#0080FF"><path d="M16 32v-6.2c6.57 0 11.67-6.51 9.15-13.42a9.26 9.26 0 0 0-5.53-5.53C12.71 4.34 6.2 9.43 6.2 16H0C0 5.53 10.12-2.62 21.09.82a15.42 15.42 0 0 1 10.09 10.09C34.62 21.88 26.47 32 16 32z"/><path d="M16.05 25.82H9.87v-6.18h6.18z"/><path d="M9.87 30.57H5.12v-4.75h4.75z"/><path d="M5.12 25.82H1.14v-3.98h3.98z"/></g></svg>`,
   aws:`<svg class="brand" viewBox="0 0 100 62" aria-label="AWS"><text x="4" y="34" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="30" fill="currentColor">aws</text><path d="M8 46c20 11 64 11 84 0" fill="none" stroke="#FF9900" stroke-width="4.5" stroke-linecap="round"/><path d="M86 41l8 4.5-9 3z" fill="#FF9900"/></svg>`,
   figma:`<svg class="brand" viewBox="0 0 24 36" aria-label="Figma"><path fill="#0ACF83" d="M6 36a6 6 0 0 0 6-6v-6H6a6 6 0 1 0 0 12z"/><path fill="#A259FF" d="M0 18a6 6 0 0 1 6-6h6v12H6a6 6 0 0 1-6-6z"/><path fill="#F24E1E" d="M0 6a6 6 0 0 1 6-6h6v12H6A6 6 0 0 1 0 6z"/><path fill="#FF7262" d="M12 0h6a6 6 0 1 1 0 12h-6z"/><path fill="#1ABCFE" d="M24 18a6 6 0 1 1-12 0 6 6 0 0 1 12 0z"/></svg>`,
-  deepseek:`<svg class="brand" viewBox="0 0 32 32" aria-label="DeepSeek"><rect x="2" y="2" width="28" height="28" rx="8" fill="#4D6BFE"/><path d="M16 7.4l1.9 5.2 5.5 1.9-5.5 1.9L16 21.6l-1.9-5.2-5.5-1.9 5.5-1.9z" fill="#fff"/><circle cx="23.2" cy="9" r="1.7" fill="#c7d6ff"/></svg>`,
+  deepseek:`<svg class="brand" viewBox="0 0 32 32" aria-label="DeepSeek"><path fill="#4D6BFE" d="M2.5 18.5c3.5-1.2 4.2-5.6 8.5-8.2 5-3 11.5-2 15 2.2 1.4-.3 2.6-1 3.6-2 .5-.5 1.3 0 1.1.7-.4 1.7-1.5 3-3 3.8.6 2.2.3 4.6-1 6.6 1 .4 1.9 1.1 2.6 2 .4.5 0 1.3-.6 1.2-2.4-.3-4.2-.4-6.4.4-3.6 1.3-8 1-11.3-1.2-2.2 1-4.7 1.2-7 .6-.6-.2-.7-1-.2-1.4 1-.9 1.5-2.1 1.6-3.4-2.3.6-4.7.4-6.9-.6-.6-.3-.6-1.1.4-1.3z"/><circle cx="19" cy="14.5" r="1.5" fill="#fff"/></svg>`,
 };
 (function(){let r='';for(let i=0;i<12;i++){const a=i*Math.PI/6,c=Math.cos(a),s=Math.sin(a);r+=`<line x1="${(16+5*c).toFixed(1)}" y1="${(16+5*s).toFixed(1)}" x2="${(16+12.8*c).toFixed(1)}" y2="${(16+12.8*s).toFixed(1)}"/>`;}LOGO.claude=`<svg class="brand" viewBox="0 0 32 32" aria-label="Claude"><g stroke="#D97757" stroke-width="2.7" stroke-linecap="round">${r}</g></svg>`;})();
 const PLOGO={do:LOGO.do,aws:LOGO.aws,lic:LOGO.claude,ds:LOGO.deepseek};
@@ -1134,7 +1137,11 @@ document.getElementById('usd').addEventListener('input',e=>{state.usd=+e.target.
 
 /* ============ tema ============ */
 function currentTheme(){const a=document.documentElement.getAttribute('data-theme');return a||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}
-document.getElementById('themeBtn').onclick=()=>{const next=currentTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);lsSet('custos-theme',next);renderDonut();};
+let themingTO=null;
+document.getElementById('themeBtn').onclick=()=>{const next=currentTheme()==='dark'?'light':'dark';
+  const root=document.documentElement; root.classList.add('theming');           // liga a transição suave
+  root.setAttribute('data-theme',next); lsSet('custos-theme',next); renderDonut();
+  clearTimeout(themingTO); themingTO=setTimeout(()=>root.classList.remove('theming'),500);};
 (()=>{const t=lsGet('custos-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
 
 /* ============ cotação ao vivo ============ */
