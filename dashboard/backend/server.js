@@ -885,6 +885,17 @@ function serveIndex(res) {
     res.end('index.html não encontrado');
   }
 }
+// serve um arquivo estático do frontend (usado p/ assets/, ex.: o logo do DeepSeek)
+function serveStatic(res, pathname) {
+  const rel = pathname.replace(/^\/+/, '');
+  const file = path.join(__dirname, '..', 'frontend', rel);
+  const root = path.join(__dirname, '..', 'frontend');
+  if (!file.startsWith(root) || !fs.existsSync(file)) { res.writeHead(404); return res.end('nao encontrado'); }
+  const ext = path.extname(file).toLowerCase();
+  const TYPES = { '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.css': 'text/css', '.js': 'text/javascript' };
+  res.writeHead(200, { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'public, max-age=300' });
+  res.end(fs.readFileSync(file));
+}
 
 /* ------------------------------ router ----------------------------------- */
 const server = http.createServer(async (req, res) => {
@@ -894,6 +905,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204, {});
   // serve o painel (para o front auto-conectar ao mesmo host)
   if (req.method === 'GET' && (u.pathname === '/' || u.pathname === '/index.html')) return serveIndex(res);
+  // arquivos estáticos do frontend (ex.: assets/deepseek.svg — o logo oficial)
+  if (req.method === 'GET' && /^\/assets\/[\w.\-]+$/.test(u.pathname)) return serveStatic(res, u.pathname);
   try {
     switch (u.pathname) {
       case '/api/health':       return send(res, 200, { ok: true, ts: Date.now() });
