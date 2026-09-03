@@ -103,20 +103,45 @@ function monthCoverage(start, end, ym) {
 }
 
 /* --------------------------- 1) USD / BRL -------------------------------- */
-// Fonte primária INTRADIÁRIA (AwesomeAPI, comercial BR); fallback diário (open.er-api).
+// Câmbio ao vivo com VÁRIAS fontes em cascata. Em datacenter (droplet DO), a
+// AwesomeAPI cai em 429 (Cloudflare bloqueia IP de datacenter), então mandamos
+// um User-Agent de navegador e temos fallbacks que funcionam de datacenter
+// (open.er-api, currency-api do jsDelivr). NUNCA quebra: usa a última cotação boa.
+let lastFx = null;
 async function getUsdBrl() {
   return cached('fx', 5 * 60 * 1000, async () => {
-    try {
-      const r = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
-      if (r.ok) {
-        const j = await r.json();
-        const b = j.USDBRL;
-        if (b && b.bid) return { rate: +(+b.bid).toFixed(4), fonte: 'awesomeapi', updatedAt: b.create_date || new Date().toISOString() };
-      }
-    } catch (_) { /* cai no fallback */ }
-    const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
-    const j2 = await r2.json();
-    return { rate: j2.rates.BRL, fonte: 'open.er-api', updatedAt: j2.time_last_update_utc || new Date().toISOString() };
+    const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; CustosTI/1.0)', Accept: 'application/json' };
+    const timed = async (fn, ms = 7000) => {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), ms);
+      try { return await fn(c.signal); } finally { clearTimeout(t); }
+    };
+    const sources = [
+      async (signal) => { // AwesomeAPI — intradiário (comercial BR); melhor quando disponível
+        const r = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL', { headers, signal });
+        if (!r.ok) throw new Error('http ' + r.status);
+        const b = (await r.json()).USDBRL;
+        if (b && +b.bid > 0) return { rate: +(+b.bid).toFixed(4), fonte: 'awesomeapi', updatedAt: b.create_date || new Date().toISOString() };
+        throw new Error('sem bid');
+      },
+      async (signal) => { // open.er-api — funciona de datacenter
+        const j = await (await fetch('https://open.er-api.com/v6/latest/USD', { headers, signal })).json();
+        if (j && j.rates && +j.rates.BRL > 0) return { rate: +(+j.rates.BRL).toFixed(4), fonte: 'open.er-api', updatedAt: j.time_last_update_utc || new Date().toISOString() };
+        throw new Error('sem BRL');
+      },
+      async (signal) => { // currency-api (jsDelivr) — CDN, sem rate limit
+        const j = await (await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { headers, signal })).json();
+        const v = j && j.usd && +j.usd.brl;
+        if (v > 0) return { rate: +v.toFixed(4), fonte: 'currency-api', updatedAt: (j.date || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z' };
+        throw new Error('sem brl');
+      },
+    ];
+    for (const src of sources) {
+      try { const v = await timed(src); lastFx = v; return v; }
+      catch (e) { console.warn('[fx] fonte falhou:', String(e.message || e)); }
+    }
+    if (lastFx) return { ...lastFx, fonte: lastFx.fonte + ' (cache)' }; // usa a última boa
+    const def = +(process.env.FX_DEFAULT || 5.15);
+    return { rate: def, fonte: 'indisponível', error: 'nenhuma fonte de câmbio respondeu', updatedAt: new Date().toISOString() };
   });
 }
 
