@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciador de Jogos Favoritos</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <!-- ===================== TOPO ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon48.png" alt="" width="26" height="26">
+      <h1>Jogos Favoritos</h1>
+    </div>
+
+    <div class="add-bar">
+      <input id="add-url" type="text" class="input"
+             placeholder="Colar URL (Steam / YouTube / itch / Nintendo / Kickstarter…) e Enter">
+      <button id="btn-add-url" class="btn">+ Adicionar</button>
+      <button id="btn-add-lead" class="btn ghost" title="Adicionar um jogo só pelo nome para pesquisar depois">+ Lead</button>
+    </div>
+
+    <div class="top-actions">
+      <button id="btn-importar" class="btn ghost" title="Importar favoritos .html do navegador">⬇ Importar</button>
+      <button id="btn-backup" class="btn ghost" title="Backup / restaurar (JSON)">⇅ Backup</button>
+      <button id="btn-config" class="btn icon" title="Configurações">⚙</button>
+    </div>
+  </header>
+
+  <!-- ===================== VISÕES PRONTAS ===================== -->
+  <nav id="visoes" class="visoes" aria-label="Visões rápidas"></nav>
+
+  <div class="layout">
+    <!-- ===================== FILTROS ===================== -->
+    <aside class="filtros">
+      <div class="filtro-topo">
+        <input id="busca" type="search" class="input" placeholder="🔎 Buscar por nome/notas…">
+        <label class="rot">Ordenar por</label>
+        <select id="ordenar" class="input">
+          <option value="data_adicao">Adição (recentes)</option>
+          <option value="data_prevista">Lançamento (contagem regressiva)</option>
+          <option value="tempo_para_zerar">Tempo para zerar (curto→longo)</option>
+          <option value="prioridade">Prioridade (alta→baixa)</option>
+          <option value="desconto">Maior desconto</option>
+          <option value="nome">Nome (A→Z)</option>
+        </select>
+      </div>
+
+      <div class="filtro-grupo">
+        <label class="check-linha"><input type="checkbox" id="f-zera"> ⚡ Zera rápido</label>
+      </div>
+
+      <div class="filtro-grupo"><h3>Prioridade</h3><div id="f-prioridade" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Intenção</h3><div id="f-intencao" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Status de lançamento</h3><div id="f-status" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Gênero</h3><div id="f-genero" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Estilo visual</h3><div id="f-estilo" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Vibe / humor</h3><div id="f-vibe" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Origem</h3><div id="f-origem" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Curadoria</h3><div id="f-curadoria" class="chips"></div></div>
+
+      <button id="btn-limpar" class="btn ghost full">Limpar filtros</button>
+    </aside>
+
+    <!-- ===================== LISTA ===================== -->
+    <main class="conteudo">
+      <div class="lista-topo">
+        <span id="resumo" class="resumo">—</span>
+      </div>
+      <div id="grade" class="grade"></div>
+      <div id="vazio" class="vazio" hidden>
+        <div class="vazio-emoji">🎮</div>
+        <p>Nenhum jogo aqui ainda.</p>
+        <p class="muted">Cole uma URL da Steam lá em cima, ou importe seu arquivo de favoritos <code>.html</code>.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== MODAL: EDITAR ===================== -->
+  <div id="modal-editar" class="modal" hidden>
+    <div class="modal-box grande">
+      <div class="modal-topo">
+        <h2 id="editar-titulo">Editar jogo</h2>
+        <button class="btn icon fechar" data-fechar>✕</button>
+      </div>
+      <div class="modal-corpo form-editar">
+        <div class="form-capa">
+          <img id="ed-capa-img" class="ed-capa" alt="" hidden>
+          <div id="ed-capa-vazia" class="ed-capa ed-capa-vazia">🎮</div>
+          <a id="ed-origem-link" class="link-origem" target="_blank" rel="noopener" hidden>Abrir origem ↗</a>
+          <a id="ed-video-link" class="link-origem" target="_blank" rel="noopener" hidden>▶ Ver vídeo</a>
+        </div>
+        <div class="form-campos">
+          <label class="rot" for="ed-nome">Nome</label>
+          <input id="ed-nome" class="input" type="text">
+
+          <div class="grid2">
+            <div>
+              <label class="rot" for="ed-origem">Origem</label>
+              <select id="ed-origem" class="input"></select>
+            </div>
+            <div>
+              <label class="rot" for="ed-curadoria">Curadoria</label>
+              <select id="ed-curadoria" class="input"></select>
+            </div>
+          </div>
+
+          <label class="rot" for="ed-url">URL de origem</label>
+          <input id="ed-url" class="input" type="text">
+          <label class="rot" for="ed-video">URL do vídeo (YouTube)</label>
+          <input id="ed-video" class="input" type="text">
+          <label class="rot" for="ed-capa-url">URL da capa</label>
+          <input id="ed-capa-url" class="input" type="text">
+
+          <div class="grid2">
+            <div>
+              <label class="rot" for="ed-intencao">Intenção</label>
+              <select id="ed-intencao" class="input"></select>
+            </div>
+            <div>
+              <label class="rot" for="ed-prioridade">Prioridade</label>
+              <select id="ed-prioridade" class="input"></select>
+            </div>
+          </div>
+
+          <label class="rot">Gênero</label>
+          <div id="ed-genero" class="tag-input"></div>
+          <label class="rot">Estilo visual</label>
+          <div id="ed-estilo" class="tag-input"></div>
+          <label class="rot">Vibe / humor</label>
+          <div id="ed-vibe" class="tag-input"></div>
+
+          <div class="grid3">
+            <div>
+              <label class="rot" for="ed-status">Status</label>
+              <select id="ed-status" class="input"></select>
+            </div>
+            <div>
+              <label class="rot" for="ed-data">Data prevista</label>
+              <input id="ed-data" class="input" type="date">
+            </div>
+            <div>
+              <label class="rot" for="ed-ano">Ano alvo</label>
+              <input id="ed-ano" class="input" type="number" min="1990" max="2100" placeholder="auto">
+            </div>
+          </div>
+
+          <div class="grid3">
+            <div>
+              <label class="rot" for="ed-tempo">Tempo p/ zerar (h)</label>
+              <input id="ed-tempo" class="input" type="number" min="0" step="0.5" placeholder="ex: 6">
+            </div>
+            <div>
+              <label class="rot" for="ed-preco">Preço</label>
+              <input id="ed-preco" class="input" type="text" placeholder="R$ …">
+            </div>
+            <div>
+              <label class="rot" for="ed-desc">Desconto %</label>
+              <input id="ed-desc" class="input" type="number" min="0" max="100">
+            </div>
+          </div>
+
+          <label class="rot" for="ed-notas">Notas</label>
+          <textarea id="ed-notas" class="input" rows="2" placeholder="ex: COMPRA Q É BARATIN"></textarea>
+        </div>
+      </div>
+      <div class="modal-rodape">
+        <button id="ed-revalidar" class="btn ghost" title="Rebuscar dados na Steam">↻ Revalidar Steam</button>
+        <span class="cresce"></span>
+        <button class="btn ghost" data-fechar>Cancelar</button>
+        <button id="ed-salvar" class="btn">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: IMPORTAR ===================== -->
+  <div id="modal-importar" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-topo">
+        <h2>Importar favoritos do navegador</h2>
+        <button class="btn icon fechar" data-fechar>✕</button>
+      </div>
+      <div class="modal-corpo">
+        <p class="muted">
+          Exporte seus favoritos como arquivo <code>.html</code> (formato Netscape Bookmarks) e
+          selecione-o aqui. As pastas viram tags automaticamente (Detonado → “só assistir”,
+          Zera Rapido → tempo, Vão Lança Ainda → não lançado, Prioridade Alta, etc.).
+          A importação é <strong>idempotente</strong> (não duplica) e <strong>não destrutiva</strong>.
+        </p>
+        <input id="arquivo-bookmarks" type="file" accept=".html,.htm" class="input">
+        <label class="check-linha" style="margin-top:10px">
+          <input type="checkbox" id="imp-enriquecer" checked>
+          Validar links da Steam automaticamente após importar (pode demorar)
+        </label>
+        <button id="btn-so-enriquecer" class="btn ghost full" style="margin-top:10px">↻ Só validar/atualizar jogos da Steam pendentes</button>
+        <div id="imp-previa" class="imp-previa" hidden></div>
+        <div id="imp-progresso" class="imp-progresso" hidden>
+          <div class="barra"><div id="imp-barra" class="barra-fill"></div></div>
+          <span id="imp-progresso-txt" class="muted"></span>
+          <button id="imp-cancelar" class="btn ghost pequeno">Parar</button>
+        </div>
+      </div>
+      <div class="modal-rodape">
+        <span id="imp-status" class="muted cresce"></span>
+        <button class="btn ghost" data-fechar>Fechar</button>
+        <button id="btn-fazer-import" class="btn" disabled>Importar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: BACKUP ===================== -->
+  <div id="modal-backup" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-topo">
+        <h2>Backup / Restauração</h2>
+        <button class="btn icon fechar" data-fechar>✕</button>
+      </div>
+      <div class="modal-corpo">
+        <p class="muted">Seus dados ficam só no navegador. Exporte um JSON para levar de máquina, ou restaure um backup.</p>
+        <button id="btn-exportar-json" class="btn full">⬇ Exportar tudo (JSON)</button>
+        <label class="rot" style="margin-top:14px">Restaurar de um JSON</label>
+        <input id="arquivo-json" type="file" accept=".json" class="input">
+        <label class="check-linha" style="margin-top:8px">
+          <input type="checkbox" id="restaurar-mesclar" checked>
+          Mesclar com os jogos atuais (desmarque para substituir tudo)
+        </label>
+      </div>
+      <div class="modal-rodape">
+        <span id="backup-status" class="muted cresce"></span>
+        <button class="btn ghost" data-fechar>Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: CONFIG ===================== -->
+  <div id="modal-config" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-topo">
+        <h2>Configurações</h2>
+        <button class="btn icon fechar" data-fechar>✕</button>
+      </div>
+      <div class="modal-corpo">
+        <label class="rot" for="cfg-zera">Limite de “Zera rápido” (horas)</label>
+        <input id="cfg-zera" class="input" type="number" min="1" step="1">
+        <p class="muted pequeno">Jogos com tempo para zerar até este valor entram no filtro “Zera rápido”.</p>
+
+        <div class="grid2">
+          <div>
+            <label class="rot" for="cfg-lang">Idioma Steam</label>
+            <input id="cfg-lang" class="input" type="text" placeholder="portuguese">
+          </div>
+          <div>
+            <label class="rot" for="cfg-cc">País (preços)</label>
+            <input id="cfg-cc" class="input" type="text" placeholder="br">
+          </div>
+        </div>
+
+        <label class="check-linha" style="margin-top:12px">
+          <input type="checkbox" id="cfg-og">
+          Permitir ler dados (Open Graph) de qualquer site ao adicionar
+        </label>
+        <p class="muted pequeno">Necessário para pré-preencher nome/capa de itch, Nintendo, Kickstarter e sites de dev.</p>
+
+        <hr class="sep">
+        <button id="btn-limpar-tudo" class="btn perigo full">🗑 Apagar todos os jogos</button>
+      </div>
+      <div class="modal-rodape">
+        <span id="cfg-status" class="muted cresce"></span>
+        <button class="btn" data-fechar>Concluído</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="shared.js"></script>
+  <script src="importador.js"></script>
+  <script src="manager.js"></script>
+</body>
+</html>

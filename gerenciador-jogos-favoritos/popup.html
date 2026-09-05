@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Favoritar jogo</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <img src="icons/icon32.png" alt="" width="20" height="20">
+      <span>Jogos Favoritos</span>
+    </div>
+    <button id="btn-abrir-gerenciador" class="icone" title="Abrir gerenciador">☰</button>
+  </header>
+
+  <main>
+    <!-- Estado de carregando -->
+    <div id="carregando" class="bloco centro">
+      <div class="spinner"></div>
+      <p class="muted">Analisando a aba atual…</p>
+    </div>
+
+    <!-- Card de preview do jogo detectado -->
+    <section id="preview" class="bloco" hidden>
+      <div class="capa-wrap">
+        <img id="capa" class="capa" alt="" hidden>
+        <div id="capa-vazia" class="capa capa-placeholder">🎮</div>
+      </div>
+      <h1 id="titulo" class="titulo">—</h1>
+      <div id="badges" class="badges"></div>
+      <p id="descricao" class="descricao muted" hidden></p>
+
+      <div id="ja-favoritado" class="aviso ok" hidden>
+        ✓ Este jogo já está na sua lista.
+      </div>
+
+      <!-- Campos rápidos -->
+      <div class="campos-rapidos">
+        <label class="rot">Prioridade</label>
+        <div id="prioridade-seg" class="segmento" role="group">
+          <button data-v="alta" class="seg">Alta</button>
+          <button data-v="media" class="seg ativo">Média</button>
+          <button data-v="baixa" class="seg">Baixa</button>
+        </div>
+
+        <label class="rot" for="intencao">Intenção</label>
+        <select id="intencao" class="entrada"></select>
+      </div>
+
+      <button id="favoritar" class="btn-principal">★ Favoritar</button>
+      <div id="msg" class="msg" hidden></div>
+    </section>
+
+    <!-- Erro / fonte não reconhecida -->
+    <section id="fallback" class="bloco" hidden>
+      <p id="fallback-msg" class="muted"></p>
+      <button id="btn-perm-og" class="btn-secundario" hidden>Permitir ler dados desta página</button>
+    </section>
+
+    <!-- Outras formas de adicionar -->
+    <details id="outras">
+      <summary>Outras formas de adicionar</summary>
+
+      <label class="rot" for="url-cola">Colar uma URL (Steam / YouTube / itch / etc.)</label>
+      <div class="linha">
+        <input id="url-cola" class="entrada" type="text" placeholder="https://store.steampowered.com/app/…">
+        <button id="btn-validar-url" class="btn-secundario">Validar</button>
+      </div>
+
+      <label class="rot" for="lead-nome">Adicionar um lead “a pesquisar” (só o nome)</label>
+      <div class="linha">
+        <input id="lead-nome" class="entrada" type="text" placeholder="Nome do jogo que ouvi falar…">
+        <button id="btn-lead" class="btn-secundario">Salvar lead</button>
+      </div>
+    </details>
+  </main>
+
+  <footer class="rodape">
+    <a id="link-gerenciador" href="#">Abrir gerenciador completo →</a>
+  </footer>
+
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

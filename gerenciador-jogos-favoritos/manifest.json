@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Gerenciador de Jogos Favoritos",
+  "version": "1.0.0",
+  "description": "Descubra, salve, classifique e priorize jogos com 1 clique. Valida na Steam, importa favoritos, filtra por gênero/vibe/prioridade e mostra contagem regressiva de lançamentos.",
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
+  "host_permissions": [
+    "https://store.steampowered.com/*",
+    "https://*.youtube.com/*"
+  ],
+  "optional_host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Salvar jogo favorito",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "manager.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

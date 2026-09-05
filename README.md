@@ -32,6 +32,16 @@ Os arquivos estão organizados de acordo com os módulos do curso. Cada pasta ou
 - O foco deste repositório é **educacional**.
 - Os códigos podem conter comentários, anotações ou até trechos incompletos, pois foram criados durante o aprendizado.
 
+## 🎮 Projeto aplicado: Gerenciador de Jogos Favoritos
+
+Além dos exercícios do curso, o repositório inclui um projeto completo em JavaScript puro:
+uma **extensão de navegador (Manifest V3)** para descobrir, salvar, classificar e priorizar
+jogos — com validação automática na Steam, importação dos favoritos `.html`, filtros,
+ordenação e contagem regressiva de lançamentos. Funciona no **Vivaldi** e em qualquer
+navegador baseado em **Chromium**.
+
+➡ Código e instruções de instalação em [`gerenciador-jogos-favoritos/`](./gerenciador-jogos-favoritos/README.md).
+
 ---
 
 Obrigado por visitar!
