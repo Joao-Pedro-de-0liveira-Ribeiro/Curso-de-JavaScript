@@ -37,7 +37,9 @@ Cada jogo guarda: **gênero**, **estilo visual** (inclui *Pixel Primitivo*), **v
 (nostalgia, contemplação, kawaii, surpresa…), **intenção** (jogar / só assistir "Detonado"
 / rejogar / comprar e apoiar / treinar), **prioridade** (alta/média/baixa), **status de
 lançamento** com **contagem regressiva**, **tempo para zerar**, **preço/desconto** e
-**notas**. Todos os campos são tags **abertas e extensíveis**.
+**notas**. Todos os campos são tags **abertas e extensíveis**: se você digitar uma categoria
+nova no editor (ex.: um gênero próprio), ela é salva **e** vira um filtro clicável na barra
+lateral automaticamente.
 
 ### Filtros, ordenação e visões prontas
 - Filtros combináveis (E lógico) por todos os campos acima.
@@ -90,9 +92,15 @@ As pastas viram tags automaticamente:
 | Buscas do Google / links sem loja | status *a pesquisar* |
 | Anotações entre parênteses no título | movidas para **notas** (título fica limpo) |
 
+**Nenhum link se perde:** além de seguir as pastas, o importador varre *todos* os `<a>` do
+arquivo — jogos, buscas do Google (viram leads "a pesquisar") e vídeos do YouTube (guardam
+a `url_video`) entram, mesmo em arquivos bagunçados ou links soltos. Ao final ele mostra um
+resumo por origem (ex.: `271 Steam · 26 Busca Google · 24 YouTube · …`).
+
 A importação é **idempotente** (reimportar não duplica — casa por `appid`/URL) e
 **não destrutiva** (não sobrescreve edições suas). Marque *"Validar links da Steam"* para
-enriquecer nome/capa/preço automaticamente após importar.
+enriquecer nome/capa/preço automaticamente após importar (ou use o botão *"Só validar…"*
+depois, quantas vezes precisar).
 
 ---
 

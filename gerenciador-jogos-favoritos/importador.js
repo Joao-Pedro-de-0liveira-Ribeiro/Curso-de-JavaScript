@@ -68,6 +68,8 @@
 
     const appid = G.extrairAppId(href);
     if (appid) patch.steam_appid = appid;
+    // qualquer link de vídeo do YouTube guarda a url_video (não só na pasta Detonado)
+    if (G.ehYouTube(href)) patch.url_video = href;
 
     // nome + notas entre parênteses
     let nome = (title || '').trim();
@@ -78,7 +80,7 @@
     if (notas.length) patch.notas = notas.join(' · ');
 
     // intenção
-    if (has('detonado')) { patch.intencao = 'assistir_walkthrough'; if (G.ehYouTube(href)) patch.url_video = href; }
+    if (has('detonado')) patch.intencao = 'assistir_walkthrough';
     if (has('rezerar') || has('zera dnv') || has('comprra e zera') || has('compra e zera')) patch.intencao = 'rejogar';
     if (has('compre e admire') || has('implora pirataria')) patch.intencao = 'comprar_apoiar';
 
@@ -139,6 +141,7 @@
       path.forEach(function (p) { pastas.add(p); });
       patches.push(mapear(href, title, path));
     };
+    // 1) percurso estruturado (usa as pastas para classificar)
     const topo = doc.querySelectorAll('body > dl, body > dl > dl');
     if (topo.length) {
       topo.forEach(function (dl) { processarDL(dl, [], addLink); });
@@ -146,13 +149,21 @@
       const qualquer = doc.querySelector('dl');
       if (qualquer) processarDL(qualquer, [], addLink);
     }
-    // fallback: se a estrutura não deu nada, pega todos os <a>
-    if (!patches.length) {
-      doc.querySelectorAll('a[href]').forEach(function (a) {
-        addLink(a.getAttribute('href'), a.textContent || '', []);
-      });
-    }
-    return { patches: patches, totalLinks: patches.length, pastas: Array.from(pastas) };
+    // 2) rede de segurança: varre TODOS os <a href> do arquivo e adiciona os que
+    //    o percurso estruturado não pegou (arquivos bagunçados, links soltos,
+    //    buscas do Google, vídeos do YouTube). Assim NENHUM link se perde.
+    doc.querySelectorAll('a[href]').forEach(function (a) {
+      addLink(a.getAttribute('href'), a.textContent || '', []);
+    });
+
+    // contagem por origem para o resumo pós-importação
+    const porOrigem = {};
+    patches.forEach(function (p) { porOrigem[p.origem] = (porOrigem[p.origem] || 0) + 1; });
+
+    return {
+      patches: patches, totalLinks: patches.length,
+      pastas: Array.from(pastas), porOrigem: porOrigem
+    };
   }
 
   root.GJF_IMPORTADOR = { parse: parse, mapear: mapear };

@@ -85,16 +85,33 @@
     });
   }
 
+  // prettifica um slug custom (ex.: "roguelite_indie" → "Roguelite indie")
+  function bonito(slug) {
+    return String(slug).replace(/_/g, ' ').replace(/^\w/, function (c) { return c.toUpperCase(); });
+  }
+  // une o enum padrão com quaisquer categorias custom já presentes nos jogos,
+  // para que categorias criadas à mão também virem filtros clicáveis
+  function mapaComExtras(mapa, campoJogo) {
+    const out = Object.assign({}, mapa);
+    jogos.forEach(function (j) {
+      (j[campoJogo] || []).forEach(function (v) { if (!(v in out)) out[v] = bonito(v); });
+    });
+    return out;
+  }
+
   function construirFiltros() {
     chipsDe('#f-prioridade', G.PRIORIDADES, 'prioridade', true);
     chipsDe('#f-intencao', G.INTENCOES, 'intencao');
     chipsDe('#f-status', G.STATUS_LANCAMENTO, 'status');
-    chipsDe('#f-genero', G.GENEROS, 'genero');
-    chipsDe('#f-estilo', G.ESTILOS, 'estilo');
-    chipsDe('#f-vibe', G.VIBES, 'vibe');
+    chipsDe('#f-genero', mapaComExtras(G.GENEROS, 'genero'), 'genero');
+    chipsDe('#f-estilo', mapaComExtras(G.ESTILOS, 'estilo_visual'), 'estilo');
+    chipsDe('#f-vibe', mapaComExtras(G.VIBES, 'vibe'), 'vibe');
     chipsDe('#f-origem', G.ORIGENS, 'origem');
     chipsDe('#f-curadoria', G.STATUS_CURADORIA, 'curadoria');
   }
+
+  // reconstrói os chips (para captar categorias novas) preservando a seleção atual
+  function atualizarFiltros() { construirFiltros(); sincronizarChips(); }
 
   function sincronizarChips() {
     document.querySelectorAll('.filtros .chip').forEach(function (el) {
@@ -275,7 +292,7 @@
     if (!confirm('Remover “' + (j.nome || 'este jogo') + '” da lista?')) return;
     jogos = jogos.filter(function (x) { return x.id !== id; });
     await G.salvarJogos(jogos);
-    render(); toast('Removido.');
+    render(); atualizarFiltros(); toast('Removido.');
   }
 
   /* =========================================================================
@@ -363,7 +380,7 @@
 
     if (editando.ehNovo) jogos.push(j);
     await G.salvarJogos(jogos);
-    fecharModais(); render();
+    fecharModais(); render(); atualizarFiltros();
     toast(editando.ehNovo ? 'Jogo adicionado!' : 'Alterações salvas.');
   }
 
@@ -475,10 +492,18 @@
     }).join('');
     prev.innerHTML = '<strong>' + importParsed.totalLinks + ' links</strong> em ' +
       importParsed.pastas.length + ' pastas.<br>' +
+      '<div class="muted pequeno" style="margin:4px 0 8px">' + resumoPorOrigem(importParsed.porOrigem) + '</div>' +
       '<span class="muted pequeno">Amostra:</span>' + amostra +
       (importParsed.totalLinks > 30 ? '<div class="muted pequeno">…e mais ' + (importParsed.totalLinks - 30) + '.</div>' : '');
     prev.hidden = false;
     $('#btn-fazer-import').disabled = importParsed.totalLinks === 0;
+  }
+
+  function resumoPorOrigem(porOrigem) {
+    return Object.keys(porOrigem || {})
+      .sort(function (a, b) { return porOrigem[b] - porOrigem[a]; })
+      .map(function (k) { return porOrigem[k] + ' ' + rotulo(G.ORIGENS, k); })
+      .join(' · ');
   }
 
   async function executarImportacao() {
@@ -490,9 +515,10 @@
       if (res.criado) criados++; else mesclados++;
     }
     jogos = await G.carregarJogos();
-    render();
-    $('#imp-status').textContent = criados + ' novos, ' + mesclados + ' já existiam.';
-    toast('Importados: ' + criados + ' novos.');
+    render(); atualizarFiltros();
+    $('#imp-status').textContent = criados + ' novos, ' + mesclados + ' já existiam (' +
+      resumoPorOrigem(importParsed.porOrigem) + ').';
+    toast('Importados: ' + criados + ' novos jogos/links.');
 
     if ($('#imp-enriquecer').checked) {
       await enriquecerSteam();
@@ -580,7 +606,7 @@
     }
     if (dados.config) { config = Object.assign({}, G.DEFAULT_SETTINGS, dados.config); await G.salvarConfig(config); }
     jogos = await G.carregarJogos();
-    render();
+    render(); atualizarFiltros();
     $('#backup-status').textContent = 'Restaurado. Agora: ' + jogos.length + ' jogos.';
     toast('Backup restaurado.');
   }
@@ -612,7 +638,7 @@
   async function limparTudo() {
     if (!confirm('Apagar TODOS os ' + jogos.length + ' jogos? Isso não pode ser desfeito.')) return;
     if (!confirm('Tem certeza mesmo? Considere exportar um backup antes.')) return;
-    jogos = []; await G.salvarJogos(jogos); render(); toast('Tudo apagado.');
+    jogos = []; await G.salvarJogos(jogos); render(); atualizarFiltros(); toast('Tudo apagado.');
   }
 
   /* =========================================================================
