@@ -135,6 +135,36 @@
   }
 
   /* ----------------------------------------------------------------------- *
+   * Capas determinísticas (SEM API) — funcionam mesmo se a Steam bloquear.
+   *  - Steam: imagem de header no CDN público, previsível pelo appid.
+   *  - YouTube: thumbnail previsível pelo id do vídeo.
+   * ----------------------------------------------------------------------- */
+  function capaSteam(appid) {
+    return appid ? 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + appid + '/header.jpg' : '';
+  }
+
+  function youtubeId(url) {
+    if (!url) return '';
+    let m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+    return m ? m[1] : '';
+  }
+
+  function capaYoutube(url) {
+    const id = youtubeId(url);
+    return id ? 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg' : '';
+  }
+
+  // devolve uma capa determinística para o jogo, quando possível
+  function capaDeterministica(j) {
+    if (j.steam_appid) return capaSteam(j.steam_appid);
+    const app = extrairAppId(j.url_origem);
+    if (app) return capaSteam(app);
+    const yt = capaYoutube(j.url_video || j.url_origem);
+    if (yt) return yt;
+    return '';
+  }
+
+  /* ----------------------------------------------------------------------- *
    * Fábrica / normalização de um jogo
    * ----------------------------------------------------------------------- */
   function novoJogo(patch) {
@@ -165,7 +195,7 @@
     return normalizarJogo(Object.assign(base, patch || {}));
   }
 
-  // garante tipos consistentes + campos derivados (ano_alvo)
+  // garante tipos consistentes + campos derivados (ano_alvo, capa)
   function normalizarJogo(j) {
     j.genero = toArray(j.genero);
     j.estilo_visual = toArray(j.estilo_visual);
@@ -177,6 +207,9 @@
       const y = parseInt(String(j.data_prevista).slice(0, 4), 10);
       if (y > 1990 && y < 2100) j.ano_alvo = y;
     }
+    // capa determinística (Steam/YouTube) quando estiver faltando — retroativo:
+    // jogos já salvos sem capa ganham imagem ao recarregar, sem precisar de API
+    if (!j.capa_url) { const c = capaDeterministica(j); if (c) j.capa_url = c; }
     return j;
   }
 
@@ -320,20 +353,27 @@
       p.status_lancamento = 'lancado';
     }
     if (p.origem === 'steam' && p.nome) p.status_curadoria = 'validado';
+    // capa determinística de reserva (Steam/YouTube), quando a API não trouxe
+    if (!p.capa_url) {
+      const c = capaDeterministica({ steam_appid: p.steam_appid, url_origem: p.url_origem, url_video: p.url_video });
+      if (c) p.capa_url = c;
+    }
     // limpa campos auxiliares que não fazem parte do modelo salvo
     delete p.release_str; delete p.coming_soon; delete p.autor;
     delete p.short_description; delete p.is_free;
     return p;
   }
 
-  // chave de deduplicação: appid quando steam, senão url sem query/#/barra final
+  // chave de deduplicação: appid quando é Steam; senão host+caminho+QUERY.
+  // IMPORTANTE: mantém a query — é ela que distingue youtube (?v=), Google Play
+  // (?id=) e buscas do Google (?q=). Sem isso, todos colapsavam em 1 só.
   function normalizarUrlChave(url) {
     if (!url) return '';
     const app = extrairAppId(url);
     if (app) return 'steam:' + app;
     try {
       const u = new URL(url);
-      return (u.host.replace(/^www\./, '') + u.pathname).replace(/\/+$/, '').toLowerCase();
+      return (u.host.replace(/^www\./, '') + u.pathname + u.search).replace(/\/+$/, '').toLowerCase();
     } catch (e) {
       return String(url).trim().toLowerCase();
     }
@@ -345,6 +385,7 @@
     STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS,
     uuid, norm, toArray, uniao,
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
+    capaSteam, youtubeId, capaYoutube, capaDeterministica,
     mapearGenerosSteam, dadosParaPatch,
     novoJogo, normalizarJogo, ehZeraRapido, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo

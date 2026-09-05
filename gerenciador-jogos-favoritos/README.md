@@ -41,6 +41,11 @@ lançamento** com **contagem regressiva**, **tempo para zerar**, **preço/descon
 nova no editor (ex.: um gênero próprio), ela é salva **e** vira um filtro clicável na barra
 lateral automaticamente.
 
+**Capas automáticas (sem depender de API):** jogos da Steam e do YouTube ganham a imagem de
+capa/thumbnail na hora, de forma determinística (pelo `appid` / id do vídeo) — funciona mesmo
+quando a Steam está bloqueando consultas. **Tempo para zerar:** no editor de cada jogo há o
+botão **⏱ HowLongToBeat**, que abre a busca do jogo no site para você conferir e anotar as horas.
+
 ### Filtros, ordenação e visões prontas
 - Filtros combináveis (E lógico) por todos os campos acima.
 - Ordenar por lançamento (contagem regressiva), tempo para zerar, prioridade, desconto, nome.

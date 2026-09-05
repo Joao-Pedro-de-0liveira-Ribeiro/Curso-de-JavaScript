@@ -19,6 +19,23 @@
   'use strict';
   const G = root.GJF;
 
+  // Limpa o "boilerplate" das lojas nos títulos dos favoritos, sem depender de API:
+  //  "Economize 10% em Arietta of Spirits no Steam" -> "Arietta of Spirits"
+  //  "Evoland 2 no Steam" -> "Evoland 2"; "Jogo – Apps no Google Play" -> "Jogo"
+  function limparNomeLoja(nome) {
+    let n = ' ' + (nome || '') + ' ';
+    n = n.replace(/^\s*(economize|poupe|save(?:\s+up\s+to)?)\s+\d+\s*%\s+(em|on|no|na)\s+/i, '');
+    n = n.replace(/^\s*(comprar|buy)\s+/i, '');
+    n = n.replace(/\s*(?:[-–—|:]\s*)?(?:no|na|on)\s+steam\s*$/i, '');
+    n = n.replace(/\s*[-–—|]\s*steam\s*$/i, '');
+    n = n.replace(/\s*[-–—|:]?\s*(?:apps|aplicativos|jogos|games)\s+(?:no|on)\s+google\s+play\s*$/i, '');
+    n = n.replace(/\s*[-–—|:]?\s*google\s+play\s*$/i, '');
+    n = n.replace(/\s+(?:for|para)\s+nintendo\s+switch.*$/i, '');
+    n = n.replace(/\s*[-–—|]\s*nintendo.*$/i, '');
+    n = n.replace(/\s*(?:by|-\s*).*\s+(?:by\s+)?itch\.io\s*$/i, '');
+    return n.replace(/\s{2,}/g, ' ').trim();
+  }
+
   function slugParaNome(href) {
     const app = G.extrairAppId(href);
     if (app) {
@@ -76,7 +93,8 @@
     const notas = [];
     nome = nome.replace(/\(([^)]*)\)/g, function (m, g1) { if (g1.trim()) notas.push(g1.trim()); return ''; })
       .replace(/\s{2,}/g, ' ').trim();
-    patch.nome = nome || slugParaNome(href);
+    const limpo = limparNomeLoja(nome);
+    patch.nome = limpo || nome || slugParaNome(href);
     if (notas.length) patch.notas = notas.join(' · ');
 
     // intenção

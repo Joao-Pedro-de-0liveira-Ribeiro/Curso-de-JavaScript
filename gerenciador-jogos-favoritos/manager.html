@@ -150,6 +150,8 @@
             <div>
               <label class="rot" for="ed-tempo">Tempo p/ zerar (h)</label>
               <input id="ed-tempo" class="input" type="number" min="0" step="0.5" placeholder="ex: 6">
+              <button id="ed-hltb" class="btn ghost pequeno" type="button"
+                      style="width:100%;margin-top:6px" title="Consultar quanto tempo leva para zerar no HowLongToBeat">⏱ HowLongToBeat</button>
             </div>
             <div>
               <label class="rot" for="ed-preco">Preço</label>
@@ -189,11 +191,16 @@
           A importação é <strong>idempotente</strong> (não duplica) e <strong>não destrutiva</strong>.
         </p>
         <input id="arquivo-bookmarks" type="file" accept=".html,.htm" class="input">
+        <p class="muted pequeno" style="margin:8px 0 0">
+          As <strong>capas</strong> (Steam e YouTube) e os <strong>nomes limpos</strong> já aparecem
+          sem precisar de internet. A validação abaixo (opcional) busca preço e gênero na Steam —
+          faça devagar para a Steam não bloquear temporariamente.
+        </p>
         <label class="check-linha" style="margin-top:10px">
-          <input type="checkbox" id="imp-enriquecer" checked>
-          Validar links da Steam automaticamente após importar (pode demorar)
+          <input type="checkbox" id="imp-enriquecer">
+          Buscar preço/gênero na Steam após importar (opcional, pode demorar)
         </label>
-        <button id="btn-so-enriquecer" class="btn ghost full" style="margin-top:10px">↻ Só validar/atualizar jogos da Steam pendentes</button>
+        <button id="btn-so-enriquecer" class="btn ghost full" style="margin-top:10px">↻ Só buscar preço/gênero da Steam (pendentes)</button>
         <div id="imp-previa" class="imp-previa" hidden></div>
         <div id="imp-progresso" class="imp-progresso" hidden>
           <div class="barra"><div id="imp-barra" class="barra-fill"></div></div>

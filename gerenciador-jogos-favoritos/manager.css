@@ -1,21 +1,21 @@
 :root {
-  --bg: #0f0d18;
-  --surface: #1a1628;
-  --surface2: #221d36;
-  --surface3: #2b2545;
-  --border: #332e4d;
-  --text: #ece9f5;
-  --muted: #a29fbb;
-  --muted2: #756f92;
-  --accent: #8b5cf6;
-  --accent2: #6366f1;
-  --grad: linear-gradient(135deg, #8b5cf6, #6366f1);
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface2: #1d1d20;
+  --surface3: #27272b;
+  --border: #37373e;
+  --text: #f3f3f5;
+  --muted: #a6a6ae;
+  --muted2: #74747c;
+  --accent: #e5313a;
+  --accent2: #b3121d;
+  --grad: linear-gradient(135deg, #ff3b3b, #b0121e);
   --ok: #22c55e;
   --warn: #f59e0b;
   --danger: #ef4444;
-  --p-alta: #ef4444;
+  --p-alta: #ff4d4d;
   --p-media: #f59e0b;
-  --p-baixa: #64748b;
+  --p-baixa: #6b7280;
   --radius: 12px;
 }
 
@@ -105,7 +105,7 @@ textarea.input { resize: vertical; font-family: inherit; }
   user-select: none;
 }
 .chip:hover { color: var(--text); }
-.chip.on { background: rgba(139,92,246,.2); border-color: var(--accent); color: #ddd2fb; }
+.chip.on { background: rgba(229,49,58,.2); border-color: var(--accent); color: #ffd4d6; }
 .chip.on.alta  { background: rgba(239,68,68,.2);  border-color: var(--p-alta);  color: #ffd0d0; }
 .chip.on.media { background: rgba(245,158,11,.2); border-color: var(--p-media); color: #ffe0ad; }
 .chip.on.baixa { background: rgba(100,116,139,.3);border-color: var(--p-baixa); color: #dbe1ea; }
@@ -135,11 +135,11 @@ textarea.input { resize: vertical; font-family: inherit; }
   font-size: 11px; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
   background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
 }
-.mini.accent { background: rgba(139,92,246,.16); border-color: var(--accent); color: #d9cffb; }
+.mini.accent { background: rgba(229,49,58,.16); border-color: var(--accent); color: #ffd0d2; }
 .mini.warn { background: rgba(245,158,11,.16); border-color: var(--warn); color: #ffd591; }
 .mini.ok { background: rgba(34,197,94,.16); border-color: var(--ok); color: #b6f0c6; }
 .mini.desc { background: rgba(239,68,68,.16); border-color: var(--danger); color: #ffc2c2; }
-.mini.zera { background: rgba(99,102,241,.18); border-color: var(--accent2); color: #cfd2fb; }
+.mini.zera { background: rgba(255,77,77,.18); border-color: var(--p-alta); color: #ffcdcd; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .tag { font-size: 11px; padding: 1px 7px; border-radius: 5px; background: var(--surface3); color: var(--muted); }
 .card-notas { font-size: 12px; color: var(--muted); font-style: italic; border-left: 2px solid var(--border); padding-left: 8px; }
@@ -188,7 +188,7 @@ textarea.input { resize: vertical; font-family: inherit; }
 }
 .tag-input .ti-chip {
   display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 3px 8px;
-  border-radius: 6px; background: rgba(139,92,246,.2); border: 1px solid var(--accent); color: #ddd2fb;
+  border-radius: 6px; background: rgba(229,49,58,.2); border: 1px solid var(--accent); color: #ffd4d6;
 }
 .tag-input .ti-chip button { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
 .tag-input input { flex: 1; min-width: 110px; background: none; border: none; color: var(--text); font-size: 13px; outline: none; }

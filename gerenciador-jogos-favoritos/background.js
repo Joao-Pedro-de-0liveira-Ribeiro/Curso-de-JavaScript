@@ -22,12 +22,20 @@ async function buscarSteam(appid) {
     '&l=' + encodeURIComponent(cfg.steamLang) + '&cc=' + encodeURIComponent(cfg.steamCc);
   let resp;
   try {
-    resp = await fetch(url, { credentials: 'omit' });
+    resp = await fetch(url, {
+      credentials: 'omit',
+      headers: { 'Accept': 'application/json', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' }
+    });
   } catch (e) {
     return { ok: false, erro: 'rede', msg: 'Falha de rede ao consultar a Steam.' };
   }
-  if (resp.status === 429) {
-    return { ok: false, erro: 'rate', msg: 'A Steam limitou as consultas (rate limit). Tente de novo em instantes.' };
+  // 429 e 403 são, na prática, bloqueio temporário por excesso de consultas
+  if (resp.status === 429 || resp.status === 403) {
+    return {
+      ok: false, erro: 'rate',
+      msg: 'A Steam bloqueou temporariamente as consultas (' + resp.status + ') por excesso de acessos. ' +
+        'Aguarde alguns minutos e tente de novo — as capas já aparecem sem depender disso.'
+    };
   }
   if (!resp.ok) {
     return { ok: false, erro: 'http', msg: 'Steam respondeu ' + resp.status + '.' };

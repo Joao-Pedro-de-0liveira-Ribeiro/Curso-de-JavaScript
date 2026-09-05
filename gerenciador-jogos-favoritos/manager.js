@@ -555,7 +555,7 @@
         if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
         i++;
         if (ok % 10 === 0) { await G.salvarJogos(jogos); render(); }
-        await dorme(800);
+        await dorme(1500);
       } else if (r && r.erro === 'rate') {
         rateSeguidos++;
         if (rateSeguidos > 3) {
@@ -566,7 +566,7 @@
         await dorme(6000); // espera e tenta o MESMO item de novo
       } else {
         i++; // outro erro (appid removido etc.): pula
-        await dorme(800);
+        await dorme(1500);
       }
     }
     await G.salvarJogos(jogos);
@@ -659,6 +659,10 @@
 
     $('#ed-salvar').addEventListener('click', salvarEdicao);
     $('#ed-revalidar').addEventListener('click', revalidarSteam);
+    $('#ed-hltb').addEventListener('click', function () {
+      const nome = $('#ed-nome').value.trim();
+      window.open('https://howlongtobeat.com/?q=' + encodeURIComponent(nome), '_blank', 'noopener');
+    });
     $('#ed-status').addEventListener('change', function () {
       // se marcar "lançado", esconde relevância de data (apenas UX leve)
     });
