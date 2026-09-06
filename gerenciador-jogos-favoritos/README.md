@@ -41,15 +41,14 @@ lançamento** com **contagem regressiva**, **tempo para zerar**, **preço/descon
 nova no editor (ex.: um gênero próprio), ela é salva **e** vira um filtro clicável na barra
 lateral automaticamente.
 
-**Capas automáticas:** Steam e YouTube ganham capa na hora, sem API (pelo `appid` / id do
-vídeo). Para as **outras fontes** (itch, Nintendo, Google Play, Kickstarter, sites de dev,
-YouTube playlist) use **⬇ Importar → 🖼️ Buscar capas** — lê a imagem pela página
-(`og:image`/estrutura do site). No editor de cada jogo há **🖼️ Buscar capa** e
-**🔎 Google Imagens** (para leads do Google).
+**Capas automáticas:** Steam e YouTube ganham capa na hora pelo `appid`/id do vídeo; as
+**outras fontes** (itch, Nintendo, Google Play, Kickstarter, sites de dev, YouTube playlist)
+têm a capa lida da própria página (`og:image`/estrutura do site) **automaticamente ao importar**.
+No editor de cada jogo ainda há **🖼️ Buscar capa** e **🔎 Google Imagens** (para leads do Google).
 
-**Estilo/tags da Steam:** **⬇ Importar → 🎨 Buscar estilo/tags** lê a página da loja e traz as
-tags populares que a API não expõe — é assim que *Gráficos Pixelados* vira estilo *Pixel Art*,
-*Retrô* vira vibe *Nostalgia*, etc.
+**Estilo/tags da Steam (automático ao importar):** a extensão lê a página da loja e traz as tags
+populares que a API não expõe — *Gráficos Pixelados* vira estilo *Pixel Art*, *Retrô* vira vibe
+*Nostalgia*, etc.
 
 **Lançamento validado pela Steam:** a validação marca corretamente **se já lançou**, o **ano** e
 a **data** — e há um filtro **Ano de lançamento** na barra lateral.
@@ -71,10 +70,21 @@ O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Duas formas:
   filtro **⚡ Zera rápido** passam a usar o valor real por jogo (o antigo “5h fixo” foi removido).
 
 ### Filtros, ordenação e visões prontas
-- Filtros combináveis (E lógico) por todos os campos acima.
+- Filtros combináveis (E lógico) por todos os campos acima, incluindo **ano de lançamento**,
+  **🏷️ em promoção** e **progresso** (✔ já zerei / 🎯 falta zerar).
 - Ordenar por lançamento (contagem regressiva), tempo para zerar, prioridade, desconto, nome.
 - **Visões de 1 clique**: ⚡ Zera rápido · ⏳ Vão lançar ainda · 🔥 Prioridade alta ·
-  👀 Só assistir · 💜 Comprar e apoiar · 🔁 Rejogar · 🔎 A pesquisar.
+  👀 Só assistir · 💜 Comprar e apoiar · 🔁 Rejogar · 🏷️ Em promoção · ✔ Zerados · 🔎 A pesquisar.
+
+### Tudo automático (sem botões)
+- **Ao importar**, a extensão valida tudo sozinha: capa, nome limpo, preço, gênero,
+  **estilo/tags** (pixel, retrô, anime…) e **se já lançou** — os que derem erro aparecem numa lista.
+- **A cada refresh da página**, ela revalida **preço e desconto** dos jogos da Steam em
+  segundo plano (respeitando o limite de consultas), então o filtro *🏷️ Em promoção* fica sempre atual.
+- **Lançamento é validado pela data**: um jogo marcado como “não lançado” cuja data de
+  lançamento (da Steam) já passou vira “lançado” automaticamente.
+- No editor, cada categoria (gênero, estilo, vibe) mostra **opções prontas clicáveis**, e o
+  **⏱ tempo para zerar** aparece como tag em **todos** os jogos.
 
 ---
 
@@ -144,8 +154,8 @@ restaura (mesclando ou substituindo). Bom para não perder nada se reinstalar o 
 
 - **Limite de "Zera rápido"** (padrão 6 h) — define o que entra no filtro ⚡.
 - **Idioma/País da Steam** (preços em BRL por padrão).
-- **Open Graph** — permissão opcional para pré-preencher nome/capa de itch, Nintendo,
-  Kickstarter e sites de dev. Fica desligada até você autorizar.
+- **Revalidar preços** a cada X horas (padrão 6 h) — janela usada pela atualização
+  automática de preço/desconto ao abrir a página.
 
 ---
 
@@ -156,11 +166,10 @@ restaura (mesclando ou substituindo). Bom para não perder nada se reinstalar o 
 | `storage` | Guardar seus jogos localmente. |
 | `activeTab` + `scripting` | Ler a aba atual **só quando você clica** no ícone (achar o link da Steam num vídeo). |
 | `contextMenus` | Menu de clique direito "Favoritar". |
-| `store.steampowered.com` | Validar jogos na Steam. |
-| `*.youtube.com` | Título/thumbnail do vídeo (oEmbed). |
-| `<all_urls>` (opcional) | Só se você ligar o Open Graph nas configurações. |
+| `<all_urls>` | Ler as páginas (Steam, YouTube, itch, Nintendo, Play, Kickstarter, dev) para validar dados, tags e capas automaticamente. |
 
-Nada é enviado para servidores de terceiros além das APIs públicas da Steam e do YouTube.
+Nada é enviado para servidores de terceiros além das APIs/páginas públicas dos próprios sites.
+Todos os dados ficam no seu navegador.
 
 ---
 

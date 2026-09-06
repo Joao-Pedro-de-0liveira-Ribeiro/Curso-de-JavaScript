@@ -49,6 +49,14 @@
 
       <div class="filtro-grupo">
         <label class="check-linha"><input type="checkbox" id="f-zera"> ⚡ Zera rápido</label>
+        <label class="check-linha" style="margin-top:6px"><input type="checkbox" id="f-promo"> 🏷️ Em promoção</label>
+      </div>
+
+      <div class="filtro-grupo"><h3>Progresso</h3>
+        <div id="f-zerado" class="chips">
+          <span class="chip" data-z="sim">✔ Já zerei</span>
+          <span class="chip" data-z="nao">🎯 Falta zerar</span>
+        </div>
       </div>
 
       <div class="filtro-grupo"><h3>Prioridade</h3><div id="f-prioridade" class="chips"></div></div>
@@ -168,6 +176,10 @@
 
           <label class="rot" for="ed-notas">Notas</label>
           <textarea id="ed-notas" class="input" rows="2" placeholder="ex: COMPRA Q É BARATIN"></textarea>
+
+          <label class="check-linha" style="margin-top:12px">
+            <input type="checkbox" id="ed-zerado"> ✔ Já zerei este jogo
+          </label>
         </div>
       </div>
       <div class="modal-rodape">
@@ -195,20 +207,11 @@
         </p>
         <input id="arquivo-bookmarks" type="file" accept=".html,.htm" class="input">
         <p class="muted pequeno" style="margin:8px 0 0">
-          As <strong>capas</strong> (Steam e YouTube) e os <strong>nomes limpos</strong> já aparecem
-          sem precisar de internet. A validação abaixo (opcional) busca preço e gênero na Steam —
-          faça devagar para a Steam não bloquear temporariamente.
+          Ao importar, a extensão <strong>valida tudo sozinha</strong>: capa, nome, preço, gênero,
+          estilo/tags (pixel, retrô…) e se <strong>já lançou</strong> (pela data da Steam). Não precisa clicar em nada.
         </p>
-        <label class="check-linha" style="margin-top:10px">
-          <input type="checkbox" id="imp-enriquecer">
-          Buscar preço/gênero na Steam após importar (opcional, pode demorar)
-        </label>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
-          <button id="btn-so-enriquecer" class="btn ghost full">↻ Validar Steam: preço, gênero e lançamento (já lançou? ano?)</button>
-          <button id="btn-tags-steam" class="btn ghost full">🎨 Buscar estilo/tags da Steam (pixel, retrô, anime…)</button>
-          <button id="btn-buscar-capas" class="btn ghost full">🖼️ Buscar capas das outras fontes (itch, Nintendo, Play, YouTube…)</button>
-        </div>
         <div id="imp-previa" class="imp-previa" hidden></div>
+        <div id="imp-erros" class="imp-previa" hidden></div>
         <div id="imp-progresso" class="imp-progresso" hidden>
           <div class="barra"><div id="imp-barra" class="barra-fill"></div></div>
           <span id="imp-progresso-txt" class="muted"></span>
@@ -270,12 +273,6 @@
           </div>
         </div>
 
-        <label class="check-linha" style="margin-top:12px">
-          <input type="checkbox" id="cfg-og">
-          Permitir ler dados (Open Graph) de qualquer site ao adicionar
-        </label>
-        <p class="muted pequeno">Necessário para pré-preencher nome/capa de itch, Nintendo, Kickstarter e sites de dev.</p>
-
         <hr class="sep">
         <button id="btn-limpar-tudo" class="btn perigo full">🗑 Apagar todos os jogos</button>
       </div>
@@ -287,6 +284,7 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
+  <div id="preco-status" class="preco-status" hidden></div>
 
   <script src="shared.js"></script>
   <script src="importador.js"></script>

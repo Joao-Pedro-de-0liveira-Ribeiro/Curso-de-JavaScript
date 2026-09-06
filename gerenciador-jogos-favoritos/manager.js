@@ -14,9 +14,10 @@
   let tagInputs = {};          // componentes de tag do modal
   let importParsed = null;     // patches vindos do .html
   let enriquecendo = false;
+  let revalidandoPrecos = false;
 
   const filtros = {
-    busca: '', zera: false, ordenar: 'data_adicao',
+    busca: '', zera: false, zerado: null, promo: false, ordenar: 'data_adicao',
     prioridade: new Set(), intencao: new Set(), status: new Set(),
     genero: new Set(), estilo: new Set(), vibe: new Set(),
     origem: new Set(), curadoria: new Set(), ano: new Set()
@@ -49,6 +50,53 @@
     ligarEventos();
     render();
     tratarHash();
+    // ao abrir/atualizar a página, revalida preços e descontos em segundo plano
+    setTimeout(revalidarPrecos, 1200);
+  }
+
+  // Revalida preço/desconto dos jogos da Steam checados há mais de X horas.
+  // Roda em segundo plano ao abrir a página; gentil e resistente a bloqueio.
+  async function revalidarPrecos() {
+    const limiteMs = (config.precoRevalidarHoras || 6) * 3600000;
+    const agora = Date.now();
+    const alvos = jogos.filter(function (j) {
+      if (!j.steam_appid || j.edited_manually) return false;
+      if (!j.preco_check) return true;
+      return (agora - new Date(j.preco_check).getTime()) > limiteMs;
+    });
+    if (!alvos.length) return;
+    const el = $('#preco-status'); el.hidden = false;
+    revalidandoPrecos = true;
+    let i = 0, rate = 0, ok = 0, mudou = 0;
+    while (i < alvos.length) {
+      if (!revalidandoPrecos) { el.hidden = true; break; }
+      const j = alvos[i];
+      el.textContent = '💲 Atualizando preços ' + (i + 1) + '/' + alvos.length + '…';
+      const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
+      if (r && r.ok) {
+        const p = G.dadosParaPatch(r.dados);
+        const antes = j.desconto_pct;
+        if (p.preco_atual != null) j.preco_atual = p.preco_atual;
+        j.desconto_pct = p.desconto_pct != null ? p.desconto_pct : null; // some promo ao acabar
+        j.preco_check = new Date().toISOString();
+        if (j.desconto_pct !== antes) mudou++;
+        rate = 0; ok++; i++;
+        if (ok % 8 === 0) { await G.salvarJogos(jogos); render(); }
+        await dorme(2000);
+      } else if (r && r.erro === 'rate') {
+        rate++;
+        if (rate > 2) { el.textContent = '💲 Steam limitou — continua no próximo refresh.'; setTimeout(function () { el.hidden = true; }, 4000); break; }
+        await dorme(8000);
+      } else {
+        j.preco_check = new Date().toISOString(); i++; await dorme(2000);
+      }
+    }
+    await G.salvarJogos(jogos); render(); atualizarFiltros();
+    revalidandoPrecos = false;
+    if (i >= alvos.length) {
+      el.textContent = '💲 Preços atualizados' + (mudou ? ' — ' + mudou + ' mudaram' : '') + '.';
+      setTimeout(function () { el.hidden = true; }, 3500);
+    }
   }
 
   function tratarHash() {
@@ -130,16 +178,26 @@
       const grupo = el.closest('.filtro-grupo').querySelector('.chips').id;
       const chave = ({ 'f-prioridade': 'prioridade', 'f-intencao': 'intencao', 'f-status': 'status',
         'f-ano': 'ano', 'f-genero': 'genero', 'f-estilo': 'estilo', 'f-vibe': 'vibe', 'f-origem': 'origem', 'f-curadoria': 'curadoria' })[grupo];
+      if (!chave || !filtros[chave]) return; // grupos especiais (ex.: #f-zerado) têm handler próprio
       const on = filtros[chave].has(el.dataset.k);
       el.classList.toggle('on', on);
       el.classList.toggle(el.dataset.k, on && grupo === 'f-prioridade');
     });
     $('#f-zera').checked = filtros.zera;
+    $('#f-promo').checked = filtros.promo;
     $('#ordenar').value = filtros.ordenar;
+    sincronizarZerado();
+  }
+
+  function sincronizarZerado() {
+    document.querySelectorAll('#f-zerado .chip').forEach(function (c) {
+      const alvo = c.dataset.z === 'sim' ? true : false;
+      c.classList.toggle('on', filtros.zerado === alvo);
+    });
   }
 
   function limparFiltros() {
-    filtros.busca = ''; filtros.zera = false;
+    filtros.busca = ''; filtros.zera = false; filtros.zerado = null; filtros.promo = false;
     CHAVES_FILTRO.forEach(function (k) { filtros[k].clear(); });
     $('#busca').value = '';
     sincronizarChips();
@@ -158,12 +216,15 @@
     { id: 'detonado', nome: '👀 Só assistir', aplica: function () { limparFiltrosState(); filtros.intencao.add('assistir_walkthrough'); } },
     { id: 'apoiar', nome: '💜 Comprar e apoiar', aplica: function () { limparFiltrosState(); filtros.intencao.add('comprar_apoiar'); } },
     { id: 'rejogar', nome: '🔁 Rejogar', aplica: function () { limparFiltrosState(); filtros.intencao.add('rejogar'); } },
+    { id: 'promo', nome: '🏷️ Em promoção', aplica: function () { limparFiltrosState(); filtros.promo = true; filtros.ordenar = 'desconto'; } },
+    { id: 'zerados', nome: '✔ Zerados', aplica: function () { limparFiltrosState(); filtros.zerado = true; } },
+    { id: 'backlog', nome: '🎯 Falta zerar', aplica: function () { limparFiltrosState(); filtros.zerado = false; } },
     { id: 'leads', nome: '🔎 A pesquisar', aplica: function () { limparFiltrosState(); filtros.curadoria.add('a_pesquisar'); } }
   ];
   let visaoAtiva = 'todos';
 
   function limparFiltrosState() {
-    filtros.busca = ''; filtros.zera = false; filtros.ordenar = 'data_adicao';
+    filtros.busca = ''; filtros.zera = false; filtros.zerado = null; filtros.promo = false; filtros.ordenar = 'data_adicao';
     CHAVES_FILTRO.forEach(function (k) { filtros[k].clear(); });
     $('#busca').value = '';
   }
@@ -199,9 +260,12 @@
       if (norm((j.nome || '') + ' ' + (j.notas || '')).indexOf(q) < 0) return false;
     }
     if (filtros.zera && !G.ehZeraRapido(j, config)) return false;
+    if (filtros.promo && !(j.desconto_pct > 0)) return false;
+    if (filtros.zerado === true && !j.zerado) return false;
+    if (filtros.zerado === false && j.zerado) return false;
     if (filtros.prioridade.size && !filtros.prioridade.has(j.prioridade)) return false;
     if (filtros.intencao.size && !filtros.intencao.has(j.intencao)) return false;
-    if (filtros.status.size && !filtros.status.has(j.status_lancamento)) return false;
+    if (filtros.status.size && !filtros.status.has(G.statusEfetivo(j))) return false;
     if (filtros.ano.size && !filtros.ano.has(String(j.ano_alvo))) return false;
     if (filtros.origem.size && !filtros.origem.has(j.origem)) return false;
     if (filtros.curadoria.size) { if (!filtros.curadoria.has(j.status_curadoria)) return false; }
@@ -253,15 +317,15 @@
   }
 
   function cardHtml(j) {
+    const st = G.statusEfetivo(j);
     const badges = [];
     badges.push(mini(rotulo(G.ORIGENS, j.origem), 'accent'));
     badges.push(mini(rotulo(G.INTENCOES, j.intencao)));
-    if (j.status_lancamento !== 'lancado') {
-      badges.push(mini('⏳ ' + (G.formatarContagem(j) || rotulo(G.STATUS_LANCAMENTO, j.status_lancamento)), 'warn'));
+    if (st !== 'lancado') {
+      badges.push(mini('⏳ ' + (G.formatarContagem(j) || rotulo(G.STATUS_LANCAMENTO, st)), 'warn'));
     }
+    if (j.zerado) badges.push(mini('✔ Zerado', 'ok'));
     if (G.ehZeraRapido(j, config)) badges.push(mini('⚡ ' + j.tempo_para_zerar + 'h', 'zera'));
-    else if (j.tempo_para_zerar != null) badges.push(mini('⏱ ' + j.tempo_para_zerar + 'h'));
-    if (j.ano_alvo && j.status_lancamento === 'lancado') badges.push(mini('📅 ' + j.ano_alvo));
     if (j.desconto_pct) badges.push(mini('-' + j.desconto_pct + '%', 'desc'));
     if (j.preco_atual) badges.push(mini(esc(j.preco_atual)));
     if (j.status_curadoria === 'a_pesquisar') badges.push(mini('🔎 pesquisar', 'warn'));
@@ -270,6 +334,9 @@
       .concat(j.genero.map(function (g) { return rotulo(G.GENEROS, g); }))
       .concat(j.estilo_visual.map(function (e) { return rotulo(G.ESTILOS, e); }))
       .concat(j.vibe.map(function (v) { return rotulo(G.VIBES, v); }));
+    // ⏱ tempo para zerar SEMPRE aparece, junto das tags (mesmo desconhecido)
+    const tempoTag = '<span class="tag tag-tempo">' +
+      (j.tempo_para_zerar != null ? '⏱ ' + j.tempo_para_zerar + 'h' : '⏱ tempo?') + '</span>';
 
     const capa = j.capa_url
       ? '<img class="card-capa" src="' + esc(j.capa_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
@@ -287,7 +354,8 @@
       '<div class="card-corpo">' +
         '<div class="card-titulo">' + esc(j.nome || '(sem nome)') + '</div>' +
         '<div class="card-badges">' + badges.join('') + '</div>' +
-        (tags.length ? '<div class="card-tags">' + tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+        '<div class="card-tags">' + tempoTag +
+          tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' +
         (j.notas ? '<div class="card-notas">' + esc(j.notas) + '</div>' : '') +
         '<div class="card-acoes">' + acaoOrigem + acaoVideo +
           '<button data-editar="' + j.id + '">Editar</button>' +
@@ -348,6 +416,7 @@
     $('#ed-desc').value = jogo.desconto_pct == null ? '' : jogo.desconto_pct;
     $('#ed-notas').value = jogo.notas || '';
 
+    $('#ed-zerado').checked = !!jogo.zerado;
     tagInputs.genero = makeTagInput($('#ed-genero'), jogo.genero, G.GENEROS);
     tagInputs.estilo = makeTagInput($('#ed-estilo'), jogo.estilo_visual, G.ESTILOS);
     tagInputs.vibe = makeTagInput($('#ed-vibe'), jogo.vibe, G.VIBES);
@@ -384,6 +453,7 @@
     j.preco_atual = $('#ed-preco').value.trim() || null;
     j.desconto_pct = $('#ed-desc').value === '' ? null : parseInt($('#ed-desc').value, 10);
     j.notas = $('#ed-notas').value.trim();
+    j.zerado = $('#ed-zerado').checked;
     j.genero = tagInputs.genero.get();
     j.estilo_visual = tagInputs.estilo.get();
     j.vibe = tagInputs.vibe.get();
@@ -430,11 +500,6 @@
       if (!capa) { const r = await pedir({ tipo: 'youtube', url: url }); if (r && r.ok && r.dados) capa = r.dados.capa_url; }
     } else if (url) {
       toast('Buscando capa no site…');
-      const tem = await new Promise(function (r) { chrome.permissions.contains({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
-      if (!tem) {
-        const g = await new Promise(function (r) { chrome.permissions.request({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
-        if (!g) return toast('Sem permissão para ler o site.', true);
-      }
       const r = await pedir({ tipo: 'og', url: url });
       if (r && r.ok && r.dados) capa = r.dados.capa_url;
     }
@@ -457,6 +522,24 @@
       for (const k in sugest) { if (norm(sugest[k]) === n || k === n) return k; }
       return slug(txt);
     }
+    // linha de OPÇÕES PRONTAS (clicáveis) logo abaixo do campo
+    if (container.nextElementSibling && container.nextElementSibling.classList.contains('ti-presets')) {
+      container.nextElementSibling.remove();
+    }
+    const presets = document.createElement('div');
+    presets.className = 'ti-presets';
+    container.parentNode.insertBefore(presets, container.nextSibling);
+
+    function renderPresets() {
+      presets.innerHTML = '';
+      Object.keys(sugest).forEach(function (k) {
+        if (st.valores.indexOf(k) >= 0) return;   // esconde o que já foi escolhido
+        const c = document.createElement('button');
+        c.type = 'button'; c.className = 'preset'; c.textContent = '+ ' + sugest[k];
+        c.addEventListener('click', function () { add(sugest[k]); });
+        presets.appendChild(c);
+      });
+    }
     function render() {
       Array.prototype.slice.call(container.querySelectorAll('.ti-chip')).forEach(function (n) { n.remove(); });
       st.valores.forEach(function (v, i) {
@@ -466,6 +549,7 @@
         x.addEventListener('click', function () { st.valores.splice(i, 1); render(); });
         chip.appendChild(x); container.insertBefore(chip, input);
       });
+      renderPresets();
     }
     function add(txt) {
       txt = (txt || '').trim(); if (!txt) return;
@@ -557,21 +641,44 @@
     render(); atualizarFiltros();
     $('#imp-status').textContent = criados + ' novos, ' + mesclados + ' já existiam (' +
       resumoPorOrigem(importParsed.porOrigem) + ').';
-    toast('Importados: ' + criados + ' novos jogos/links.');
-
-    if ($('#imp-enriquecer').checked) {
-      await enriquecerSteam();
-    }
+    toast('Importados: ' + criados + ' — validando e buscando capas…');
+    // TUDO automático: valida na Steam, busca tags e capas — sem opções.
+    await enriquecerTudo();
     $('#btn-fazer-import').disabled = false;
   }
 
   const dorme = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+  let errosImport = [];
 
-  // Executor de lote genérico com progresso + backoff/retry em rate limit.
-  // `fazer(j)` deve devolver 'ok' | 'skip' | 'rate' (rate = tenta o mesmo de novo).
+  // roda as 3 etapas em sequência e no fim apresenta os erros
+  async function enriquecerTudo() {
+    revalidandoPrecos = false; // evita bater na Steam em paralelo
+    errosImport = [];
+    $('#imp-erros').hidden = true;
+    await enriquecerSteam();
+    if (!enriquecendo && errosImport.some(function (e) { return e.bloqueio; })) { mostrarErros(); return; }
+    await enriquecerTagsSteam();
+    await enriquecerCapas();
+    mostrarErros();
+  }
+
+  function mostrarErros() {
+    const box = $('#imp-erros');
+    if (!errosImport.length) { box.hidden = true; return; }
+    const linhas = errosImport.slice(0, 200).map(function (e) {
+      return '<div class="imp-linha"><span>' + esc(e.nome) + '</span>' +
+        '<span class="muted">' + esc(e.etapa + ': ' + e.motivo) + '</span></div>';
+    }).join('');
+    box.innerHTML = '<strong>⚠️ ' + errosImport.length + ' não validaram:</strong>' + linhas +
+      (errosImport.length > 200 ? '<div class="muted pequeno">…e mais ' + (errosImport.length - 200) + '.</div>' : '');
+    box.hidden = false;
+  }
+
+  // Executor de lote com progresso + backoff/retry em rate limit + coleta de erros.
+  // `fazer(j)` devolve 'ok' | 'skip' | 'rate' | { res, motivo }.
   async function processarLote(alvos, fazer, rotulo, espera) {
     const box = $('#imp-progresso'); box.hidden = false;
-    if (!alvos.length) { $('#imp-progresso-txt').textContent = 'Nada pendente para ' + rotulo + '.'; $('#imp-barra').style.width = '100%'; return; }
+    if (!alvos.length) { $('#imp-progresso-txt').textContent = rotulo + ': nada pendente.'; $('#imp-barra').style.width = '100%'; return; }
     espera = espera || 1500;
     enriquecendo = true;
     let i = 0, rate = 0, ok = 0;
@@ -579,12 +686,18 @@
       if (!enriquecendo) { $('#imp-progresso-txt').textContent = 'Parado em ' + i + '/' + alvos.length + '.'; break; }
       $('#imp-progresso-txt').textContent = rotulo + ' ' + (i + 1) + '/' + alvos.length + '…';
       $('#imp-barra').style.width = Math.round((i / alvos.length) * 100) + '%';
-      const res = await fazer(alvos[i]);
+      const out = await fazer(alvos[i]);
+      const res = typeof out === 'string' ? out : out.res;
       if (res === 'rate') {
         rate++;
-        if (rate > 3) { $('#imp-progresso-txt').textContent = 'Steam limitou (bloqueio temporário). Pausado em ' + i + '/' + alvos.length + '. Rode de novo em alguns minutos.'; break; }
+        if (rate > 3) {
+          errosImport.push({ nome: '(' + (alvos.length - i) + ' jogos)', etapa: rotulo, motivo: 'Steam bloqueou temporariamente — pendentes; reimporte em alguns minutos', bloqueio: true });
+          $('#imp-progresso-txt').textContent = 'Steam bloqueou. Pausado em ' + i + '/' + alvos.length + '.';
+          break;
+        }
         await dorme(6000); continue;
       }
+      if (out && out.motivo) errosImport.push({ nome: alvos[i].nome || '(sem nome)', etapa: rotulo, motivo: out.motivo });
       rate = 0; if (res === 'ok') ok++;
       i++;
       if (i % 10 === 0) { await G.salvarJogos(jogos); render(); }
@@ -593,8 +706,7 @@
     await G.salvarJogos(jogos); render(); atualizarFiltros();
     if (enriquecendo && i >= alvos.length) {
       $('#imp-barra').style.width = '100%';
-      $('#imp-progresso-txt').textContent = rotulo + ': ' + ok + ' de ' + alvos.length + ' concluídos.';
-      toast(rotulo + ' concluído.');
+      $('#imp-progresso-txt').textContent = rotulo + ': ' + ok + ' de ' + alvos.length + ' ok.';
     }
     enriquecendo = false;
   }
@@ -616,11 +728,12 @@
         if (p.data_prevista) j.data_prevista = p.data_prevista;
         if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
         j.steam_validado = true;
+        j.preco_check = new Date().toISOString();
         return 'ok';
       }
       if (r && r.erro === 'rate') return 'rate';
-      j.steam_validado = true; // appid removido/erro definitivo: não repete
-      return 'skip';
+      j.steam_validado = true; // erro definitivo: não repete
+      return { res: 'skip', motivo: (r && r.msg) || 'não validou na Steam' };
     }, 'Validando Steam');
   }
 
@@ -640,23 +753,13 @@
       if (r && r.erro === 'rate') return 'rate';
       j.steam_tags_ok = true;
       return 'skip';
-    }, 'Buscando estilo/tags Steam');
+    }, 'Buscando estilo/tags');
   }
 
   // 3) Capas das OUTRAS fontes: YouTube (playlist via oEmbed), itch, Nintendo,
   //    Google Play, Kickstarter, sites de dev — via og:image / estrutura do site.
   async function enriquecerCapas() {
     const alvos = jogos.filter(function (j) { return !j.capa_url && j.url_origem && j.origem !== 'google'; });
-    if (!alvos.length) { $('#imp-progresso').hidden = false; $('#imp-progresso-txt').textContent = 'Todas as capas possíveis já estão preenchidas.'; $('#imp-barra').style.width = '100%'; return; }
-    // capas de sites que não são YouTube precisam da permissão de ler páginas
-    const precisaOG = alvos.some(function (j) { return j.origem !== 'youtube' && !G.ehYouTube(j.url_origem); });
-    if (precisaOG) {
-      const tem = await new Promise(function (r) { chrome.permissions.contains({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
-      if (!tem) {
-        const ok = await new Promise(function (r) { chrome.permissions.request({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
-        if (!ok) toast('Sem permissão para ler os sites — só capas de YouTube serão buscadas.', true);
-      }
-    }
     await processarLote(alvos, async function (j) {
       let capa = '';
       if (j.origem === 'youtube' || G.ehYouTube(j.url_origem)) {
@@ -667,7 +770,7 @@
         if (r && r.ok && r.dados && r.dados.capa_url) capa = r.dados.capa_url;
       }
       if (capa) { j.capa_url = capa; return 'ok'; }
-      return 'skip';
+      return { res: 'skip', motivo: 'sem capa automática' };
     }, 'Buscando capas', 900);
   }
 
@@ -710,7 +813,6 @@
     $('#cfg-zera').value = config.zeraRapidoLimite;
     $('#cfg-lang').value = config.steamLang;
     $('#cfg-cc').value = config.steamCc;
-    chrome.permissions.contains({ origins: ['<all_urls>'] }, function (has) { $('#cfg-og').checked = !!has; });
     abrirModal('#modal-config');
   }
   async function salvarConfigUI() {
@@ -719,13 +821,6 @@
     config.steamCc = $('#cfg-cc').value.trim() || 'br';
     await G.salvarConfig(config);
     render();
-  }
-  function toggleOG() {
-    if ($('#cfg-og').checked) {
-      chrome.permissions.request({ origins: ['<all_urls>'] }, function (g) { $('#cfg-og').checked = !!g; });
-    } else {
-      chrome.permissions.remove({ origins: ['<all_urls>'] }, function () {});
-    }
   }
   async function limparTudo() {
     if (!confirm('Apagar TODOS os ' + jogos.length + ' jogos? Isso não pode ser desfeito.')) return;
@@ -747,6 +842,13 @@
     $('#busca').addEventListener('input', function () { filtros.busca = this.value; limparVisaoAtiva(); render(); });
     $('#ordenar').addEventListener('change', function () { filtros.ordenar = this.value; render(); });
     $('#f-zera').addEventListener('change', function () { filtros.zera = this.checked; limparVisaoAtiva(); render(); });
+    $('#f-promo').addEventListener('change', function () { filtros.promo = this.checked; limparVisaoAtiva(); render(); });
+    $('#f-zerado').addEventListener('click', function (e) {
+      const c = e.target.closest('.chip'); if (!c) return;
+      const alvo = c.dataset.z === 'sim' ? true : false;
+      filtros.zerado = filtros.zerado === alvo ? null : alvo; // clica de novo = desliga
+      sincronizarZerado(); limparVisaoAtiva(); render();
+    });
     $('#btn-limpar').addEventListener('click', limparFiltros);
 
     $('#ed-salvar').addEventListener('click', salvarEdicao);
@@ -767,9 +869,6 @@
     $('#btn-importar').addEventListener('click', function () { $('#imp-status').textContent = ''; abrirModal('#modal-importar'); });
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
-    $('#btn-so-enriquecer').addEventListener('click', enriquecerSteam);
-    $('#btn-tags-steam').addEventListener('click', enriquecerTagsSteam);
-    $('#btn-buscar-capas').addEventListener('click', enriquecerCapas);
     $('#imp-cancelar').addEventListener('click', function () { enriquecendo = false; });
 
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });
@@ -778,7 +877,6 @@
 
     $('#btn-config').addEventListener('click', abrirConfig);
     ['#cfg-zera', '#cfg-lang', '#cfg-cc'].forEach(function (s) { $(s).addEventListener('change', salvarConfigUI); });
-    $('#cfg-og').addEventListener('change', toggleOG);
     $('#btn-limpar-tudo').addEventListener('click', limparTudo);
 
     document.querySelectorAll('[data-fechar]').forEach(function (b) { b.addEventListener('click', fecharModais); });

@@ -70,9 +70,10 @@
   };
 
   const DEFAULT_SETTINGS = {
-    zeraRapidoLimite: 6,      // horas — limite para "Zera rápido"
+    zeraRapidoLimite: 6,        // horas — limite para "Zera rápido"
     steamLang: 'portuguese',
-    steamCc: 'br'
+    steamCc: 'br',
+    precoRevalidarHoras: 6      // ao abrir, revalida preços checados há mais de X h
   };
 
   /* ----------------------------------------------------------------------- *
@@ -263,6 +264,7 @@
       desconto_pct: null,
       notas: '',
       status_curadoria: 'validado',
+      zerado: false,          // já zerei este jogo?
       edited_manually: false
     };
     return normalizarJogo(Object.assign(base, patch || {}));
@@ -284,6 +286,24 @@
     // jogos já salvos sem capa ganham imagem ao recarregar, sem precisar de API
     if (!j.capa_url) { const c = capaDeterministica(j); if (c) j.capa_url = c; }
     return j;
+  }
+
+  // Status de lançamento EFETIVO — validado pela data (compara com hoje).
+  // Se a data de lançamento (cadastrada, vinda da Steam) já passou → "lançado",
+  // mesmo que estivesse marcado como "não lançado". Sem data, cai no ano; sem
+  // nada, mantém o status armazenado.
+  function statusEfetivo(j) {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    if (j.data_prevista) {
+      const d = new Date(j.data_prevista + 'T00:00:00');
+      if (!isNaN(d)) return d <= hoje ? 'lancado' : 'nao_lancado';
+    }
+    if (j.ano_alvo) {
+      const y = hoje.getFullYear();
+      if (j.ano_alvo < y) return 'lancado';
+      if (j.ano_alvo > y) return 'nao_lancado';
+    }
+    return j.status_lancamento;
   }
 
   // "Zera rápido" é DERIVADO (spec 6.3 / 11.6): não é pasta, é filtro.
@@ -467,7 +487,7 @@
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,
     parseDataSteam, mapearTagsSteam,
     mapearGenerosSteam, dadosParaPatch,
-    novoJogo, normalizarJogo, ehZeraRapido, diasRestantes, formatarContagem,
+    novoJogo, normalizarJogo, ehZeraRapido, statusEfetivo, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo
   };
 

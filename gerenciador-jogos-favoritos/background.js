@@ -91,13 +91,9 @@ async function buscarYouTube(url) {
 /* ---- Open Graph genérico (itch/nintendo/kickstarter/dev) --------------- *
  * Precisa de permissão opcional <all_urls>. Se não tiver, retorna sem nada.  */
 async function buscarOG(url) {
-  const temPerm = await new Promise(function (res) {
-    chrome.permissions.contains({ origins: ['<all_urls>'] }, function (has) { res(!!has); });
-  });
-  if (!temPerm) return { ok: false, semPermissao: true };
   try {
-    const r = await fetch(url, { credentials: 'omit' });
-    if (!r.ok) return { ok: false };
+    const r = await fetch(url, { credentials: 'omit', headers: { 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' } });
+    if (!r.ok) return { ok: false, erro: 'http', status: r.status };
     const html = await r.text();
     const pick = function (prop) {
       const re = new RegExp('<meta[^>]+(?:property|name)=["\']' + prop +
