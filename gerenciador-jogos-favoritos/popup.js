@@ -292,10 +292,24 @@
       el.favoritar.textContent = 'Editar no gerenciador →';
       el.favoritar.disabled = false;
       el.favoritar.onclick = function () { abrirGerenciador(res.jogo.id); };
+      // jogo NOVO sem tempo → consulta o HowLongToBeat só desse jogo
+      if (res.criado && res.jogo && res.jogo.tempo_para_zerar == null && res.jogo.nome) {
+        buscarTempoNovoPopup(res.jogo.id, res.jogo.nome);
+      }
     } catch (e) {
       mostrarMsg('Erro ao salvar: ' + e.message, 'err', false);
       el.favoritar.disabled = false;
     }
+  }
+
+  // consulta o tempo (Main Story) do jogo recém-favoritado e salva
+  async function buscarTempoNovoPopup(id, nome) {
+    const r = await pedir({ tipo: 'hltb', nome: nome });
+    if (!r || !r.ok || r.horas == null) return;
+    const lista = await G.carregarJogos();
+    const g = lista.find(function (x) { return x.id === id; });
+    if (g && g.tempo_para_zerar == null) { g.tempo_para_zerar = r.horas; g.hltb_check = true; await G.salvarJogos(lista); }
+    mostrarMsg('⏱ Tempo para zerar: ' + r.horas + 'h', 'ok', true);
   }
 
   async function salvarLead() {

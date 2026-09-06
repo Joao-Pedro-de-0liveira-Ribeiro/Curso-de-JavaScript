@@ -275,8 +275,8 @@ async function buscarHLTB(nome) {
       for (var k = 0; k < dados.length; k++) {
         if (G.norm(dados[k].game_name || '') === alvo) { melhor = dados[k]; break; }
       }
-      const seg = melhor.comp_main || melhor.comp_plus || melhor.comp_100 || 0;
-      const horas = seg > 0 ? Math.round((seg / 3600) * 2) / 2 : null;
+      const seg = melhor.comp_main || 0;               // SOMENTE Main Story
+      const horas = seg > 0 ? Math.round((seg / 3600) * 100) / 100 : null;
       return { ok: true, horas: horas, achou: horas != null, nome: melhor.game_name || nome };
     } catch (e) { /* tenta a próxima URL */ }
   }
@@ -322,6 +322,17 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   const r = await validarUrl(url);
   const patch = G.dadosParaPatch(r.dados || { url_origem: url, origem: G.detectarOrigem(url) });
   const res = await G.upsertJogo(patch);
+  // jogo NOVO sem tempo → consulta o HowLongToBeat (só o jogo novo)
+  if (res.criado && res.jogo && res.jogo.tempo_para_zerar == null && res.jogo.nome) {
+    try {
+      const h = await buscarHLTB(res.jogo.nome);
+      if (h && h.ok && h.horas != null) {
+        const lista = await G.carregarJogos();
+        const g = lista.find(function (x) { return x.id === res.jogo.id; });
+        if (g) { g.tempo_para_zerar = h.horas; g.hltb_check = true; await G.salvarJogos(lista); }
+      }
+    } catch (e) { /* ignora */ }
+  }
   notificar(res.criado ? 'Favoritado: ' + (patch.nome || url) : 'Já estava na lista: ' + (patch.nome || url));
 });
 

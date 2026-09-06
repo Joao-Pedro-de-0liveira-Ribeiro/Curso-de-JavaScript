@@ -13,6 +13,9 @@
   let editando = null;         // { jogo, ehNovo }
   let tagInputs = {};          // componentes de tag do modal
   let importParsed = null;     // patches vindos do .html
+  let importTipo = null;       // 'html' | 'json' | 'txt'
+  let importJson = null;       // dados do backup .json selecionado
+  let importTempos = null;     // lista de tempos do .txt selecionado
   let enriquecendo = false;
   let revalidandoPrecos = false;
 
@@ -489,10 +492,16 @@
     j.edited_manually = true;
     G.normalizarJogo(j);
 
-    if (editando.ehNovo) jogos.push(j);
+    const eraNovo = editando.ehNovo;
+    if (eraNovo) jogos.push(j);
     await G.salvarJogos(jogos);
     fecharModais(); render(); atualizarFiltros();
-    toast(editando.ehNovo ? 'Jogo adicionado!' : 'Alterações salvas.');
+    toast(eraNovo ? 'Jogo adicionado!' : 'Alterações salvas.');
+    // jogo NOVO sem tempo → consulta o HowLongToBeat só desse jogo
+    if (eraNovo && j.tempo_para_zerar == null && j.nome) {
+      toast('Buscando tempo para zerar…');
+      buscarTempoNovo(j.id);
+    }
   }
 
   async function revalidarSteam() {
@@ -633,16 +642,39 @@
   async function arquivoBookmarksSelecionado(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    try {
-      const txt = await lerArquivo(f);
-      importParsed = IMP.parse(txt);
-    } catch (err) { return toast('Erro ao ler o arquivo.', true); }
+    let txt;
+    try { txt = await lerArquivo(f); } catch (err) { return toast('Erro ao ler o arquivo.', true); }
     const prev = $('#imp-previa');
+    importParsed = importJson = importTempos = null; importTipo = null;
+    const nome = (f.name || '').toLowerCase();
+    const ehJson = nome.endsWith('.json') || /^\s*[\[{]/.test(txt);
+    const ehTxt = !ehJson && (nome.endsWith('.txt') ||
+      (!nome.endsWith('.html') && !nome.endsWith('.htm') && /[-–—:]\s*\d+([.,]\d+)?\s*h\b/i.test(txt)));
+
+    if (ehJson) {
+      let d;
+      try { d = JSON.parse(txt); } catch (err) { $('#btn-fazer-import').disabled = true; return toast('JSON inválido.', true); }
+      const lista = Array.isArray(d) ? d : (d.jogos || []);
+      importJson = d; importTipo = 'json';
+      prev.innerHTML = '<strong>📦 Backup JSON</strong> — ' + lista.length + ' jogos. Clique em <strong>Importar</strong> para mesclar (o backup atualiza os existentes).';
+      prev.hidden = false;
+      $('#btn-fazer-import').disabled = lista.length === 0;
+      return;
+    }
+    if (ehTxt) {
+      importTempos = parseTempos(txt); importTipo = 'txt';
+      prev.innerHTML = '<strong>⏱ Lista de tempos</strong> — ' + importTempos.length + ' jogos. Clique em <strong>Importar</strong> para aplicar aos jogos existentes.';
+      prev.hidden = false;
+      $('#btn-fazer-import').disabled = importTempos.length === 0;
+      return;
+    }
+    // HTML (favoritos)
+    importParsed = IMP.parse(txt); importTipo = 'html';
     const amostra = importParsed.patches.slice(0, 30).map(function (p) {
       return '<div class="imp-linha"><span>' + esc(p.nome || '(sem nome)') + '</span>' +
         '<span class="muted">' + esc(rotulo(G.ORIGENS, p.origem)) + '</span></div>';
     }).join('');
-    prev.innerHTML = '<strong>' + importParsed.totalLinks + ' links</strong> em ' +
+    prev.innerHTML = '<strong>🔖 ' + importParsed.totalLinks + ' links</strong> em ' +
       importParsed.pastas.length + ' pastas.<br>' +
       '<div class="muted pequeno" style="margin:4px 0 8px">' + resumoPorOrigem(importParsed.porOrigem) + '</div>' +
       '<span class="muted pequeno">Amostra:</span>' + amostra +
@@ -693,16 +725,74 @@
   }
 
   async function executarImportacao() {
-    if (!importParsed || !importParsed.patches.length) return;
     $('#btn-fazer-import').disabled = true;
-    const res = await mesclarEmLote(importParsed.patches);
-    render(); atualizarFiltros();
-    $('#imp-status').textContent = res.criados + ' novos, ' + res.mesclados + ' já existiam (' +
-      resumoPorOrigem(importParsed.porOrigem) + ').';
-    toast('Importados: ' + res.criados + ' — validando e buscando capas…');
-    // TUDO automático: valida na Steam, busca tags e capas — sem opções.
-    await enriquecerTudo();
-    $('#btn-fazer-import').disabled = false;
+    try {
+      if (importTipo === 'json') { await importarJson(importJson); }
+      else if (importTipo === 'txt') {
+        const n = aplicarTempos(importTempos);
+        $('#imp-status').textContent = 'Tempos aplicados a ' + n + ' jogos.';
+        toast('⏱ Tempos aplicados a ' + n + ' jogos.');
+      } else if (importParsed && importParsed.patches.length) {
+        const res = await mesclarEmLote(importParsed.patches);
+        render(); atualizarFiltros();
+        $('#imp-status').textContent = res.criados + ' novos, ' + res.mesclados + ' já existiam (' +
+          resumoPorOrigem(importParsed.porOrigem) + ').';
+        toast('Importados: ' + res.criados + ' — validando e buscando capas…');
+        await enriquecerTudo(); // Steam/tags/capas — NÃO busca tempo p/ todos
+      }
+    } finally {
+      $('#btn-fazer-import').disabled = false;
+    }
+  }
+
+  // aplica um backup JSON (mescla; o backup atualiza o jogo existente)
+  async function aplicarBackup(dados, substituir) {
+    const lista = Array.isArray(dados) ? dados : ((dados && dados.jogos) || []);
+    const importados = lista.map(G.normalizarJogo);
+    if (!importados.length) return { vazio: true };
+    if (substituir) { await G.salvarJogos(importados); jogos = importados; return { novos: importados.length, atualizados: 0 }; }
+    const atual = await G.carregarJogos();
+    const idx = {};
+    atual.forEach(function (g) { idx[chaveJogo(g)] = g; });
+    let novos = 0, atualizados = 0;
+    importados.forEach(function (imp) {
+      const k = chaveJogo(imp); const ex = idx[k];
+      if (ex) { const keepId = ex.id; Object.assign(ex, imp); ex.id = keepId; atualizados++; }
+      else { atual.push(imp); idx[k] = imp; novos++; }
+    });
+    await G.salvarJogos(atual); jogos = atual;
+    return { novos: novos, atualizados: atualizados };
+  }
+
+  async function importarJson(dados) {
+    const r = await aplicarBackup(dados, false);
+    if (r.vazio) return toast('Nenhum jogo no JSON.', true);
+    if (dados && dados.config) { config = Object.assign({}, G.DEFAULT_SETTINGS, dados.config); await G.salvarConfig(config); }
+    jogos = await G.carregarJogos(); render(); atualizarFiltros();
+    $('#imp-status').textContent = 'JSON: ' + r.novos + ' novos, ' + r.atualizados + ' atualizados.';
+    toast('Importado do JSON (' + jogos.length + ' jogos).');
+  }
+
+  /* ---- lista de tempos "Nome - Xh" ---- */
+  function chaveNome(s) { return norm(s).replace(/[^a-z0-9]+/g, ''); }
+  function parseTempos(txt) {
+    const out = [];
+    (txt || '').split(/\r?\n/).forEach(function (linha) {
+      const m = linha.match(/^\s*(.+?)\s*[-–—:]\s*([\d]+[.,]?[\d]*)\s*h\b/i);
+      if (m) { const h = parseFloat(m[2].replace(',', '.')); if (h > 0) out.push({ nome: m[1].trim(), horas: h }); }
+    });
+    return out;
+  }
+  function aplicarTempos(tempos) {
+    const mapa = {};
+    (tempos || []).forEach(function (t) { mapa[chaveNome(t.nome)] = t.horas; });
+    let n = 0;
+    jogos.forEach(function (j) {
+      const h = mapa[chaveNome(j.nome)];
+      if (h != null) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
+    });
+    if (n) { G.salvarJogos(jogos); render(); atualizarFiltros(); }
+    return n;
   }
 
   const dorme = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
@@ -717,32 +807,23 @@
     if (!enriquecendo && errosImport.some(function (e) { return e.bloqueio; })) { mostrarErros(); return; }
     await enriquecerTagsSteam();
     await enriquecerCapas();
-    await enriquecerHLTB();
+    // NÃO busca tempo (HLTB) para todos — isso só acontece ao favoritar um jogo novo
+    // ou pelo botão do card. Para preencher em massa, use a lista de tempos ou o Python.
     mostrarErros();
   }
 
-  // Tempo para zerar via HowLongToBeat (automático). Faz um teste antes: se a
-  // HLTB não responder no navegador, pula tudo e avisa (aí use o script Python).
-  async function enriquecerHLTB() {
-    const alvos = jogos.filter(function (j) { return j.tempo_para_zerar == null && !j.edited_manually && j.nome && !j.hltb_check; });
-    if (!alvos.length) return;
-    const teste = await pedir({ tipo: 'hltb', nome: alvos[0].nome });
-    if (!teste || !teste.ok) {
-      errosImport.push({ nome: '(HowLongToBeat)', etapa: 'Tempo p/ zerar', motivo: (teste && teste.msg) || 'indisponível no navegador — rode ferramentas/preencher_hltb.py' });
-      return;
+  // Consulta o tempo (Main Story) de UM jogo no HowLongToBeat e salva.
+  // Usado só ao FAVORITAR/adicionar um jogo novo (não roda para todos).
+  async function buscarTempoNovo(id) {
+    const j = jogos.find(function (x) { return x.id === id; });
+    if (!j || j.tempo_para_zerar != null || !j.nome) return;
+    const r = await pedir({ tipo: 'hltb', nome: j.nome });
+    if (r && r.ok && r.horas != null) {
+      j.tempo_para_zerar = r.horas;
+      j.hltb_check = true;
+      await G.salvarJogos(jogos);
+      render();
     }
-    if (teste.horas != null) alvos[0].tempo_para_zerar = teste.horas;
-    alvos[0].hltb_check = true;
-    await processarLote(alvos.slice(1), async function (j) {
-      const r = await pedir({ tipo: 'hltb', nome: j.nome });
-      if (r && r.ok) {
-        if (r.horas != null) j.tempo_para_zerar = r.horas;
-        j.hltb_check = true;
-        return r.horas != null ? 'ok' : 'skip';
-      }
-      return { res: 'skip', motivo: 'sem tempo na HowLongToBeat' };
-    }, 'Buscando tempo (HLTB)', 1200);
-    await G.salvarJogos(jogos); render();
   }
 
   function mostrarErros() {
@@ -878,33 +959,17 @@
     const f = input.files && input.files[0]; if (!f) return;
     let dados;
     try { dados = JSON.parse(await lerArquivo(f)); } catch (err) { input.value = ''; return toast('JSON inválido.', true); }
-    const lista = Array.isArray(dados) ? dados : (dados.jogos || []);
-    const importados = lista.map(G.normalizarJogo);
-    if (!importados.length) { input.value = ''; return toast('Nenhum jogo encontrado no arquivo.', true); }
-
-    if ($('#restaurar-mesclar').checked) {
-      // mescla RÁPIDO (1 escrita) — o backup ATUALIZA o jogo existente
-      const atual = await G.carregarJogos();
-      const idx = {};
-      atual.forEach(function (g) { idx[chaveJogo(g)] = g; });
-      let novos = 0, atualizados = 0;
-      importados.forEach(function (imp) {
-        const k = chaveJogo(imp);
-        const ex = idx[k];
-        if (ex) { const keepId = ex.id; Object.assign(ex, imp); ex.id = keepId; atualizados++; }
-        else { atual.push(imp); idx[k] = imp; novos++; }
-      });
-      await G.salvarJogos(atual);
-      $('#backup-status').textContent = 'Restaurado: ' + novos + ' novos, ' + atualizados + ' atualizados.';
-    } else {
-      if (!confirm('Substituir TODOS os jogos atuais por este backup?')) { input.value = ''; return; }
-      await G.salvarJogos(importados);
-      $('#backup-status').textContent = 'Substituído por ' + importados.length + ' jogos do backup.';
-    }
+    const substituir = !$('#restaurar-mesclar').checked;
+    if (substituir && !confirm('Substituir TODOS os jogos atuais por este backup?')) { input.value = ''; return; }
+    const r = await aplicarBackup(dados, substituir);
+    if (r.vazio) { input.value = ''; return toast('Nenhum jogo encontrado no arquivo.', true); }
     if (dados.config) { config = Object.assign({}, G.DEFAULT_SETTINGS, dados.config); await G.salvarConfig(config); }
     jogos = await G.carregarJogos();
     render(); atualizarFiltros();
-    input.value = ''; // permite reimportar o mesmo arquivo
+    input.value = '';
+    $('#backup-status').textContent = substituir
+      ? ('Substituído por ' + r.novos + ' jogos.')
+      : ('Restaurado: ' + r.novos + ' novos, ' + r.atualizados + ' atualizados.');
     toast('Backup restaurado (' + jogos.length + ' jogos).');
   }
 
@@ -979,6 +1044,10 @@
     $('#btn-importar').addEventListener('click', function () { $('#imp-status').textContent = ''; abrirModal('#modal-importar'); });
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
+    $('#btn-aplicar-tempos').addEventListener('click', function () {
+      const n = aplicarTempos(parseTempos($('#tempos-txt').value));
+      toast(n ? ('⏱ Tempos aplicados a ' + n + ' jogos.') : 'Nenhum jogo casou com a lista.', !n);
+    });
     $('#imp-cancelar').addEventListener('click', function () { enriquecendo = false; });
 
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });

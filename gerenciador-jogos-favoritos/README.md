@@ -53,15 +53,16 @@ populares que a API não expõe — *Gráficos Pixelados* vira estilo *Pixel Art
 **Lançamento validado pela Steam:** a validação marca corretamente **se já lançou**, o **ano** e
 a **data** — e há um filtro **Ano de lançamento** na barra lateral.
 
-### ⏱ Tempo para zerar (HowLongToBeat) — para todos os jogos
-O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Três formas:
+### ⏱ Tempo para zerar (HowLongToBeat)
+O tempo real (só **Main Story**) vem do [HowLongToBeat](https://howlongtobeat.com). A extensão
+**não** consulta o tempo de todos os jogos na página principal — só nestes casos:
 
-- **Automático ao importar**: a extensão já tenta buscar o tempo de cada jogo (mostrado como
-  tag **⏱ Xh** em todos os cards). É *melhor esforço* — se a HLTB bloquear o navegador, ela avisa
-  na lista de erros e você usa o script abaixo.
-- **No editor** (um jogo): botão **⏱ HowLongToBeat** — preenche o campo automaticamente; se não
-  achar, abre a busca no site.
-- **Todos de uma vez, 100% garantido**: use o script Python em `ferramentas/`:
+- **Ao favoritar/adicionar um jogo novo**: a extensão consulta o HLTB só daquele jogo e já salva.
+- **No card (editor)**: botão **⏱ HowLongToBeat** revalida o tempo do jogo (preenche o campo).
+- **Sua lista pronta de tempos**: na aba **⬇ Importar**, cole/importe uma lista `Nome - 8.93h`
+  (uma por linha) e clique em **Aplicar tempos** — casa por nome e preenche todos de uma vez.
+  Sua lista fica salva em `ferramentas/tempos.txt` para reimportar quando quiser.
+- **Em massa, 100% garantido** (se o HLTB bloquear o navegador): use o script Python em `ferramentas/`:
 
   ```bash
   pip install howlongtobeatpy --break-system-packages
@@ -79,6 +80,12 @@ O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Três formas:
 - Ordenar por lançamento (contagem regressiva), tempo para zerar, prioridade, desconto, nome.
 - **Visões de 1 clique**: ⚡ Zera rápido · ⏳ Vão lançar ainda · 🔥 Prioridade alta ·
   👀 Só assistir · 💜 Comprar e apoiar · 🔁 Rejogar · 🏷️ Em promoção · ✔ Zerados · 🔎 A pesquisar.
+
+### Uma aba de importação para tudo
+A aba **⬇ Importar** aceita **três tipos** de arquivo (detecta sozinha):
+`.html` (favoritos do navegador), `.json` (backup desta extensão) e `.txt` (lista de tempos).
+Também dá para **restaurar JSON** pela aba **⇅ Backup**. O import é rápido (mescla em lote) e
+**não duplica**.
 
 ### Tudo automático (sem botões)
 - **Ao importar**, a extensão valida tudo sozinha: capa, nome limpo, preço, gênero,
