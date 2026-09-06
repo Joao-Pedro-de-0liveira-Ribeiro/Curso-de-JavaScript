@@ -275,6 +275,25 @@
     return null;
   }
 
+  // Lista de tempos EMBUTIDA no projeto (tempos_dados.js -> root.GJF_TEMPOS).
+  // Convertida sob demanda (independe da ordem de carga dos scripts) e em cache.
+  var _tempEmbutidos = null;
+  function temposEmbutidos() {
+    if (_tempEmbutidos) return _tempEmbutidos;
+    var brutos = root.GJF_TEMPOS || [];
+    _tempEmbutidos = brutos.map(function (par) {
+      return { k: chaveTempoLista(par[0]), h: par[1] };
+    }).filter(function (e) { return e.k.length >= 2 && e.h > 0; });
+    return _tempEmbutidos;
+  }
+  // Casa o nome procurando PRIMEIRO na lista do usuário (importada) e, se não
+  // achar, na lista embutida do projeto. Retorna horas ou null.
+  function casarTempoTudo(nome, listaSalva) {
+    var h = casarTempo(nome, listaSalva || []);
+    if (h != null) return h;
+    return casarTempo(nome, temposEmbutidos());
+  }
+
   // recebe nomes de tags e devolve { genero:[], estilo_visual:[], vibe:[] }
   function mapearTagsSteam(nomes) {
     const out = { genero: [], estilo_visual: [], vibe: [] };
@@ -535,6 +554,7 @@
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,
     parseDataSteam, mapearTagsSteam, chaveTempoLista, chaveTempoJogo, casarTempo,
+    temposEmbutidos, casarTempoTudo,
     mapearGenerosSteam, dadosParaPatch,
     novoJogo, normalizarJogo, ehZeraRapido, statusEfetivo, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo

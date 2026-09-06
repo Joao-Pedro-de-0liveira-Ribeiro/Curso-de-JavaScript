@@ -208,12 +208,17 @@
         <input id="arquivo-bookmarks" type="file" accept=".html,.htm,.json,.txt" class="input">
         <p class="muted pequeno" style="margin:8px 0 0">
           No <strong>.html</strong> a extensão valida tudo sozinha (capa, nome, preço, gênero, tags e
-          lançamento). O <strong>tempo para zerar</strong> só é buscado ao favoritar um jogo novo.
+          lançamento). O <strong>tempo para zerar</strong> é preenchido na hora pela lista embutida no
+          projeto (242 jogos) e ao favoritar qualquer jogo novo dessa lista.
         </p>
 
-        <label class="rot" style="margin-top:14px">Colar lista de tempos (uma por linha: <code>Nome - 8.93h</code>)</label>
+        <label class="rot" style="margin-top:14px">Adicionar mais tempos (uma por linha: <code>Nome - 8.93h</code>) — opcional</label>
         <textarea id="tempos-txt" class="input" rows="3" placeholder="#BLUD - 8.93h&#10;Dead Cells - 14.06h&#10;Celeste - 8h"></textarea>
         <button id="btn-aplicar-tempos" class="btn ghost full" style="margin-top:6px">⏱ Aplicar tempos aos jogos existentes</button>
+        <p class="muted pequeno" style="margin:6px 0 0">
+          A lista de 242 tempos já vem embutida — clique em <strong>Aplicar</strong> com o campo vazio para
+          preencher os jogos existentes. Cole aqui só para adicionar/atualizar tempos novos.
+        </p>
 
         <div id="imp-previa" class="imp-previa" hidden></div>
         <div id="imp-erros" class="imp-previa" hidden></div>
@@ -291,6 +296,7 @@
   <div id="toast" class="toast" hidden></div>
   <div id="preco-status" class="preco-status" hidden></div>
 
+  <script src="tempos_dados.js"></script>
   <script src="shared.js"></script>
   <script src="importador.js"></script>
   <script src="manager.js"></script>

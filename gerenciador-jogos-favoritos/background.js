@@ -11,7 +11,7 @@
  *   { tipo: 'youtube', url }         -> oEmbed (título/thumb)
  *   { tipo: 'og', url }              -> Open Graph (precisa permissão opcional)
  * ============================================================================= */
-importScripts('shared.js');
+importScripts('tempos_dados.js', 'shared.js');
 
 const G = self.GJF;
 
@@ -344,8 +344,11 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
           }
         }
         if (g.tempo_para_zerar == null && g.nome) {
-          const h = await buscarHLTB(g.nome);
-          if (h && h.ok && h.horas != null) { g.tempo_para_zerar = h.horas; g.hltb_check = true; }
+          // 1º lista do usuário + embutida no projeto; 2º HowLongToBeat ao vivo
+          const salva = await new Promise(function (rr) { chrome.storage.local.get('gjf_tempos', function (o) { rr((o && o.gjf_tempos) || []); }); });
+          let horas = G.casarTempoTudo(g.nome, salva);
+          if (horas == null) { const h = await buscarHLTB(g.nome); if (h && h.ok && h.horas != null) horas = h.horas; }
+          if (horas != null) { g.tempo_para_zerar = horas; g.hltb_check = true; }
         }
         await G.salvarJogos(lista);
       }

@@ -57,6 +57,7 @@
     construirSelectsModal();
     ligarEventos();
     render();
+    aplicarTemposSalvos(); // preenche tempos faltantes pela lista embutida do projeto
     tratarHash();
     // ao abrir/atualizar a página, revalida preços e descontos em segundo plano
     setTimeout(revalidarPrecos, 1200);
@@ -788,8 +789,9 @@
     });
     return out;
   }
-  // procura o tempo de UM nome na lista salva (exato + aproximado). null se não achar.
-  function tempoDaLista(nome) { return G.casarTempo(nome, temposSalvos); }
+  // procura o tempo de UM nome: 1º na sua lista importada, 2º na lista EMBUTIDA
+  // do projeto (tempos_dados.js). null se não achar em nenhuma.
+  function tempoDaLista(nome) { return G.casarTempoTudo(nome, temposSalvos); }
 
   function aplicarTempos(tempos) {
     if (!tempos || !tempos.length) return 0;
@@ -808,9 +810,9 @@
     return n;
   }
 
-  // reaplica a lista JÁ salva aos jogos que ainda não têm tempo (usado após importar)
+  // preenche o tempo dos jogos que ainda não têm, usando a lista importada +
+  // a EMBUTIDA no projeto. Usado após importar e ao abrir o gerenciador.
   function aplicarTemposSalvos() {
-    if (!temposSalvos.length) return 0;
     let n = 0;
     jogos.forEach(function (j) {
       if (j.tempo_para_zerar != null || !j.nome) return;
@@ -1061,18 +1063,18 @@
     $('#ed-revalidar').addEventListener('click', revalidarSteam);
     $('#ed-hltb').addEventListener('click', async function () {
       const nome = $('#ed-nome').value.trim(); if (!nome) return;
-      // 1) sua lista salva (instantâneo)
+      // 1) lista de tempos (sua importada + a embutida no projeto) — instantâneo
       const daLista = tempoDaLista(nome);
-      if (daLista != null) { $('#ed-tempo').value = daLista; return toast('⏱ ' + daLista + 'h (da sua lista).'); }
-      // 2) HowLongToBeat
+      if (daLista != null) { $('#ed-tempo').value = daLista; return toast('⏱ ' + daLista + 'h preenchido (lista de tempos).'); }
+      // 2) HowLongToBeat ao vivo (melhor esforço — pode ser bloqueado pelo site)
       toast('Consultando HowLongToBeat…');
       const r = await pedir({ tipo: 'hltb', nome: nome });
       if (r && r.ok && r.horas != null) {
         $('#ed-tempo').value = r.horas;
-        toast('Tempo para zerar: ' + r.horas + 'h (HowLongToBeat).');
+        toast('⏱ ' + r.horas + 'h preenchido (HowLongToBeat).');
       } else {
-        window.open('https://howlongtobeat.com/?q=' + encodeURIComponent(nome), '_blank', 'noopener');
-        toast('Não achei automático — abri o site para você conferir.', true);
+        // NÃO abre o site — preenche manualmente e, se quiser, o Python resolve em massa
+        toast('Não encontrei o tempo deste jogo na lista nem no HLTB. Preencha à mão no campo Tempo.', true);
       }
     });
     $('#ed-google-img').addEventListener('click', function () {
@@ -1089,7 +1091,12 @@
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
     $('#btn-aplicar-tempos').addEventListener('click', function () {
       const lista = parseTempos($('#tempos-txt').value);
-      if (!lista.length) { return toast('Cole a lista no campo (ou selecione o arquivo .txt acima).', true); }
+      // caixa vazia → aplica a lista JÁ embutida no projeto aos jogos existentes
+      if (!lista.length) {
+        const nb = aplicarTemposSalvos();
+        return toast(nb ? ('⏱ ' + nb + ' jogo(s) preenchido(s) pela lista embutida do projeto.') :
+          'Todos os jogos conhecidos já têm tempo. Cole uma lista nova para adicionar mais.', !nb);
+      }
       const n = aplicarTempos(lista);
       toast(n ? ('⏱ Tempos aplicados a ' + n + ' de ' + lista.length + '.') :
         'Nenhum jogo casou. Importe os jogos primeiro (o nome precisa bater).', !n);

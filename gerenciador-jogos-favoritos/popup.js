@@ -322,10 +322,10 @@
         }
       }
     }
-    // tempo: primeiro a SUA lista salva; senão HowLongToBeat
+    // tempo: 1º sua lista salva, 2º a lista EMBUTIDA no projeto, 3º HowLongToBeat
     if (nome) {
       const salva = await new Promise(function (r) { chrome.storage.local.get('gjf_tempos', function (o) { r((o && o.gjf_tempos) || []); }); });
-      let horas = G.casarTempo(nome, salva);
+      let horas = G.casarTempoTudo(nome, salva);
       if (horas == null) { const rh = await pedir({ tipo: 'hltb', nome: nome }); if (rh && rh.ok) horas = rh.horas; }
       if (horas != null) {
         const lista = await G.carregarJogos();

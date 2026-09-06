@@ -53,16 +53,30 @@ populares que a API não expõe — *Gráficos Pixelados* vira estilo *Pixel Art
 **Lançamento validado pela Steam:** a validação marca corretamente **se já lançou**, o **ano** e
 a **data** — e há um filtro **Ano de lançamento** na barra lateral.
 
-### ⏱ Tempo para zerar (HowLongToBeat)
-O tempo real (só **Main Story**) vem do [HowLongToBeat](https://howlongtobeat.com). A extensão
-**não** consulta o tempo de todos os jogos na página principal — só nestes casos:
+### ⏱ Tempo para zerar (Main Story) — lista embutida + HowLongToBeat
+O tempo real (só **Main Story**) vem, na maioria das vezes, de uma **lista de 242 jogos
+já embutida no próprio projeto** (`tempos_dados.js`, gerada de `ferramentas/tempos.txt`).
+Como ela é carregada sempre, a extensão preenche o tempo **na hora**, sem depender do
+HowLongToBeat ao vivo (que costuma bloquear consultas feitas pelo navegador).
 
-- **Ao favoritar/adicionar um jogo novo**: a extensão consulta o HLTB só daquele jogo e já salva.
-- **No card (editor)**: botão **⏱ HowLongToBeat** revalida o tempo do jogo (preenche o campo).
-- **Sua lista pronta de tempos**: na aba **⬇ Importar**, cole/importe uma lista `Nome - 8.93h`
-  (uma por linha) e clique em **Aplicar tempos** — casa por nome e preenche todos de uma vez.
-  Sua lista fica salva em `ferramentas/tempos.txt` para reimportar quando quiser.
-- **Em massa, 100% garantido** (se o HLTB bloquear o navegador): use o script Python em `ferramentas/`:
+A extensão **não** consulta o tempo de todos os jogos pela internet na página principal.
+O tempo é preenchido assim:
+
+- **Ao importar (`.html`/`.json`)**: todo jogo cujo nome esteja na lista embutida já
+  recebe o tempo automaticamente — e ao abrir o gerenciador ele também backfilla os que faltam.
+- **Ao favoritar/adicionar um jogo novo** (popup, clique-direito ou editor): a extensão
+  procura o tempo **1º na lista embutida (+ a sua importada), 2º no HowLongToBeat ao vivo**, e salva.
+- **No card (editor)**: botão **⏱ HowLongToBeat** preenche o campo pela lista; se o jogo não
+  estiver nela, tenta o HLTB ao vivo; se nada achar, avisa para você preencher à mão
+  (não abre mais o site).
+- **Adicionar mais tempos**: na aba **⬇ Importar**, cole/importe uma lista `Nome - 8.93h`
+  (uma por linha) e clique em **Aplicar tempos** — casa por nome e preenche de uma vez.
+  Com o campo **vazio**, o botão **Aplicar** reaplica a lista embutida aos jogos existentes.
+
+> **Editar a lista embutida:** altere `ferramentas/tempos.txt` e rode
+> `python3 ferramentas/gerar_tempos.py` para regenerar `tempos_dados.js`.
+
+- **Em massa, para jogos fora da lista** (se o HLTB bloquear o navegador): use o script Python em `ferramentas/`:
 
   ```bash
   pip install howlongtobeatpy --break-system-packages
@@ -189,7 +203,8 @@ Todos os dados ficam no seu navegador.
 | Arquivo | Responsabilidade |
 |---|---|
 | `manifest.json` | Declaração da extensão (MV3). |
-| `shared.js` | Modelo de dados, enums, parsing de URL/appid, storage, derivações. |
+| `tempos_dados.js` | Lista de tempos para zerar **embutida** (242 jogos), carregada sempre. Gerada de `ferramentas/tempos.txt` por `ferramentas/gerar_tempos.py`. |
+| `shared.js` | Modelo de dados, enums, parsing de URL/appid, storage, derivações, casamento de tempos. |
 | `background.js` | *Service worker*: valida Steam, YouTube oEmbed, Open Graph, menu de contexto. |
 | `popup.html/js/css` | Captura rápida (fluxo YouTube → Steam → Favoritar). |
 | `manager.html/js/css` | Painel completo: lista, filtros, ordenação, visões, edição, import, backup. |
