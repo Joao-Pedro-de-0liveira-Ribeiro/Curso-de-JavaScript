@@ -19,8 +19,9 @@
     busca: '', zera: false, ordenar: 'data_adicao',
     prioridade: new Set(), intencao: new Set(), status: new Set(),
     genero: new Set(), estilo: new Set(), vibe: new Set(),
-    origem: new Set(), curadoria: new Set()
+    origem: new Set(), curadoria: new Set(), ano: new Set()
   };
+  const CHAVES_FILTRO = ['prioridade', 'intencao', 'status', 'genero', 'estilo', 'vibe', 'origem', 'curadoria', 'ano'];
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -99,10 +100,21 @@
     return out;
   }
 
+  // anos presentes na lista (para o filtro por ano), do mais novo ao mais antigo
+  function mapaAnos() {
+    const set = {};
+    jogos.forEach(function (j) { if (j.ano_alvo) set[j.ano_alvo] = true; });
+    const out = {};
+    Object.keys(set).map(Number).sort(function (a, b) { return b - a; })
+      .forEach(function (a) { out[String(a)] = String(a); });
+    return out;
+  }
+
   function construirFiltros() {
     chipsDe('#f-prioridade', G.PRIORIDADES, 'prioridade', true);
     chipsDe('#f-intencao', G.INTENCOES, 'intencao');
     chipsDe('#f-status', G.STATUS_LANCAMENTO, 'status');
+    chipsDe('#f-ano', mapaAnos(), 'ano');
     chipsDe('#f-genero', mapaComExtras(G.GENEROS, 'genero'), 'genero');
     chipsDe('#f-estilo', mapaComExtras(G.ESTILOS, 'estilo_visual'), 'estilo');
     chipsDe('#f-vibe', mapaComExtras(G.VIBES, 'vibe'), 'vibe');
@@ -117,7 +129,7 @@
     document.querySelectorAll('.filtros .chip').forEach(function (el) {
       const grupo = el.closest('.filtro-grupo').querySelector('.chips').id;
       const chave = ({ 'f-prioridade': 'prioridade', 'f-intencao': 'intencao', 'f-status': 'status',
-        'f-genero': 'genero', 'f-estilo': 'estilo', 'f-vibe': 'vibe', 'f-origem': 'origem', 'f-curadoria': 'curadoria' })[grupo];
+        'f-ano': 'ano', 'f-genero': 'genero', 'f-estilo': 'estilo', 'f-vibe': 'vibe', 'f-origem': 'origem', 'f-curadoria': 'curadoria' })[grupo];
       const on = filtros[chave].has(el.dataset.k);
       el.classList.toggle('on', on);
       el.classList.toggle(el.dataset.k, on && grupo === 'f-prioridade');
@@ -128,8 +140,7 @@
 
   function limparFiltros() {
     filtros.busca = ''; filtros.zera = false;
-    ['prioridade', 'intencao', 'status', 'genero', 'estilo', 'vibe', 'origem', 'curadoria']
-      .forEach(function (k) { filtros[k].clear(); });
+    CHAVES_FILTRO.forEach(function (k) { filtros[k].clear(); });
     $('#busca').value = '';
     sincronizarChips();
     limparVisaoAtiva();
@@ -153,8 +164,7 @@
 
   function limparFiltrosState() {
     filtros.busca = ''; filtros.zera = false; filtros.ordenar = 'data_adicao';
-    ['prioridade', 'intencao', 'status', 'genero', 'estilo', 'vibe', 'origem', 'curadoria']
-      .forEach(function (k) { filtros[k].clear(); });
+    CHAVES_FILTRO.forEach(function (k) { filtros[k].clear(); });
     $('#busca').value = '';
   }
 
@@ -192,6 +202,7 @@
     if (filtros.prioridade.size && !filtros.prioridade.has(j.prioridade)) return false;
     if (filtros.intencao.size && !filtros.intencao.has(j.intencao)) return false;
     if (filtros.status.size && !filtros.status.has(j.status_lancamento)) return false;
+    if (filtros.ano.size && !filtros.ano.has(String(j.ano_alvo))) return false;
     if (filtros.origem.size && !filtros.origem.has(j.origem)) return false;
     if (filtros.curadoria.size) { if (!filtros.curadoria.has(j.status_curadoria)) return false; }
     else if (j.status_curadoria === 'arquivado') return false;
@@ -249,6 +260,8 @@
       badges.push(mini('⏳ ' + (G.formatarContagem(j) || rotulo(G.STATUS_LANCAMENTO, j.status_lancamento)), 'warn'));
     }
     if (G.ehZeraRapido(j, config)) badges.push(mini('⚡ ' + j.tempo_para_zerar + 'h', 'zera'));
+    else if (j.tempo_para_zerar != null) badges.push(mini('⏱ ' + j.tempo_para_zerar + 'h'));
+    if (j.ano_alvo && j.status_lancamento === 'lancado') badges.push(mini('📅 ' + j.ano_alvo));
     if (j.desconto_pct) badges.push(mini('-' + j.desconto_pct + '%', 'desc'));
     if (j.preco_atual) badges.push(mini(esc(j.preco_atual)));
     if (j.status_curadoria === 'a_pesquisar') badges.push(mini('🔎 pesquisar', 'warn'));
@@ -400,7 +413,33 @@
     if (p.ano_alvo) $('#ed-ano').value = p.ano_alvo;
     if (p.genero && p.genero.length) tagInputs.genero.set(G.uniao(tagInputs.genero.get(), p.genero));
     atualizarCapaModal($('#ed-capa-url').value, j.url_origem, j.url_video);
+    if (p.data_prevista) $('#ed-data').value = p.data_prevista;
     toast('Dados atualizados da Steam.');
+  }
+
+  // busca uma capa automaticamente para o jogo aberto no editor
+  async function buscarCapaJogoAtual() {
+    const j = editando && editando.jogo; if (!j) return;
+    const url = $('#ed-url').value.trim() || j.url_origem;
+    const appid = j.steam_appid || G.extrairAppId(url);
+    let capa = '';
+    if (appid) {
+      capa = G.capaSteam(appid);
+    } else if (G.ehYouTube(url)) {
+      capa = G.capaYoutube(url);
+      if (!capa) { const r = await pedir({ tipo: 'youtube', url: url }); if (r && r.ok && r.dados) capa = r.dados.capa_url; }
+    } else if (url) {
+      toast('Buscando capa no site…');
+      const tem = await new Promise(function (r) { chrome.permissions.contains({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
+      if (!tem) {
+        const g = await new Promise(function (r) { chrome.permissions.request({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
+        if (!g) return toast('Sem permissão para ler o site.', true);
+      }
+      const r = await pedir({ tipo: 'og', url: url });
+      if (r && r.ok && r.dados) capa = r.dados.capa_url;
+    }
+    if (capa) { $('#ed-capa-url').value = capa; atualizarCapaModal(capa, j.url_origem, j.url_video); toast('Capa encontrada!'); }
+    else toast('Não achei capa automática — use o Google Imagens e cole a URL da capa.', true);
   }
 
   /* componente de tag com sugestões (datalist) */
@@ -528,55 +567,108 @@
 
   const dorme = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
 
-  // Enriquece jogos da Steam que ainda não têm dados. Respeita o rate limit da
-  // Steam (~200 req/5min): 800ms entre chamadas + backoff/retry no 429. Como só
-  // mira jogos incompletos, rodar de novo depois continua de onde parou.
-  async function enriquecerSteam() {
-    const alvos = jogos.filter(function (j) { return j.steam_appid && (!j.nome || !j.capa_url || j.preco_atual == null); });
+  // Executor de lote genérico com progresso + backoff/retry em rate limit.
+  // `fazer(j)` deve devolver 'ok' | 'skip' | 'rate' (rate = tenta o mesmo de novo).
+  async function processarLote(alvos, fazer, rotulo, espera) {
     const box = $('#imp-progresso'); box.hidden = false;
-    if (!alvos.length) { $('#imp-progresso-txt').textContent = 'Nada a validar (tudo já tem dados).'; $('#imp-barra').style.width = '100%'; return; }
+    if (!alvos.length) { $('#imp-progresso-txt').textContent = 'Nada pendente para ' + rotulo + '.'; $('#imp-barra').style.width = '100%'; return; }
+    espera = espera || 1500;
     enriquecendo = true;
-    let i = 0, rateSeguidos = 0, ok = 0;
+    let i = 0, rate = 0, ok = 0;
     while (i < alvos.length) {
       if (!enriquecendo) { $('#imp-progresso-txt').textContent = 'Parado em ' + i + '/' + alvos.length + '.'; break; }
-      const j = alvos[i];
-      $('#imp-progresso-txt').textContent = 'Validando Steam ' + (i + 1) + '/' + alvos.length + '…';
+      $('#imp-progresso-txt').textContent = rotulo + ' ' + (i + 1) + '/' + alvos.length + '…';
       $('#imp-barra').style.width = Math.round((i / alvos.length) * 100) + '%';
-      const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
-      if (r && r.ok) {
-        rateSeguidos = 0; ok++;
-        const p = G.dadosParaPatch(r.dados);
-        if (!j.nome && p.nome) j.nome = p.nome;
-        if (!j.capa_url && p.capa_url) j.capa_url = p.capa_url;
-        if (j.preco_atual == null && p.preco_atual != null) j.preco_atual = p.preco_atual;
-        if (j.desconto_pct == null && p.desconto_pct != null) j.desconto_pct = p.desconto_pct;
-        if (p.status_lancamento && j.status_lancamento === 'lancado' && p.status_lancamento !== 'lancado') j.status_lancamento = p.status_lancamento;
-        if (!j.ano_alvo && p.ano_alvo) j.ano_alvo = p.ano_alvo;
-        if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
-        i++;
-        if (ok % 10 === 0) { await G.salvarJogos(jogos); render(); }
-        await dorme(1500);
-      } else if (r && r.erro === 'rate') {
-        rateSeguidos++;
-        if (rateSeguidos > 3) {
-          $('#imp-progresso-txt').textContent = 'Steam limitou (rate limit). Pausado em ' + i + '/' + alvos.length +
-            '. Rode “Validar Steam” de novo daqui a alguns minutos para continuar.';
-          break;
-        }
-        await dorme(6000); // espera e tenta o MESMO item de novo
-      } else {
-        i++; // outro erro (appid removido etc.): pula
-        await dorme(1500);
+      const res = await fazer(alvos[i]);
+      if (res === 'rate') {
+        rate++;
+        if (rate > 3) { $('#imp-progresso-txt').textContent = 'Steam limitou (bloqueio temporário). Pausado em ' + i + '/' + alvos.length + '. Rode de novo em alguns minutos.'; break; }
+        await dorme(6000); continue;
       }
+      rate = 0; if (res === 'ok') ok++;
+      i++;
+      if (i % 10 === 0) { await G.salvarJogos(jogos); render(); }
+      await dorme(espera);
     }
-    await G.salvarJogos(jogos);
-    render();
+    await G.salvarJogos(jogos); render(); atualizarFiltros();
     if (enriquecendo && i >= alvos.length) {
       $('#imp-barra').style.width = '100%';
-      $('#imp-progresso-txt').textContent = 'Concluído: ' + ok + ' validados de ' + alvos.length + '.';
-      toast('Validação da Steam concluída.');
+      $('#imp-progresso-txt').textContent = rotulo + ': ' + ok + ' de ' + alvos.length + ' concluídos.';
+      toast(rotulo + ' concluído.');
     }
     enriquecendo = false;
+  }
+
+  // 1) Validação Steam (appdetails): nome, capa, preço, GÊNERO e — autoritativo —
+  //    se já lançou / ano / data de lançamento (coming_soon da Steam).
+  async function enriquecerSteam() {
+    const alvos = jogos.filter(function (j) { return j.steam_appid && !j.edited_manually && !j.steam_validado; });
+    await processarLote(alvos, async function (j) {
+      const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
+      if (r && r.ok) {
+        const p = G.dadosParaPatch(r.dados);
+        if (p.nome) j.nome = p.nome;                       // nome oficial da Steam
+        if (p.capa_url && !j.capa_url) j.capa_url = p.capa_url;
+        if (p.preco_atual != null) j.preco_atual = p.preco_atual;
+        if (p.desconto_pct != null) j.desconto_pct = p.desconto_pct;
+        if (p.status_lancamento) j.status_lancamento = p.status_lancamento; // autoritativo
+        if (p.ano_alvo) j.ano_alvo = p.ano_alvo;
+        if (p.data_prevista) j.data_prevista = p.data_prevista;
+        if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
+        j.steam_validado = true;
+        return 'ok';
+      }
+      if (r && r.erro === 'rate') return 'rate';
+      j.steam_validado = true; // appid removido/erro definitivo: não repete
+      return 'skip';
+    }, 'Validando Steam');
+  }
+
+  // 2) Tags populares da Steam → estilo (pixel!), vibe (retrô…), gênero extra.
+  async function enriquecerTagsSteam() {
+    const alvos = jogos.filter(function (j) { return j.steam_appid && !j.edited_manually && !j.steam_tags_ok; });
+    await processarLote(alvos, async function (j) {
+      const r = await pedir({ tipo: 'steamtags', appid: j.steam_appid });
+      if (r && r.ok) {
+        const m = G.mapearTagsSteam(r.tags);
+        j.genero = G.uniao(j.genero, m.genero);
+        j.estilo_visual = G.uniao(j.estilo_visual, m.estilo_visual);
+        j.vibe = G.uniao(j.vibe, m.vibe);
+        j.steam_tags_ok = true;
+        return 'ok';
+      }
+      if (r && r.erro === 'rate') return 'rate';
+      j.steam_tags_ok = true;
+      return 'skip';
+    }, 'Buscando estilo/tags Steam');
+  }
+
+  // 3) Capas das OUTRAS fontes: YouTube (playlist via oEmbed), itch, Nintendo,
+  //    Google Play, Kickstarter, sites de dev — via og:image / estrutura do site.
+  async function enriquecerCapas() {
+    const alvos = jogos.filter(function (j) { return !j.capa_url && j.url_origem && j.origem !== 'google'; });
+    if (!alvos.length) { $('#imp-progresso').hidden = false; $('#imp-progresso-txt').textContent = 'Todas as capas possíveis já estão preenchidas.'; $('#imp-barra').style.width = '100%'; return; }
+    // capas de sites que não são YouTube precisam da permissão de ler páginas
+    const precisaOG = alvos.some(function (j) { return j.origem !== 'youtube' && !G.ehYouTube(j.url_origem); });
+    if (precisaOG) {
+      const tem = await new Promise(function (r) { chrome.permissions.contains({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
+      if (!tem) {
+        const ok = await new Promise(function (r) { chrome.permissions.request({ origins: ['<all_urls>'] }, function (x) { r(!!x); }); });
+        if (!ok) toast('Sem permissão para ler os sites — só capas de YouTube serão buscadas.', true);
+      }
+    }
+    await processarLote(alvos, async function (j) {
+      let capa = '';
+      if (j.origem === 'youtube' || G.ehYouTube(j.url_origem)) {
+        const r = await pedir({ tipo: 'youtube', url: j.url_video || j.url_origem });
+        if (r && r.ok && r.dados && r.dados.capa_url) capa = r.dados.capa_url;
+      } else {
+        const r = await pedir({ tipo: 'og', url: j.url_origem });
+        if (r && r.ok && r.dados && r.dados.capa_url) capa = r.dados.capa_url;
+      }
+      if (capa) { j.capa_url = capa; return 'ok'; }
+      return 'skip';
+    }, 'Buscando capas', 900);
   }
 
   /* =========================================================================
@@ -663,6 +755,11 @@
       const nome = $('#ed-nome').value.trim();
       window.open('https://howlongtobeat.com/?q=' + encodeURIComponent(nome), '_blank', 'noopener');
     });
+    $('#ed-google-img').addEventListener('click', function () {
+      const nome = $('#ed-nome').value.trim();
+      window.open('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(nome + ' game capa'), '_blank', 'noopener');
+    });
+    $('#ed-buscar-capa').addEventListener('click', buscarCapaJogoAtual);
     $('#ed-status').addEventListener('change', function () {
       // se marcar "lançado", esconde relevância de data (apenas UX leve)
     });
@@ -671,6 +768,8 @@
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
     $('#btn-so-enriquecer').addEventListener('click', enriquecerSteam);
+    $('#btn-tags-steam').addEventListener('click', enriquecerTagsSteam);
+    $('#btn-buscar-capas').addEventListener('click', enriquecerCapas);
     $('#imp-cancelar').addEventListener('click', function () { enriquecendo = false; });
 
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });

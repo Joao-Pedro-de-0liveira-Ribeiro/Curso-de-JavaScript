@@ -124,11 +124,8 @@
     if (has('sombrio')) patch.vibe.push('sombrio');
     patch.vibe = patch.vibe.filter(function (v, i, a) { return a.indexOf(v) === i; });
 
-    // "Zera rápido": não temos horas exatas → estimativa curta para o filtro fazer sentido
-    if (has('zera rapido')) {
-      patch.tempo_para_zerar = 5;
-      patch.notas = (patch.notas ? patch.notas + ' · ' : '') + 'tempo estimado (pasta Zera Rapido)';
-    }
+    // "Zera rápido": NÃO inventa mais horas (antes colocava 5h fixo). O tempo
+    // real vem do HowLongToBeat (botão no editor ou o script Python).
 
     // lançamento
     if (has('vao lanca ainda') || has('vao lancar') || has('nao lancado') || has('vao lança ainda')) {

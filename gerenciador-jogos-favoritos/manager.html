@@ -54,6 +54,7 @@
       <div class="filtro-grupo"><h3>Prioridade</h3><div id="f-prioridade" class="chips"></div></div>
       <div class="filtro-grupo"><h3>Intenção</h3><div id="f-intencao" class="chips"></div></div>
       <div class="filtro-grupo"><h3>Status de lançamento</h3><div id="f-status" class="chips"></div></div>
+      <div class="filtro-grupo"><h3>Ano de lançamento</h3><div id="f-ano" class="chips"></div></div>
       <div class="filtro-grupo"><h3>Gênero</h3><div id="f-genero" class="chips"></div></div>
       <div class="filtro-grupo"><h3>Estilo visual</h3><div id="f-estilo" class="chips"></div></div>
       <div class="filtro-grupo"><h3>Vibe / humor</h3><div id="f-vibe" class="chips"></div></div>
@@ -90,6 +91,8 @@
           <div id="ed-capa-vazia" class="ed-capa ed-capa-vazia">🎮</div>
           <a id="ed-origem-link" class="link-origem" target="_blank" rel="noopener" hidden>Abrir origem ↗</a>
           <a id="ed-video-link" class="link-origem" target="_blank" rel="noopener" hidden>▶ Ver vídeo</a>
+          <button id="ed-buscar-capa" class="btn ghost pequeno" type="button" title="Buscar uma capa automaticamente para este jogo">🖼️ Buscar capa</button>
+          <button id="ed-google-img" class="btn ghost pequeno" type="button" title="Abrir o Google Imagens para escolher uma capa">🔎 Google Imagens</button>
         </div>
         <div class="form-campos">
           <label class="rot" for="ed-nome">Nome</label>
@@ -200,7 +203,11 @@
           <input type="checkbox" id="imp-enriquecer">
           Buscar preço/gênero na Steam após importar (opcional, pode demorar)
         </label>
-        <button id="btn-so-enriquecer" class="btn ghost full" style="margin-top:10px">↻ Só buscar preço/gênero da Steam (pendentes)</button>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <button id="btn-so-enriquecer" class="btn ghost full">↻ Validar Steam: preço, gênero e lançamento (já lançou? ano?)</button>
+          <button id="btn-tags-steam" class="btn ghost full">🎨 Buscar estilo/tags da Steam (pixel, retrô, anime…)</button>
+          <button id="btn-buscar-capas" class="btn ghost full">🖼️ Buscar capas das outras fontes (itch, Nintendo, Play, YouTube…)</button>
+        </div>
         <div id="imp-previa" class="imp-previa" hidden></div>
         <div id="imp-progresso" class="imp-progresso" hidden>
           <div class="barra"><div id="imp-barra" class="barra-fill"></div></div>

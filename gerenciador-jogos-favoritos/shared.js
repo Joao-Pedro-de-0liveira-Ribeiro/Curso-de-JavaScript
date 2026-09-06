@@ -41,19 +41,19 @@
   };
 
   const INTENCOES = {
-    jogar: 'Jogar',
-    assistir_walkthrough: 'Só assistir (Detonado)',
-    rejogar: 'Rejogar',
-    comprar_apoiar: 'Comprar e apoiar',
-    treinar_dominar: 'Treinar para dominar'
+    jogar: '🎮 Jogar',
+    assistir_walkthrough: '👀 Só assistir (Detonado)',
+    rejogar: '🔁 Rejogar',
+    comprar_apoiar: '💜 Comprar e apoiar',
+    treinar_dominar: '🥋 Treinar para dominar'
   };
 
-  const PRIORIDADES = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  const PRIORIDADES = { alta: '🔥 Alta', media: '⭐ Média', baixa: '🧊 Baixa' };
 
   const STATUS_LANCAMENTO = {
-    lancado: 'Lançado',
-    nao_lancado: 'Ainda não lançado',
-    indefinido: 'Indefinido (sem data)'
+    lancado: '✅ Lançado',
+    nao_lancado: '⏳ Ainda não lançado',
+    indefinido: '❓ Indefinido (sem data)'
   };
 
   const STATUS_CURADORIA = {
@@ -162,6 +162,79 @@
     const yt = capaYoutube(j.url_video || j.url_origem);
     if (yt) return yt;
     return '';
+  }
+
+  function ehPlaylistYoutube(url) {
+    return /[?&]list=/i.test(url || '') && !youtubeId(url);
+  }
+
+  /* ----------------------------------------------------------------------- *
+   * Data de lançamento da Steam → YYYY-MM-DD (aceita pt e en)
+   *  "9/jul./2013", "18 de novembro de 2025", "9 Jul, 2013" → data ISO
+   *  "1º trimestre de 2025", "2025", "A ser anunciado" → '' (só o ano conta)
+   * ----------------------------------------------------------------------- */
+  const MESES = {
+    jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12,
+    feb: 2, apr: 4, may: 5, aug: 8, sep: 9, oct: 10, dec: 12
+  };
+  function parseDataSteam(s) {
+    if (!s) return '';
+    const t = String(s).toLowerCase();
+    const anoM = t.match(/(20\d{2}|19\d{2})/);
+    if (!anoM) return '';
+    const ano = parseInt(anoM[0], 10);
+    let mes = null;
+    for (const k in MESES) { if (new RegExp('\\b' + k).test(t)) { mes = MESES[k]; break; } }
+    const diaM = t.match(/\b(\d{1,2})\b/);
+    if (mes && diaM) {
+      const dia = parseInt(diaM[1], 10);
+      if (dia >= 1 && dia <= 31) return ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+    }
+    return '';
+  }
+
+  /* ----------------------------------------------------------------------- *
+   * Tags populares da Steam (da página da loja) → categorias do usuário.
+   * É daqui que sai "Gráficos Pixelados", "Retrô", "Anime", etc. — a API
+   * appdetails NÃO traz essas tags, só os gêneros básicos.
+   * ----------------------------------------------------------------------- */
+  const TAGS_STEAM = {
+    // estilo_visual
+    'graficos pixelados': ['estilo_visual', 'pixel_art'], 'pixel graphics': ['estilo_visual', 'pixel_art'],
+    'pixel art': ['estilo_visual', 'pixel_art'],
+    '2d': ['estilo_visual', '2d'], '3d': ['estilo_visual', '3d'],
+    anime: ['estilo_visual', 'anime'], 'low poly': ['estilo_visual', 'low_poly'],
+    'baixa poligonagem': ['estilo_visual', 'low_poly'], voxel: ['estilo_visual', 'voxel'],
+    'desenhado a mao': ['estilo_visual', 'arte_desenhada'], 'hand-drawn': ['estilo_visual', 'arte_desenhada'],
+    realista: ['estilo_visual', 'realista'],
+    // vibe
+    retro: ['vibe', 'nostalgia'], 'retro': ['vibe', 'nostalgia'], nostalgia: ['vibe', 'nostalgia'],
+    fofo: ['vibe', 'kawaii'], cute: ['vibe', 'kawaii'], relaxante: ['vibe', 'relaxante'],
+    atmosferico: ['vibe', 'ambientacao_bela'], atmospheric: ['vibe', 'ambientacao_bela'],
+    'bela paisagem': ['vibe', 'ambientacao_bela'], sombrio: ['vibe', 'sombrio'], dark: ['vibe', 'sombrio'],
+    // genero
+    acao: ['genero', 'acao'], action: ['genero', 'acao'], rpg: ['genero', 'rpg'],
+    aventura: ['genero', 'aventura'], adventure: ['genero', 'aventura'], tiro: ['genero', 'tiro'],
+    shooter: ['genero', 'tiro'], luta: ['genero', 'luta'], fighting: ['genero', 'luta'],
+    plataforma: ['genero', 'plataforma'], platformer: ['genero', 'plataforma'],
+    'quebra-cabeca': ['genero', 'puzzle'], puzzle: ['genero', 'puzzle'], terror: ['genero', 'terror'],
+    horror: ['genero', 'terror'], corrida: ['genero', 'corrida'], racing: ['genero', 'corrida'],
+    estrategia: ['genero', 'estrategia'], strategy: ['genero', 'estrategia'],
+    roguelike: ['genero', 'roguelike'], 'roguelite': ['genero', 'roguelike'],
+    metroidvania: ['genero', 'metroidvania'], 'souls-like': ['genero', 'souls'],
+    exploracao: ['genero', 'exploracao'], exploration: ['genero', 'exploracao'],
+    simulacao: ['genero', 'simulacao'], simulation: ['genero', 'simulacao'],
+    ritmo: ['genero', 'ritmo'], rhythm: ['genero', 'ritmo'], historia: ['genero', 'historia'],
+    'rich story': ['genero', 'historia'], 'narracao rica': ['genero', 'historia']
+  };
+  // recebe nomes de tags e devolve { genero:[], estilo_visual:[], vibe:[] }
+  function mapearTagsSteam(nomes) {
+    const out = { genero: [], estilo_visual: [], vibe: [] };
+    toArray(nomes).forEach(function (n) {
+      const par = TAGS_STEAM[norm(n)];
+      if (par && out[par[0]].indexOf(par[1]) < 0) out[par[0]].push(par[1]);
+    });
+    return out;
   }
 
   /* ----------------------------------------------------------------------- *
@@ -344,13 +417,19 @@
     if (p.genero && p.genero.length) p.genero = mapearGenerosSteam(p.genero);
     const s = p.release_str;
     const coming = p.coming_soon;
-    const anoMatch = s ? String(s).match(/(20\d{2})/) : null;
-    const ano = anoMatch ? parseInt(anoMatch[1], 10) : null;
+    const anoMatch = s ? String(s).match(/(20\d{2})|(19\d{2})/) : null;
+    const ano = anoMatch ? parseInt(anoMatch[0], 10) : null;
+    const dataIso = parseDataSteam(s);
+    // ano_alvo = ano de lançamento (serve para lançados E não lançados → filtro por ano)
+    if (ano) p.ano_alvo = ano;
     if (coming) {
+      // ainda vai lançar: com ano conhecido é "não lançado"; sem nada é "indefinido"
       p.status_lancamento = ano ? 'nao_lancado' : 'indefinido';
-      if (ano) p.ano_alvo = ano;
+      if (dataIso) p.data_prevista = dataIso;
     } else if (s) {
+      // a Steam confirma que JÁ lançou
       p.status_lancamento = 'lancado';
+      if (dataIso) p.data_prevista = dataIso;
     }
     if (p.origem === 'steam' && p.nome) p.status_curadoria = 'validado';
     // capa determinística de reserva (Steam/YouTube), quando a API não trouxe
@@ -385,7 +464,8 @@
     STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS,
     uuid, norm, toArray, uniao,
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
-    capaSteam, youtubeId, capaYoutube, capaDeterministica,
+    capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,
+    parseDataSteam, mapearTagsSteam,
     mapearGenerosSteam, dadosParaPatch,
     novoJogo, normalizarJogo, ehZeraRapido, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo

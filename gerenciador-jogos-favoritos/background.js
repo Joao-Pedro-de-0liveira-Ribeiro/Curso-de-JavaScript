@@ -110,18 +110,58 @@ async function buscarOG(url) {
       const t = html.match(/<title[^>]*>([^<]*)<\/title>/i);
       titulo = t ? t[1].trim() : '';
     }
-    const img = pick('og:image') || pick('twitter:image');
+    let img = pick('og:image') || pick('twitter:image');
+    if (!img) img = imagemEspecifica(html);   // itch / kickstarter / twitter
     return {
       ok: true,
       dados: {
         nome: decodeHtml(titulo),
-        capa_url: img,
+        capa_url: decodeHtml(img),
         origem: G.detectarOrigem(url)
       }
     };
   } catch (e) {
     return { ok: false };
   }
+}
+
+// fallbacks por site quando não há og:image (estruturas fornecidas pelo usuário)
+function imagemEspecifica(html) {
+  const tentativas = [
+    /<img[^>]+class="[^"]*\bscreenshot\b[^"]*"[^>]+src="([^"]+)"/i,      // itch.io
+    /<img[^>]+class="[^"]*\bjs-feature-image\b[^"]*"[^>]+src="([^"]+)"/i, // kickstarter
+    /<img[^>]+src="(https:\/\/pbs\.twimg\.com\/profile_banners\/[^"]+)"/i, // twitter/x banner
+    /<img[^>]+src="(https:\/\/assets\.nintendo\.com\/image\/upload\/[^"]+)"/i, // nintendo
+    /<img[^>]+src="(https:\/\/play-lh\.googleusercontent\.com\/[^"]+)"/i  // google play ícone
+  ];
+  for (var i = 0; i < tentativas.length; i++) {
+    var m = html.match(tentativas[i]);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+/* ---- Tags populares da página da Steam (para "Gráficos Pixelados" etc.) --
+ * A API appdetails NÃO traz as tags populares; então lemos a página da loja.  */
+async function buscarSteamTags(appid) {
+  const cfg = await G.carregarConfig();
+  const url = 'https://store.steampowered.com/app/' + appid + '/?l=' +
+    encodeURIComponent(cfg.steamLang) + '&cc=' + encodeURIComponent(cfg.steamCc);
+  let resp;
+  try {
+    resp = await fetch(url, { credentials: 'omit', headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } });
+  } catch (e) { return { ok: false, erro: 'rede' }; }
+  if (resp.status === 403 || resp.status === 429) return { ok: false, erro: 'rate' };
+  if (!resp.ok) return { ok: false, erro: 'http' };
+  const html = await resp.text();
+  let nomes = [];
+  const m = html.match(/InitAppTagModal\(\s*\d+\s*,\s*(\[[^\]]*\])/);
+  if (m) { try { nomes = JSON.parse(m[1]).map(function (t) { return t.name; }); } catch (e) { /* ignore */ } }
+  if (!nomes.length) {
+    const re = /class="app_tag"[^>]*>\s*([^<]+?)\s*</g;
+    let mm; while ((mm = re.exec(html))) nomes.push(mm[1].trim());
+  }
+  return { ok: true, tags: nomes.filter(Boolean).slice(0, 25) };
 }
 
 function decodeHtml(s) {
@@ -167,6 +207,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       if (!msg || !msg.tipo) return sendResponse({ ok: false, msg: 'mensagem inválida' });
       if (msg.tipo === 'validar') return sendResponse(await validarUrl(msg.url));
       if (msg.tipo === 'steam') return sendResponse(await buscarSteam(msg.appid));
+      if (msg.tipo === 'steamtags') return sendResponse(await buscarSteamTags(msg.appid));
       if (msg.tipo === 'youtube') return sendResponse(await buscarYouTube(msg.url));
       if (msg.tipo === 'og') return sendResponse(await buscarOG(msg.url));
       return sendResponse({ ok: false, msg: 'tipo desconhecido' });

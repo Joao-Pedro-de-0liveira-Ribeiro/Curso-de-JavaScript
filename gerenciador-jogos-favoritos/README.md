@@ -41,10 +41,34 @@ lançamento** com **contagem regressiva**, **tempo para zerar**, **preço/descon
 nova no editor (ex.: um gênero próprio), ela é salva **e** vira um filtro clicável na barra
 lateral automaticamente.
 
-**Capas automáticas (sem depender de API):** jogos da Steam e do YouTube ganham a imagem de
-capa/thumbnail na hora, de forma determinística (pelo `appid` / id do vídeo) — funciona mesmo
-quando a Steam está bloqueando consultas. **Tempo para zerar:** no editor de cada jogo há o
-botão **⏱ HowLongToBeat**, que abre a busca do jogo no site para você conferir e anotar as horas.
+**Capas automáticas:** Steam e YouTube ganham capa na hora, sem API (pelo `appid` / id do
+vídeo). Para as **outras fontes** (itch, Nintendo, Google Play, Kickstarter, sites de dev,
+YouTube playlist) use **⬇ Importar → 🖼️ Buscar capas** — lê a imagem pela página
+(`og:image`/estrutura do site). No editor de cada jogo há **🖼️ Buscar capa** e
+**🔎 Google Imagens** (para leads do Google).
+
+**Estilo/tags da Steam:** **⬇ Importar → 🎨 Buscar estilo/tags** lê a página da loja e traz as
+tags populares que a API não expõe — é assim que *Gráficos Pixelados* vira estilo *Pixel Art*,
+*Retrô* vira vibe *Nostalgia*, etc.
+
+**Lançamento validado pela Steam:** a validação marca corretamente **se já lançou**, o **ano** e
+a **data** — e há um filtro **Ano de lançamento** na barra lateral.
+
+### ⏱ Tempo para zerar (HowLongToBeat) — para todos os jogos
+O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Duas formas:
+
+- **No editor** (um jogo): botão **⏱ HowLongToBeat** abre a busca; digite as horas no campo.
+- **Todos os jogos de uma vez** (recomendado): use o script Python em `ferramentas/`:
+
+  ```bash
+  pip install howlongtobeatpy --break-system-packages
+  # 1) na extensão: ⇅ Backup → Exportar tudo (JSON)
+  python3 ferramentas/preencher_hltb.py jogos-favoritos-AAAA-MM-DD.json
+  # 2) na extensão: ⇅ Backup → Restaurar de um JSON (com "Mesclar"), escolha o *-hltb.json
+  ```
+
+  Ele preenche o **tempo para zerar** (Main Story) de cada jogo. Depois, o badge **⏱ Xh** e o
+  filtro **⚡ Zera rápido** passam a usar o valor real por jogo (o antigo “5h fixo” foi removido).
 
 ### Filtros, ordenação e visões prontas
 - Filtros combináveis (E lógico) por todos os campos acima.

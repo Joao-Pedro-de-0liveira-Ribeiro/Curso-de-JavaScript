@@ -17,7 +17,7 @@
     fallbackMsg: $('fallback-msg'), btnPermOG: $('btn-perm-og'),
     capa: $('capa'), capaVazia: $('capa-vazia'), titulo: $('titulo'),
     badges: $('badges'), descricao: $('descricao'), jaFav: $('ja-favoritado'),
-    prioSeg: $('prioridade-seg'), intencao: $('intencao'),
+    prioSeg: $('prioridade-seg'), statusSeg: $('status-seg'), intencao: $('intencao'),
     favoritar: $('favoritar'), msg: $('msg'),
     urlCola: $('url-cola'), btnValidarUrl: $('btn-validar-url'),
     leadNome: $('lead-nome'), btnLead: $('btn-lead')
@@ -25,6 +25,7 @@
 
   let patchAtual = null;      // patch que o botão Favoritar vai gravar
   let prioridade = 'media';
+  let statusManual = null;    // preenchido só se o usuário clicar na Situação
   let jaExiste = false;
 
   /* ---- helpers de mensagem ao background ---- */
@@ -174,6 +175,12 @@
     const desc = r && r.dados && r.dados.short_description;
     if (desc) { el.descricao.textContent = desc; el.descricao.hidden = false; }
 
+    // reflete a situação detectada (Steam) no seletor, sem travar edição manual
+    const lancou = p.status_lancamento === 'lancado' || !p.status_lancamento;
+    Array.prototype.forEach.call(el.statusSeg.children, function (c) {
+      c.classList.toggle('ativo', c.dataset.v === (lancou ? 'lancado' : 'nao_lancado'));
+    });
+
     el.jaFav.hidden = !jaExiste;
     el.favoritar.textContent = jaExiste ? '★ Atualizar / reafirmar' : '★ Favoritar';
 
@@ -238,6 +245,14 @@
       });
     });
 
+    el.statusSeg.addEventListener('click', function (e) {
+      const b = e.target.closest('.seg'); if (!b) return;
+      statusManual = b.dataset.v;
+      Array.prototype.forEach.call(el.statusSeg.children, function (c) {
+        c.classList.toggle('ativo', c === b);
+      });
+    });
+
     el.favoritar.addEventListener('click', favoritar);
     el.btnValidarUrl.addEventListener('click', function () {
       const u = el.urlCola.value.trim();
@@ -270,6 +285,7 @@
     el.favoritar.disabled = true;
     patchAtual.prioridade = prioridade;
     patchAtual.intencao = el.intencao.value;
+    if (statusManual) patchAtual.status_lancamento = statusManual;
     try {
       const res = await G.upsertJogo(patchAtual);
       mostrarMsg(res.criado ? '✓ Adicionado à sua lista!' : '✓ Atualizado na lista.', 'ok', false);
