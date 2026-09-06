@@ -69,6 +69,27 @@
     outro: 'Outro'
   };
 
+  // Ícones por chave (gênero/estilo/vibe/origem/curadoria). Ficam SÓ na exibição
+  // (chips, tags dos cards, presets) — os rótulos dos enums seguem limpos para
+  // não quebrar o casamento de tags da Steam.
+  const ICONES = {
+    // gênero
+    acao: '⚔️', tiro: '🔫', luta: '🥊', rpg: '🐉', historia: '📖', exploracao: '🧭',
+    plataforma: '🏃', puzzle: '🧩', aventura: '🗺️', estrategia: '♟️', corrida: '🏎️',
+    terror: '👻', simulacao: '🎛️', roguelike: '💀', metroidvania: '🗝️', souls: '⚰️', ritmo: '🎵',
+    // estilo visual
+    pixel_art: '👾', pixel_primitivo: '🕹️', '2d': '🖼️', '3d': '🧊', arte_desenhada: '🖌️',
+    voxel: '🧱', low_poly: '🔻', anime: '🌸', realista: '📷',
+    // vibe
+    nostalgia: '🕰️', ambientacao_bela: '🌄', contemplacao_calmaria: '🍃', kawaii: '🎀',
+    sombrio: '🌑', surpresa: '🎁', competitivo: '🏆', relaxante: '🛋️', emocionante: '💥',
+    // origem
+    steam: '🟦', youtube: '▶️', google_play: '📱', nintendo: '🎮', itch: '🎨',
+    kickstarter: '🚀', twitter: '🐦', dev_site: '🌐', google: '🔎', outro: '🔗',
+    // curadoria
+    a_pesquisar: '🔎', validado: '✅', arquivado: '📦'
+  };
+
   const DEFAULT_SETTINGS = {
     zeraRapidoLimite: 6,        // horas — limite para "Zera rápido"
     steamLang: 'portuguese',
@@ -265,6 +286,7 @@
       notas: '',
       status_curadoria: 'validado',
       zerado: false,          // já zerei este jogo?
+      marcadores: [],         // "Marcadores populares" crus da página da Steam
       edited_manually: false
     };
     return normalizarJogo(Object.assign(base, patch || {}));
@@ -275,6 +297,7 @@
     j.genero = toArray(j.genero);
     j.estilo_visual = toArray(j.estilo_visual);
     j.vibe = toArray(j.vibe);
+    j.marcadores = toArray(j.marcadores);
     if (j.tempo_para_zerar === '' || j.tempo_para_zerar == null) j.tempo_para_zerar = null;
     else j.tempo_para_zerar = Number(j.tempo_para_zerar);
     // ano_alvo derivado da data prevista, se houver e não foi setado à mão
@@ -481,7 +504,7 @@
   const GJF = {
     STORAGE_KEY, SETTINGS_KEY, DEFAULT_SETTINGS,
     GENEROS, ESTILOS, VIBES, INTENCOES, PRIORIDADES,
-    STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS,
+    STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS, ICONES,
     uuid, norm, toArray, uniao,
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,

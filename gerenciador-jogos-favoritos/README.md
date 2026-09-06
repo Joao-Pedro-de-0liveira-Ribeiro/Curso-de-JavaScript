@@ -54,10 +54,14 @@ populares que a API não expõe — *Gráficos Pixelados* vira estilo *Pixel Art
 a **data** — e há um filtro **Ano de lançamento** na barra lateral.
 
 ### ⏱ Tempo para zerar (HowLongToBeat) — para todos os jogos
-O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Duas formas:
+O tempo real vem do [HowLongToBeat](https://howlongtobeat.com). Três formas:
 
-- **No editor** (um jogo): botão **⏱ HowLongToBeat** abre a busca; digite as horas no campo.
-- **Todos os jogos de uma vez** (recomendado): use o script Python em `ferramentas/`:
+- **Automático ao importar**: a extensão já tenta buscar o tempo de cada jogo (mostrado como
+  tag **⏱ Xh** em todos os cards). É *melhor esforço* — se a HLTB bloquear o navegador, ela avisa
+  na lista de erros e você usa o script abaixo.
+- **No editor** (um jogo): botão **⏱ HowLongToBeat** — preenche o campo automaticamente; se não
+  achar, abre a busca no site.
+- **Todos de uma vez, 100% garantido**: use o script Python em `ferramentas/`:
 
   ```bash
   pip install howlongtobeatpy --break-system-packages

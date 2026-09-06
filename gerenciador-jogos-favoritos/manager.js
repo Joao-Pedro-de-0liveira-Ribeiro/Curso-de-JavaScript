@@ -20,9 +20,9 @@
     busca: '', zera: false, zerado: null, promo: false, ordenar: 'data_adicao',
     prioridade: new Set(), intencao: new Set(), status: new Set(),
     genero: new Set(), estilo: new Set(), vibe: new Set(),
-    origem: new Set(), curadoria: new Set(), ano: new Set()
+    origem: new Set(), curadoria: new Set(), ano: new Set(), marcador: new Set()
   };
-  const CHAVES_FILTRO = ['prioridade', 'intencao', 'status', 'genero', 'estilo', 'vibe', 'origem', 'curadoria', 'ano'];
+  const CHAVES_FILTRO = ['prioridade', 'intencao', 'status', 'genero', 'estilo', 'vibe', 'origem', 'curadoria', 'ano', 'marcador'];
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -31,6 +31,8 @@
     });
   }
   function rotulo(mapa, k) { return mapa[k] || k; }
+  // rótulo com ícone (quando houver) — para chips, tags e presets
+  function lbl(mapa, k) { return (G.ICONES[k] ? G.ICONES[k] + ' ' : '') + (mapa[k] || k); }
   function pedir(msg) { return new Promise(function (r) { chrome.runtime.sendMessage(msg, r); }); }
   function toast(txt, err) {
     const t = $('#toast'); t.textContent = txt; t.className = 'toast' + (err ? ' err' : '');
@@ -120,7 +122,7 @@
     Object.keys(mapa).forEach(function (k) {
       const el = document.createElement('span');
       el.className = 'chip';
-      el.textContent = mapa[k];
+      el.textContent = lbl(mapa, k);
       el.dataset.k = k;
       el.addEventListener('click', function () {
         const set = filtros[chave];
@@ -158,6 +160,16 @@
     return out;
   }
 
+  // marcadores populares presentes, mais frequentes primeiro (limita p/ não explodir)
+  function mapaMarcadores() {
+    const freq = {};
+    jogos.forEach(function (j) { (j.marcadores || []).forEach(function (m) { freq[m] = (freq[m] || 0) + 1; }); });
+    const out = {};
+    Object.keys(freq).sort(function (a, b) { return freq[b] - freq[a] || a.localeCompare(b, 'pt'); })
+      .slice(0, 80).forEach(function (m) { out[m] = m; });
+    return out;
+  }
+
   function construirFiltros() {
     chipsDe('#f-prioridade', G.PRIORIDADES, 'prioridade', true);
     chipsDe('#f-intencao', G.INTENCOES, 'intencao');
@@ -168,6 +180,7 @@
     chipsDe('#f-vibe', mapaComExtras(G.VIBES, 'vibe'), 'vibe');
     chipsDe('#f-origem', G.ORIGENS, 'origem');
     chipsDe('#f-curadoria', G.STATUS_CURADORIA, 'curadoria');
+    chipsDe('#f-marcadores', mapaMarcadores(), 'marcador');
   }
 
   // reconstrói os chips (para captar categorias novas) preservando a seleção atual
@@ -177,7 +190,7 @@
     document.querySelectorAll('.filtros .chip').forEach(function (el) {
       const grupo = el.closest('.filtro-grupo').querySelector('.chips').id;
       const chave = ({ 'f-prioridade': 'prioridade', 'f-intencao': 'intencao', 'f-status': 'status',
-        'f-ano': 'ano', 'f-genero': 'genero', 'f-estilo': 'estilo', 'f-vibe': 'vibe', 'f-origem': 'origem', 'f-curadoria': 'curadoria' })[grupo];
+        'f-ano': 'ano', 'f-genero': 'genero', 'f-estilo': 'estilo', 'f-vibe': 'vibe', 'f-origem': 'origem', 'f-curadoria': 'curadoria', 'f-marcadores': 'marcador' })[grupo];
       if (!chave || !filtros[chave]) return; // grupos especiais (ex.: #f-zerado) têm handler próprio
       const on = filtros[chave].has(el.dataset.k);
       el.classList.toggle('on', on);
@@ -273,6 +286,7 @@
     if (filtros.genero.size && !algum(j.genero, filtros.genero)) return false;
     if (filtros.estilo.size && !algum(j.estilo_visual, filtros.estilo)) return false;
     if (filtros.vibe.size && !algum(j.vibe, filtros.vibe)) return false;
+    if (filtros.marcador.size && !algum(j.marcadores || [], filtros.marcador)) return false;
     return true;
   }
 
@@ -319,24 +333,39 @@
   function cardHtml(j) {
     const st = G.statusEfetivo(j);
     const badges = [];
-    badges.push(mini(rotulo(G.ORIGENS, j.origem), 'accent'));
+    badges.push(mini(lbl(G.ORIGENS, j.origem), 'accent'));
     badges.push(mini(rotulo(G.INTENCOES, j.intencao)));
-    if (st !== 'lancado') {
-      badges.push(mini('⏳ ' + (G.formatarContagem(j) || rotulo(G.STATUS_LANCAMENTO, st)), 'warn'));
-    }
     if (j.zerado) badges.push(mini('✔ Zerado', 'ok'));
     if (G.ehZeraRapido(j, config)) badges.push(mini('⚡ ' + j.tempo_para_zerar + 'h', 'zera'));
     if (j.desconto_pct) badges.push(mini('-' + j.desconto_pct + '%', 'desc'));
     if (j.preco_atual) badges.push(mini(esc(j.preco_atual)));
     if (j.status_curadoria === 'a_pesquisar') badges.push(mini('🔎 pesquisar', 'warn'));
 
-    const tags = []
-      .concat(j.genero.map(function (g) { return rotulo(G.GENEROS, g); }))
-      .concat(j.estilo_visual.map(function (e) { return rotulo(G.ESTILOS, e); }))
-      .concat(j.vibe.map(function (v) { return rotulo(G.VIBES, v); }));
-    // ⏱ tempo para zerar SEMPRE aparece, junto das tags (mesmo desconhecido)
+    // TAG de lançamento (entre as tags): ✅ Lançado / ⏳ faltam X dias / ⏳ Não lançado
+    let statusTag;
+    if (st === 'lancado') {
+      statusTag = '<span class="tag tag-lancado">✅ Lançado</span>';
+    } else {
+      statusTag = '<span class="tag tag-naolancado">⏳ ' + esc(G.formatarContagem(j) || 'Não lançado') + '</span>';
+    }
+    // ⏱ tempo para zerar SEMPRE aparece
     const tempoTag = '<span class="tag tag-tempo">' +
       (j.tempo_para_zerar != null ? '⏱ ' + j.tempo_para_zerar + 'h' : '⏱ tempo?') + '</span>';
+
+    // categorias com ícone
+    const cats = []
+      .concat(j.genero.map(function (g) { return lbl(G.GENEROS, g); }))
+      .concat(j.estilo_visual.map(function (e) { return lbl(G.ESTILOS, e); }))
+      .concat(j.vibe.map(function (v) { return lbl(G.VIBES, v); }));
+    const catsHtml = cats.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('');
+
+    // marcadores populares da Steam (crus) — sem repetir o que já virou categoria
+    const jaNorm = {};
+    j.genero.forEach(function (g) { jaNorm[norm(rotulo(G.GENEROS, g))] = true; });
+    j.estilo_visual.forEach(function (e) { jaNorm[norm(rotulo(G.ESTILOS, e))] = true; });
+    j.vibe.forEach(function (v) { jaNorm[norm(rotulo(G.VIBES, v))] = true; });
+    const marc = (j.marcadores || []).filter(function (m) { return !jaNorm[norm(m)]; });
+    const marcHtml = marc.slice(0, 12).map(function (m) { return '<span class="tag tag-marcador">' + esc(m) + '</span>'; }).join('');
 
     const capa = j.capa_url
       ? '<img class="card-capa" src="' + esc(j.capa_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
@@ -354,8 +383,7 @@
       '<div class="card-corpo">' +
         '<div class="card-titulo">' + esc(j.nome || '(sem nome)') + '</div>' +
         '<div class="card-badges">' + badges.join('') + '</div>' +
-        '<div class="card-tags">' + tempoTag +
-          tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' +
+        '<div class="card-tags">' + statusTag + tempoTag + catsHtml + marcHtml + '</div>' +
         (j.notas ? '<div class="card-notas">' + esc(j.notas) + '</div>' : '') +
         '<div class="card-acoes">' + acaoOrigem + acaoVideo +
           '<button data-editar="' + j.id + '">Editar</button>' +
@@ -535,7 +563,8 @@
       Object.keys(sugest).forEach(function (k) {
         if (st.valores.indexOf(k) >= 0) return;   // esconde o que já foi escolhido
         const c = document.createElement('button');
-        c.type = 'button'; c.className = 'preset'; c.textContent = '+ ' + sugest[k];
+        c.type = 'button'; c.className = 'preset';
+        c.textContent = '+ ' + (G.ICONES[k] ? G.ICONES[k] + ' ' : '') + sugest[k];
         c.addEventListener('click', function () { add(sugest[k]); });
         presets.appendChild(c);
       });
@@ -544,7 +573,7 @@
       Array.prototype.slice.call(container.querySelectorAll('.ti-chip')).forEach(function (n) { n.remove(); });
       st.valores.forEach(function (v, i) {
         const chip = document.createElement('span'); chip.className = 'ti-chip';
-        chip.textContent = sugest[v] || v;
+        chip.textContent = (G.ICONES[v] ? G.ICONES[v] + ' ' : '') + (sugest[v] || v);
         const x = document.createElement('button'); x.type = 'button'; x.textContent = '×';
         x.addEventListener('click', function () { st.valores.splice(i, 1); render(); });
         chip.appendChild(x); container.insertBefore(chip, input);
@@ -629,19 +658,48 @@
       .join(' · ');
   }
 
+  // chave única de um jogo/patch (mesma lógica do dedup)
+  function chaveJogo(g) {
+    const app = g.steam_appid || G.extrairAppId(g.url_origem);
+    if (app) return 'steam:' + app;
+    return G.normalizarUrlChave(g.url_origem) || ('id:' + (g.id || Math.random()));
+  }
+
+  // mescla uma lista de patches DE UMA VEZ (1 leitura + 1 escrita no storage).
+  // Antes era 1 upsert por item (O(n²) no storage) → travava com centenas de jogos.
+  async function mesclarEmLote(patches) {
+    const atual = await G.carregarJogos();
+    const idx = {};
+    atual.forEach(function (g) { idx[chaveJogo(g)] = g; });
+    let criados = 0, mesclados = 0;
+    patches.forEach(function (p) {
+      const k = chaveJogo(p);
+      const ex = idx[k];
+      if (ex) {
+        ex.genero = G.uniao(ex.genero, G.toArray(p.genero));
+        ex.estilo_visual = G.uniao(ex.estilo_visual, G.toArray(p.estilo_visual));
+        ex.vibe = G.uniao(ex.vibe, G.toArray(p.vibe));
+        if (!ex.url_video && p.url_video) ex.url_video = p.url_video;
+        if (!ex.notas && p.notas) ex.notas = p.notas;
+        mesclados++;
+      } else {
+        const novo = G.novoJogo(p);
+        atual.push(novo); idx[k] = novo; criados++;
+      }
+    });
+    await G.salvarJogos(atual);
+    jogos = atual;
+    return { criados: criados, mesclados: mesclados };
+  }
+
   async function executarImportacao() {
     if (!importParsed || !importParsed.patches.length) return;
     $('#btn-fazer-import').disabled = true;
-    let criados = 0, mesclados = 0;
-    for (const p of importParsed.patches) {
-      const res = await G.upsertJogo(p);
-      if (res.criado) criados++; else mesclados++;
-    }
-    jogos = await G.carregarJogos();
+    const res = await mesclarEmLote(importParsed.patches);
     render(); atualizarFiltros();
-    $('#imp-status').textContent = criados + ' novos, ' + mesclados + ' já existiam (' +
+    $('#imp-status').textContent = res.criados + ' novos, ' + res.mesclados + ' já existiam (' +
       resumoPorOrigem(importParsed.porOrigem) + ').';
-    toast('Importados: ' + criados + ' — validando e buscando capas…');
+    toast('Importados: ' + res.criados + ' — validando e buscando capas…');
     // TUDO automático: valida na Steam, busca tags e capas — sem opções.
     await enriquecerTudo();
     $('#btn-fazer-import').disabled = false;
@@ -659,7 +717,32 @@
     if (!enriquecendo && errosImport.some(function (e) { return e.bloqueio; })) { mostrarErros(); return; }
     await enriquecerTagsSteam();
     await enriquecerCapas();
+    await enriquecerHLTB();
     mostrarErros();
+  }
+
+  // Tempo para zerar via HowLongToBeat (automático). Faz um teste antes: se a
+  // HLTB não responder no navegador, pula tudo e avisa (aí use o script Python).
+  async function enriquecerHLTB() {
+    const alvos = jogos.filter(function (j) { return j.tempo_para_zerar == null && !j.edited_manually && j.nome && !j.hltb_check; });
+    if (!alvos.length) return;
+    const teste = await pedir({ tipo: 'hltb', nome: alvos[0].nome });
+    if (!teste || !teste.ok) {
+      errosImport.push({ nome: '(HowLongToBeat)', etapa: 'Tempo p/ zerar', motivo: (teste && teste.msg) || 'indisponível no navegador — rode ferramentas/preencher_hltb.py' });
+      return;
+    }
+    if (teste.horas != null) alvos[0].tempo_para_zerar = teste.horas;
+    alvos[0].hltb_check = true;
+    await processarLote(alvos.slice(1), async function (j) {
+      const r = await pedir({ tipo: 'hltb', nome: j.nome });
+      if (r && r.ok) {
+        if (r.horas != null) j.tempo_para_zerar = r.horas;
+        j.hltb_check = true;
+        return r.horas != null ? 'ok' : 'skip';
+      }
+      return { res: 'skip', motivo: 'sem tempo na HowLongToBeat' };
+    }, 'Buscando tempo (HLTB)', 1200);
+    await G.salvarJogos(jogos); render();
   }
 
   function mostrarErros() {
@@ -747,6 +830,8 @@
         j.genero = G.uniao(j.genero, m.genero);
         j.estilo_visual = G.uniao(j.estilo_visual, m.estilo_visual);
         j.vibe = G.uniao(j.vibe, m.vibe);
+        // guarda TODOS os "Marcadores populares" crus (dedup) — validando o que já existe
+        j.marcadores = G.uniao(j.marcadores, r.tags);
         j.steam_tags_ok = true;
         return 'ok';
       }
@@ -789,21 +874,38 @@
   }
 
   async function restaurarJson(e) {
-    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const input = e.target;
+    const f = input.files && input.files[0]; if (!f) return;
     let dados;
-    try { dados = JSON.parse(await lerArquivo(f)); } catch (err) { return toast('JSON inválido.', true); }
-    const importados = (dados.jogos || []).map(G.normalizarJogo);
+    try { dados = JSON.parse(await lerArquivo(f)); } catch (err) { input.value = ''; return toast('JSON inválido.', true); }
+    const lista = Array.isArray(dados) ? dados : (dados.jogos || []);
+    const importados = lista.map(G.normalizarJogo);
+    if (!importados.length) { input.value = ''; return toast('Nenhum jogo encontrado no arquivo.', true); }
+
     if ($('#restaurar-mesclar').checked) {
-      for (const j of importados) { await G.upsertJogo(j); }
+      // mescla RÁPIDO (1 escrita) — o backup ATUALIZA o jogo existente
+      const atual = await G.carregarJogos();
+      const idx = {};
+      atual.forEach(function (g) { idx[chaveJogo(g)] = g; });
+      let novos = 0, atualizados = 0;
+      importados.forEach(function (imp) {
+        const k = chaveJogo(imp);
+        const ex = idx[k];
+        if (ex) { const keepId = ex.id; Object.assign(ex, imp); ex.id = keepId; atualizados++; }
+        else { atual.push(imp); idx[k] = imp; novos++; }
+      });
+      await G.salvarJogos(atual);
+      $('#backup-status').textContent = 'Restaurado: ' + novos + ' novos, ' + atualizados + ' atualizados.';
     } else {
-      if (!confirm('Substituir TODOS os jogos atuais por este backup?')) return;
+      if (!confirm('Substituir TODOS os jogos atuais por este backup?')) { input.value = ''; return; }
       await G.salvarJogos(importados);
+      $('#backup-status').textContent = 'Substituído por ' + importados.length + ' jogos do backup.';
     }
     if (dados.config) { config = Object.assign({}, G.DEFAULT_SETTINGS, dados.config); await G.salvarConfig(config); }
     jogos = await G.carregarJogos();
     render(); atualizarFiltros();
-    $('#backup-status').textContent = 'Restaurado. Agora: ' + jogos.length + ' jogos.';
-    toast('Backup restaurado.');
+    input.value = ''; // permite reimportar o mesmo arquivo
+    toast('Backup restaurado (' + jogos.length + ' jogos).');
   }
 
   /* =========================================================================
@@ -853,9 +955,17 @@
 
     $('#ed-salvar').addEventListener('click', salvarEdicao);
     $('#ed-revalidar').addEventListener('click', revalidarSteam);
-    $('#ed-hltb').addEventListener('click', function () {
-      const nome = $('#ed-nome').value.trim();
-      window.open('https://howlongtobeat.com/?q=' + encodeURIComponent(nome), '_blank', 'noopener');
+    $('#ed-hltb').addEventListener('click', async function () {
+      const nome = $('#ed-nome').value.trim(); if (!nome) return;
+      toast('Consultando HowLongToBeat…');
+      const r = await pedir({ tipo: 'hltb', nome: nome });
+      if (r && r.ok && r.horas != null) {
+        $('#ed-tempo').value = r.horas;
+        toast('Tempo para zerar: ' + r.horas + 'h (HowLongToBeat).');
+      } else {
+        window.open('https://howlongtobeat.com/?q=' + encodeURIComponent(nome), '_blank', 'noopener');
+        toast('Não achei automático — abri o site para você conferir.', true);
+      }
     });
     $('#ed-google-img').addEventListener('click', function () {
       const nome = $('#ed-nome').value.trim();

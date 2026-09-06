@@ -196,6 +196,93 @@ async function validarUrl(url) {
   };
 }
 
+/* ---- HowLongToBeat (tempo para zerar) --------------------------------- *
+ * Replica a técnica do howlongtobeatpy: pega a chave da API no bundle JS do
+ * site e faz o POST de busca. Como o worker tem host_permissions <all_urls>,
+ * consegue ler a resposta (cross-origin). Melhor esforço — se a HLTB mudar o
+ * formato, cai para erro claro e o usuário usa o script Python.                */
+let HLTB_CACHE = { endpoint: null, key: null, quando: 0 };
+
+function extrairChaveHltb(js) {
+  // padrão: fetch("/api/<endpoint>/".concat("A","B",...))  → key = A+B+...
+  let m = js.match(/\/api\/([a-z]+)\/"\.concat\(((?:\s*"[^"]*"\s*,?)+)\)/i);
+  if (m) {
+    const partes = (m[2].match(/"([^"]*)"/g) || []).map(function (s) { return s.slice(1, -1); });
+    return { endpoint: m[1], key: partes.join('') };
+  }
+  // padrão alternativo: "/api/<endpoint>/" seguido de uma constante string longa
+  m = js.match(/\/api\/([a-z]+)\/"\s*\+\s*"([a-zA-Z0-9]{6,})"/);
+  if (m) return { endpoint: m[1], key: m[2] };
+  return null;
+}
+
+async function hltbChave() {
+  if (HLTB_CACHE.key && (Date.now() - HLTB_CACHE.quando) < 3600000) return HLTB_CACHE;
+  const home = await fetch('https://howlongtobeat.com/', {
+    headers: { 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' }
+  });
+  const html = await home.text();
+  const scripts = (html.match(/\/_next\/static\/chunks\/[^"']+\.js/g) || []);
+  // prioriza o bundle _app (onde costuma estar a chave)
+  scripts.sort(function (a, b) { return (b.indexOf('_app') >= 0 ? 1 : 0) - (a.indexOf('_app') >= 0 ? 1 : 0); });
+  const vistos = {};
+  for (var i = 0; i < scripts.length && i < 8; i++) {
+    if (vistos[scripts[i]]) continue; vistos[scripts[i]] = 1;
+    try {
+      const js = await (await fetch('https://howlongtobeat.com' + scripts[i])).text();
+      const c = extrairChaveHltb(js);
+      if (c) { HLTB_CACHE = { endpoint: c.endpoint, key: c.key, quando: Date.now() }; return HLTB_CACHE; }
+    } catch (e) { /* tenta o próximo */ }
+  }
+  return null;
+}
+
+async function buscarHLTB(nome) {
+  nome = (nome || '').trim();
+  if (!nome) return { ok: false, erro: 'vazio' };
+  const chave = await hltbChave();
+  if (!chave) return { ok: false, erro: 'chave', msg: 'Não consegui a chave da HowLongToBeat.' };
+  const termos = nome.split(/\s+/).filter(Boolean);
+  const payload = {
+    searchType: 'games', searchTerms: termos, searchPage: 1, size: 20,
+    searchOptions: {
+      games: { userId: 0, platform: '', sortCategory: 'popular', rangeCategory: 'main',
+        rangeTime: { min: null, max: null }, gameplay: { perspective: '', flow: '', genre: '' },
+        rangeYear: { min: '', max: '' }, modifier: '' },
+      users: { sortCategory: 'postcount' }, lists: { sortCategory: 'follows' },
+      filter: '', sort: 0, randomizer: 0
+    },
+    useCache: true
+  };
+  const urls = [
+    'https://howlongtobeat.com/api/' + chave.endpoint + '/' + chave.key,
+    'https://howlongtobeat.com/api/' + chave.endpoint
+  ];
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      const r = await fetch(urls[i], {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'accept': '*/*', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const dados = j.data || (j.color ? j.data : null) || [];
+      if (!dados.length) return { ok: true, horas: null, achou: false };
+      // melhor casamento por nome
+      const alvo = G.norm(nome);
+      let melhor = dados[0];
+      for (var k = 0; k < dados.length; k++) {
+        if (G.norm(dados[k].game_name || '') === alvo) { melhor = dados[k]; break; }
+      }
+      const seg = melhor.comp_main || melhor.comp_plus || melhor.comp_100 || 0;
+      const horas = seg > 0 ? Math.round((seg / 3600) * 2) / 2 : null;
+      return { ok: true, horas: horas, achou: horas != null, nome: melhor.game_name || nome };
+    } catch (e) { /* tenta a próxima URL */ }
+  }
+  return { ok: false, erro: 'busca', msg: 'HowLongToBeat não respondeu como esperado.' };
+}
+
 /* ---- Roteador de mensagens -------------------------------------------- */
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   (async function () {
@@ -206,6 +293,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       if (msg.tipo === 'steamtags') return sendResponse(await buscarSteamTags(msg.appid));
       if (msg.tipo === 'youtube') return sendResponse(await buscarYouTube(msg.url));
       if (msg.tipo === 'og') return sendResponse(await buscarOG(msg.url));
+      if (msg.tipo === 'hltb') return sendResponse(await buscarHLTB(msg.nome));
       return sendResponse({ ok: false, msg: 'tipo desconhecido' });
     } catch (e) {
       return sendResponse({ ok: false, msg: String(e && e.message || e) });
