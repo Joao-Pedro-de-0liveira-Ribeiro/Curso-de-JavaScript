@@ -46,9 +46,12 @@
   /* =========================================================================
    * INICIALIZAÇÃO
    * ======================================================================= */
+  let temposSalvos = [];       // lista de tempos importada, persistida
+
   async function init() {
     config = await G.carregarConfig();
     jogos = await G.carregarJogos();
+    temposSalvos = await new Promise(function (r) { chrome.storage.local.get('gjf_tempos', function (o) { r((o && o.gjf_tempos) || []); }); });
     construirFiltros();
     construirVisoes();
     construirSelectsModal();
@@ -739,6 +742,8 @@
           resumoPorOrigem(importParsed.porOrigem) + ').';
         toast('Importados: ' + res.criados + ' — validando e buscando capas…');
         await enriquecerTudo(); // Steam/tags/capas — NÃO busca tempo p/ todos
+        const nt = aplicarTemposSalvos(); // reaplica sua lista de tempos, se já importada
+        if (nt) toast('⏱ ' + nt + ' tempos preenchidos pela sua lista.');
       }
     } finally {
       $('#btn-fazer-import').disabled = false;
@@ -774,7 +779,7 @@
   }
 
   /* ---- lista de tempos "Nome - Xh" ---- */
-  function chaveNome(s) { return norm(s).replace(/[^a-z0-9]+/g, ''); }
+  const chaveNome = G.chaveTempoLista;
   function parseTempos(txt) {
     const out = [];
     (txt || '').split(/\r?\n/).forEach(function (linha) {
@@ -783,12 +788,33 @@
     });
     return out;
   }
+  // procura o tempo de UM nome na lista salva (exato + aproximado). null se não achar.
+  function tempoDaLista(nome) { return G.casarTempo(nome, temposSalvos); }
+
   function aplicarTempos(tempos) {
-    const mapa = {};
-    (tempos || []).forEach(function (t) { mapa[chaveNome(t.nome)] = t.horas; });
+    if (!tempos || !tempos.length) return 0;
+    const entradas = tempos.map(function (t) { return { k: chaveNome(t.nome), h: t.horas }; })
+      .filter(function (e) { return e.k.length >= 3; });
+    // guarda a lista para reaplicar em importações futuras e casar jogos novos
+    temposSalvos = entradas;
+    chrome.storage.local.set({ gjf_tempos: entradas });
     let n = 0;
     jogos.forEach(function (j) {
-      const h = mapa[chaveNome(j.nome)];
+      if (!j.nome) return;
+      const h = tempoDaLista(j.nome);
+      if (h != null) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
+    });
+    if (n) { G.salvarJogos(jogos); render(); atualizarFiltros(); }
+    return n;
+  }
+
+  // reaplica a lista JÁ salva aos jogos que ainda não têm tempo (usado após importar)
+  function aplicarTemposSalvos() {
+    if (!temposSalvos.length) return 0;
+    let n = 0;
+    jogos.forEach(function (j) {
+      if (j.tempo_para_zerar != null || !j.nome) return;
+      const h = tempoDaLista(j.nome);
       if (h != null) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
     });
     if (n) { G.salvarJogos(jogos); render(); atualizarFiltros(); }
@@ -803,27 +829,42 @@
     revalidandoPrecos = false; // evita bater na Steam em paralelo
     errosImport = [];
     $('#imp-erros').hidden = true;
-    await enriquecerSteam();
+    await enriquecerSteamCompleto();
     if (!enriquecendo && errosImport.some(function (e) { return e.bloqueio; })) { mostrarErros(); return; }
-    await enriquecerTagsSteam();
     await enriquecerCapas();
     // NÃO busca tempo (HLTB) para todos — isso só acontece ao favoritar um jogo novo
     // ou pelo botão do card. Para preencher em massa, use a lista de tempos ou o Python.
     mostrarErros();
   }
 
-  // Consulta o tempo (Main Story) de UM jogo no HowLongToBeat e salva.
-  // Usado só ao FAVORITAR/adicionar um jogo novo (não roda para todos).
+  // Enriquece SÓ um jogo novo: tags populares da Steam + tempo (HLTB).
+  // Usado ao FAVORITAR/adicionar um jogo novo (não roda para todos).
   async function buscarTempoNovo(id) {
     const j = jogos.find(function (x) { return x.id === id; });
-    if (!j || j.tempo_para_zerar != null || !j.nome) return;
-    const r = await pedir({ tipo: 'hltb', nome: j.nome });
-    if (r && r.ok && r.horas != null) {
-      j.tempo_para_zerar = r.horas;
-      j.hltb_check = true;
-      await G.salvarJogos(jogos);
-      render();
+    if (!j) return;
+    // tags da Steam (marcadores + categorias)
+    if (j.steam_appid && !j.steam_tags_ok) {
+      const rt = await pedir({ tipo: 'steamtags', appid: j.steam_appid });
+      if (rt && rt.ok && rt.tags) {
+        const m = G.mapearTagsSteam(rt.tags);
+        j.genero = G.uniao(j.genero, m.genero);
+        j.estilo_visual = G.uniao(j.estilo_visual, m.estilo_visual);
+        j.vibe = G.uniao(j.vibe, m.vibe);
+        j.marcadores = G.uniao(j.marcadores, rt.tags);
+        j.steam_tags_ok = true;
+      }
     }
+    // tempo: primeiro tenta a SUA lista salva; senão HowLongToBeat
+    if (j.tempo_para_zerar == null && j.nome) {
+      const daLista = tempoDaLista(j.nome);
+      if (daLista != null) { j.tempo_para_zerar = daLista; j.hltb_check = true; }
+      else {
+        const r = await pedir({ tipo: 'hltb', nome: j.nome });
+        if (r && r.ok && r.horas != null) { j.tempo_para_zerar = r.horas; j.hltb_check = true; }
+      }
+    }
+    await G.salvarJogos(jogos);
+    render(); atualizarFiltros();
   }
 
   function mostrarErros() {
@@ -875,51 +916,49 @@
     enriquecendo = false;
   }
 
-  // 1) Validação Steam (appdetails): nome, capa, preço, GÊNERO e — autoritativo —
-  //    se já lançou / ano / data de lançamento (coming_soon da Steam).
-  async function enriquecerSteam() {
-    const alvos = jogos.filter(function (j) { return j.steam_appid && !j.edited_manually && !j.steam_validado; });
+  // Validação Steam COMPLETA por jogo: appdetails (nome, capa, preço, gênero,
+  // lançamento) + tags populares da loja (marcadores/pixel/retrô) NA MESMA
+  // passada — assim os jogos processados antes de um bloqueio saem completos
+  // (com tags), em vez de todos validarem e nenhum receber tags.
+  async function enriquecerSteamCompleto() {
+    const alvos = jogos.filter(function (j) { return j.steam_appid && !j.edited_manually && (!j.steam_validado || !j.steam_tags_ok); });
     await processarLote(alvos, async function (j) {
-      const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
-      if (r && r.ok) {
-        const p = G.dadosParaPatch(r.dados);
-        if (p.nome) j.nome = p.nome;                       // nome oficial da Steam
-        if (p.capa_url && !j.capa_url) j.capa_url = p.capa_url;
-        if (p.preco_atual != null) j.preco_atual = p.preco_atual;
-        if (p.desconto_pct != null) j.desconto_pct = p.desconto_pct;
-        if (p.status_lancamento) j.status_lancamento = p.status_lancamento; // autoritativo
-        if (p.ano_alvo) j.ano_alvo = p.ano_alvo;
-        if (p.data_prevista) j.data_prevista = p.data_prevista;
-        if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
-        j.steam_validado = true;
-        j.preco_check = new Date().toISOString();
-        return 'ok';
+      // 1) appdetails
+      if (!j.steam_validado) {
+        const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
+        if (r && r.erro === 'rate') return 'rate';
+        if (r && r.ok) {
+          const p = G.dadosParaPatch(r.dados);
+          if (p.nome) j.nome = p.nome;
+          if (p.capa_url && !j.capa_url) j.capa_url = p.capa_url;
+          if (p.preco_atual != null) j.preco_atual = p.preco_atual;
+          if (p.desconto_pct != null) j.desconto_pct = p.desconto_pct;
+          if (p.status_lancamento) j.status_lancamento = p.status_lancamento;
+          if (p.ano_alvo) j.ano_alvo = p.ano_alvo;
+          if (p.data_prevista) j.data_prevista = p.data_prevista;
+          if (p.genero && p.genero.length) j.genero = G.uniao(j.genero, p.genero);
+          j.steam_validado = true; j.preco_check = new Date().toISOString();
+        } else {
+          j.steam_validado = true;
+          errosImport.push({ nome: j.nome || '(sem nome)', etapa: 'Steam', motivo: (r && r.msg) || 'não validou' });
+        }
+        await dorme(600); // respiro entre as 2 chamadas do mesmo jogo
       }
-      if (r && r.erro === 'rate') return 'rate';
-      j.steam_validado = true; // erro definitivo: não repete
-      return { res: 'skip', motivo: (r && r.msg) || 'não validou na Steam' };
-    }, 'Validando Steam');
-  }
-
-  // 2) Tags populares da Steam → estilo (pixel!), vibe (retrô…), gênero extra.
-  async function enriquecerTagsSteam() {
-    const alvos = jogos.filter(function (j) { return j.steam_appid && !j.edited_manually && !j.steam_tags_ok; });
-    await processarLote(alvos, async function (j) {
-      const r = await pedir({ tipo: 'steamtags', appid: j.steam_appid });
-      if (r && r.ok) {
-        const m = G.mapearTagsSteam(r.tags);
-        j.genero = G.uniao(j.genero, m.genero);
-        j.estilo_visual = G.uniao(j.estilo_visual, m.estilo_visual);
-        j.vibe = G.uniao(j.vibe, m.vibe);
-        // guarda TODOS os "Marcadores populares" crus (dedup) — validando o que já existe
-        j.marcadores = G.uniao(j.marcadores, r.tags);
+      // 2) tags da loja (marcadores)
+      if (!j.steam_tags_ok) {
+        const rt = await pedir({ tipo: 'steamtags', appid: j.steam_appid });
+        if (rt && rt.erro === 'rate') return 'rate'; // reprocessa o item (só as tags faltam)
+        if (rt && rt.ok) {
+          const m = G.mapearTagsSteam(rt.tags);
+          j.genero = G.uniao(j.genero, m.genero);
+          j.estilo_visual = G.uniao(j.estilo_visual, m.estilo_visual);
+          j.vibe = G.uniao(j.vibe, m.vibe);
+          j.marcadores = G.uniao(j.marcadores, rt.tags);
+        }
         j.steam_tags_ok = true;
-        return 'ok';
       }
-      if (r && r.erro === 'rate') return 'rate';
-      j.steam_tags_ok = true;
-      return 'skip';
-    }, 'Buscando estilo/tags');
+      return 'ok';
+    }, 'Validando Steam (dados + tags)', 1500);
   }
 
   // 3) Capas das OUTRAS fontes: YouTube (playlist via oEmbed), itch, Nintendo,
@@ -1022,6 +1061,10 @@
     $('#ed-revalidar').addEventListener('click', revalidarSteam);
     $('#ed-hltb').addEventListener('click', async function () {
       const nome = $('#ed-nome').value.trim(); if (!nome) return;
+      // 1) sua lista salva (instantâneo)
+      const daLista = tempoDaLista(nome);
+      if (daLista != null) { $('#ed-tempo').value = daLista; return toast('⏱ ' + daLista + 'h (da sua lista).'); }
+      // 2) HowLongToBeat
       toast('Consultando HowLongToBeat…');
       const r = await pedir({ tipo: 'hltb', nome: nome });
       if (r && r.ok && r.horas != null) {
@@ -1045,8 +1088,11 @@
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
     $('#btn-aplicar-tempos').addEventListener('click', function () {
-      const n = aplicarTempos(parseTempos($('#tempos-txt').value));
-      toast(n ? ('⏱ Tempos aplicados a ' + n + ' jogos.') : 'Nenhum jogo casou com a lista.', !n);
+      const lista = parseTempos($('#tempos-txt').value);
+      if (!lista.length) { return toast('Cole a lista no campo (ou selecione o arquivo .txt acima).', true); }
+      const n = aplicarTempos(lista);
+      toast(n ? ('⏱ Tempos aplicados a ' + n + ' de ' + lista.length + '.') :
+        'Nenhum jogo casou. Importe os jogos primeiro (o nome precisa bater).', !n);
     });
     $('#imp-cancelar').addEventListener('click', function () { enriquecendo = false; });
 

@@ -150,14 +150,18 @@ async function buscarSteamTags(appid) {
   if (resp.status === 403 || resp.status === 429) return { ok: false, erro: 'rate' };
   if (!resp.ok) return { ok: false, erro: 'http' };
   const html = await resp.text();
-  let nomes = [];
-  const m = html.match(/InitAppTagModal\(\s*\d+\s*,\s*(\[[^\]]*\])/);
-  if (m) { try { nomes = JSON.parse(m[1]).map(function (t) { return t.name; }); } catch (e) { /* ignore */ } }
+  const nomes = [];
+  const visto = {};
+  const add = function (nm) { const t = (nm || '').trim(); if (t && !visto[t]) { visto[t] = 1; nomes.push(t); } };
+  // 1) pega TODOS os {"tagid":N,"name":"..."} da página (decodifica \uXXXX)
+  let mm; const re = /"tagid":\s*\d+\s*,\s*"name":\s*"((?:[^"\\]|\\.)*)"/g;
+  while ((mm = re.exec(html))) { try { add(JSON.parse('"' + mm[1] + '"')); } catch (e) { add(mm[1]); } }
+  // 2) fallback: as tags visíveis <a class="app_tag">Nome</a>
   if (!nomes.length) {
-    const re = /class="app_tag"[^>]*>\s*([^<]+?)\s*</g;
-    let mm; while ((mm = re.exec(html))) nomes.push(mm[1].trim());
+    const re2 = /class="app_tag"[^>]*>\s*([^<]+?)\s*</g;
+    while ((mm = re2.exec(html))) add(decodeHtml(mm[1]));
   }
-  return { ok: true, tags: nomes.filter(Boolean).slice(0, 25) };
+  return { ok: true, tags: nomes.slice(0, 25) };
 }
 
 function decodeHtml(s) {
@@ -322,14 +326,28 @@ chrome.contextMenus.onClicked.addListener(async function (info, tab) {
   const r = await validarUrl(url);
   const patch = G.dadosParaPatch(r.dados || { url_origem: url, origem: G.detectarOrigem(url) });
   const res = await G.upsertJogo(patch);
-  // jogo NOVO sem tempo → consulta o HowLongToBeat (só o jogo novo)
-  if (res.criado && res.jogo && res.jogo.tempo_para_zerar == null && res.jogo.nome) {
+  // jogo NOVO → tags da Steam + tempo (HLTB), só desse jogo
+  if (res.criado && res.jogo) {
     try {
-      const h = await buscarHLTB(res.jogo.nome);
-      if (h && h.ok && h.horas != null) {
-        const lista = await G.carregarJogos();
-        const g = lista.find(function (x) { return x.id === res.jogo.id; });
-        if (g) { g.tempo_para_zerar = h.horas; g.hltb_check = true; await G.salvarJogos(lista); }
+      const lista = await G.carregarJogos();
+      const g = lista.find(function (x) { return x.id === res.jogo.id; });
+      if (g) {
+        if (g.steam_appid) {
+          const rt = await buscarSteamTags(g.steam_appid);
+          if (rt && rt.ok && rt.tags) {
+            const m = G.mapearTagsSteam(rt.tags);
+            g.genero = G.uniao(g.genero, m.genero);
+            g.estilo_visual = G.uniao(g.estilo_visual, m.estilo_visual);
+            g.vibe = G.uniao(g.vibe, m.vibe);
+            g.marcadores = G.uniao(g.marcadores, rt.tags);
+            g.steam_tags_ok = true;
+          }
+        }
+        if (g.tempo_para_zerar == null && g.nome) {
+          const h = await buscarHLTB(g.nome);
+          if (h && h.ok && h.horas != null) { g.tempo_para_zerar = h.horas; g.hltb_check = true; }
+        }
+        await G.salvarJogos(lista);
       }
     } catch (e) { /* ignora */ }
   }

@@ -249,6 +249,32 @@
     ritmo: ['genero', 'ritmo'], rhythm: ['genero', 'ritmo'], historia: ['genero', 'historia'],
     'rich story': ['genero', 'historia'], 'narracao rica': ['genero', 'historia']
   };
+  /* ----------------------------------------------------------------------- *
+   * Casamento de nomes para a lista de tempos "Nome - Xh"
+   * ----------------------------------------------------------------------- */
+  function chaveTempoLista(s) { return norm(s).replace(/[^a-z0-9]+/g, ''); }
+  function chaveTempoJogo(s) {
+    return norm(s)
+      .replace(/\b(no|na|on)\s+steam\b/g, ' ')
+      .replace(/\bgoogle\s+play\b|\bnintendo\b|\bitch\.io\b/g, ' ')
+      .replace(/youtube|gameplay|walkthrough|detonado|trailer|playthrough|lets?\s*play|full\s*game|completo/g, ' ')
+      .replace(/#\d+/g, ' ')
+      .replace(/[^a-z0-9]+/g, '');
+  }
+  // lista = [{k, h}] (k = chaveTempoLista do nome). Retorna horas ou null.
+  function casarTempo(nome, lista) {
+    if (!nome || !lista || !lista.length) return null;
+    const gk = chaveTempoJogo(nome);
+    for (var i = 0; i < lista.length; i++) { if (lista[i].k === gk) return lista[i].h; }
+    if (gk.length >= 4) {
+      for (var j = 0; j < lista.length; j++) {
+        const ek = lista[j].k;
+        if (ek && ek.length >= 4 && (gk.indexOf(ek) >= 0 || ek.indexOf(gk) >= 0)) return lista[j].h;
+      }
+    }
+    return null;
+  }
+
   // recebe nomes de tags e devolve { genero:[], estilo_visual:[], vibe:[] }
   function mapearTagsSteam(nomes) {
     const out = { genero: [], estilo_visual: [], vibe: [] };
@@ -508,7 +534,7 @@
     uuid, norm, toArray, uniao,
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,
-    parseDataSteam, mapearTagsSteam,
+    parseDataSteam, mapearTagsSteam, chaveTempoLista, chaveTempoJogo, casarTempo,
     mapearGenerosSteam, dadosParaPatch,
     novoJogo, normalizarJogo, ehZeraRapido, statusEfetivo, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo

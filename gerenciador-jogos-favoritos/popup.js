@@ -292,9 +292,9 @@
       el.favoritar.textContent = 'Editar no gerenciador →';
       el.favoritar.disabled = false;
       el.favoritar.onclick = function () { abrirGerenciador(res.jogo.id); };
-      // jogo NOVO sem tempo → consulta o HowLongToBeat só desse jogo
-      if (res.criado && res.jogo && res.jogo.tempo_para_zerar == null && res.jogo.nome) {
-        buscarTempoNovoPopup(res.jogo.id, res.jogo.nome);
+      // jogo NOVO → busca tags da Steam e tempo (HLTB) só desse jogo
+      if (res.criado && res.jogo) {
+        enriquecerJogoNovo(res.jogo.id, res.jogo.nome, res.jogo.steam_appid);
       }
     } catch (e) {
       mostrarMsg('Erro ao salvar: ' + e.message, 'err', false);
@@ -302,14 +302,39 @@
     }
   }
 
-  // consulta o tempo (Main Story) do jogo recém-favoritado e salva
-  async function buscarTempoNovoPopup(id, nome) {
-    const r = await pedir({ tipo: 'hltb', nome: nome });
-    if (!r || !r.ok || r.horas == null) return;
-    const lista = await G.carregarJogos();
-    const g = lista.find(function (x) { return x.id === id; });
-    if (g && g.tempo_para_zerar == null) { g.tempo_para_zerar = r.horas; g.hltb_check = true; await G.salvarJogos(lista); }
-    mostrarMsg('⏱ Tempo para zerar: ' + r.horas + 'h', 'ok', true);
+  // enriquece SÓ o jogo recém-favoritado: tags populares da Steam + tempo (HLTB)
+  async function enriquecerJogoNovo(id, nome, appid) {
+    let mudou = false, tempo = null;
+    // tags da Steam (marcadores + gênero/estilo/vibe)
+    if (appid) {
+      const rt = await pedir({ tipo: 'steamtags', appid: appid });
+      if (rt && rt.ok && rt.tags && rt.tags.length) {
+        const lista = await G.carregarJogos();
+        const g = lista.find(function (x) { return x.id === id; });
+        if (g) {
+          const m = G.mapearTagsSteam(rt.tags);
+          g.genero = G.uniao(g.genero, m.genero);
+          g.estilo_visual = G.uniao(g.estilo_visual, m.estilo_visual);
+          g.vibe = G.uniao(g.vibe, m.vibe);
+          g.marcadores = G.uniao(g.marcadores, rt.tags);
+          g.steam_tags_ok = true;
+          await G.salvarJogos(lista); mudou = true;
+        }
+      }
+    }
+    // tempo: primeiro a SUA lista salva; senão HowLongToBeat
+    if (nome) {
+      const salva = await new Promise(function (r) { chrome.storage.local.get('gjf_tempos', function (o) { r((o && o.gjf_tempos) || []); }); });
+      let horas = G.casarTempo(nome, salva);
+      if (horas == null) { const rh = await pedir({ tipo: 'hltb', nome: nome }); if (rh && rh.ok) horas = rh.horas; }
+      if (horas != null) {
+        const lista = await G.carregarJogos();
+        const g = lista.find(function (x) { return x.id === id; });
+        if (g && g.tempo_para_zerar == null) { g.tempo_para_zerar = horas; g.hltb_check = true; await G.salvarJogos(lista); tempo = horas; mudou = true; }
+      }
+    }
+    if (tempo != null) mostrarMsg('⏱ Tempo: ' + tempo + 'h · tags da Steam adicionadas', 'ok', true);
+    else if (mudou) mostrarMsg('✓ Tags da Steam adicionadas', 'ok', true);
   }
 
   async function salvarLead() {
