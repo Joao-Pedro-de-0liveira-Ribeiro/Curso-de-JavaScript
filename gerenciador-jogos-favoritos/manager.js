@@ -996,15 +996,59 @@
   /* =========================================================================
    * BACKUP (JSON)
    * ======================================================================= */
-  function exportarJson() {
-    const dados = { versao: 1, exportadoEm: new Date().toISOString(), config: config, jogos: jogos };
-    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+  // baixa um conteúdo como arquivo
+  function baixarArquivo(conteudo, nomeArq, mime) {
+    const blob = new Blob([conteudo], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'jogos-favoritos-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.href = url; a.download = nomeArq;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    $('#backup-status').textContent = 'Exportado ' + jogos.length + ' jogos.';
+  }
+
+  function exportarJson() {
+    const dados = { versao: 1, exportadoEm: new Date().toISOString(), config: config, jogos: jogos };
+    baixarArquivo(JSON.stringify(dados, null, 2),
+      'jogos-favoritos-' + new Date().toISOString().slice(0, 10) + '.json', 'application/json');
+    $('#backup-status').textContent = 'Exportado ' + jogos.length + ' jogos (JSON).';
+  }
+
+  // monta o Markdown: todos os jogos por nome + tempo (undefined quando não há)
+  function montarMd() {
+    const linhas = jogos.slice().sort(function (a, b) {
+      return (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' });
+    });
+    let comTempo = 0;
+    const corpo = linhas.map(function (j) {
+      const nome = (j.nome || '(sem nome)').trim();
+      const t = (j.tempo_para_zerar == null || j.tempo_para_zerar === '') ? 'undefined' : (j.tempo_para_zerar + 'h');
+      if (t !== 'undefined') comTempo++;
+      return '| ' + nome.replace(/\|/g, '\\|') + ' | ' + t + ' |';
+    }).join('\n');
+    const cab = '# Jogos favoritos — tempo para zerar\n\n' +
+      '_' + linhas.length + ' jogos · ' + comTempo + ' com tempo · ' +
+      (linhas.length - comTempo) + ' sem tempo (undefined) · gerado em ' +
+      new Date().toISOString().slice(0, 10) + '_\n\n' +
+      '| Jogo | Tempo (Main Story) |\n|---|---|\n';
+    return { md: cab + corpo + '\n', total: linhas.length, comTempo: comTempo };
+  }
+
+  function exportarMd() {
+    const r = montarMd();
+    baixarArquivo(r.md, 'jogos-favoritos-' + new Date().toISOString().slice(0, 10) + '.md', 'text/markdown');
+    $('#backup-status').textContent = 'Exportado MD: ' + r.total + ' jogos (' + r.comTempo + ' com tempo, ' +
+      (r.total - r.comTempo) + ' undefined).';
+  }
+
+  function exportarTudo() {
+    exportarJson();
+    // pequeno atraso para não disparar dois downloads no mesmo tick (alguns navegadores bloqueiam)
+    setTimeout(exportarMd, 350);
+    setTimeout(function () {
+      const r = montarMd();
+      $('#backup-status').textContent = 'Exportados JSON + MD (' + jogos.length + ' jogos, ' +
+        (r.total - r.comTempo) + ' sem tempo).';
+    }, 700);
   }
 
   async function restaurarJson(e) {
@@ -1117,6 +1161,8 @@
 
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });
     $('#btn-exportar-json').addEventListener('click', exportarJson);
+    $('#btn-exportar-md').addEventListener('click', exportarMd);
+    $('#btn-exportar-tudo').addEventListener('click', exportarTudo);
     $('#arquivo-json').addEventListener('change', restaurarJson);
 
     $('#btn-config').addEventListener('click', abrirConfig);

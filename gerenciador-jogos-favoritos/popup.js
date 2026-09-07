@@ -100,6 +100,14 @@
         const scan = tab.id ? await escanearAba(tab.id) : {};
         return aplicar(montarDeScan(url, scan));
       }
+      // rede da Steam bloqueada e ainda sem nome → usa o título da aba atual
+      // (o usuário está NA página do jogo), pra nunca favoritar "(sem nome)"
+      if (appid && r && r.dados && !r.dados.nome && tab.id) {
+        const scan = await escanearAba(tab.id);
+        const nm = (scan.ogTitle || tab.title || '').replace(/\s+(on|na)\s+Steam\s*$/i, '').trim();
+        if (nm) r.dados.nome = nm;
+        if (!r.dados.capa_url && scan.ogImage) r.dados.capa_url = scan.ogImage;
+      }
       return aplicar(r);
     }
 

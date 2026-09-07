@@ -161,7 +161,19 @@ async function buscarSteamTags(appid) {
     const re2 = /class="app_tag"[^>]*>\s*([^<]+?)\s*</g;
     while ((mm = re2.exec(html))) add(decodeHtml(mm[1]));
   }
-  return { ok: true, tags: nomes.slice(0, 25) };
+  return { ok: true, tags: nomes.slice(0, 25), nome: nomeSteamDoHtml(html) };
+}
+
+// extrai o NOME do jogo do HTML da página da loja (não depende da API appdetails,
+// que é a que sofre bloqueio 403/429). Usado como fallback ao favoritar.
+function nomeSteamDoHtml(html) {
+  let m = html.match(/<div[^>]*class="[^"]*apphub_AppName[^"]*"[^>]*>\s*([^<]+?)\s*</i);
+  if (m) return decodeHtml(m[1]).trim();
+  m = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+  if (m) return decodeHtml(m[1]).trim();
+  m = html.match(/<title>\s*([^<]+?)\s*<\/title>/i);
+  if (m) return decodeHtml(m[1]).replace(/\s+(on|na)\s+Steam\s*$/i, '').trim();
+  return '';
 }
 
 function decodeHtml(s) {
@@ -178,11 +190,17 @@ async function validarUrl(url) {
   if (appid) {
     const r = await buscarSteam(appid);
     if (r.ok) { r.dados.url_origem = url; return r; }
-    // Steam falhou mas ainda é um link Steam válido → esqueleto manual
-    return {
-      ok: false, parcial: true, msg: r.msg,
-      dados: { origem: 'steam', url_origem: url, steam_appid: appid }
+    // API appdetails falhou (403/429/rede). Tenta o NOME + tags pela página da
+    // loja (fetch normal, não é a API bloqueada) e monta um dado utilizável.
+    let nome = '', tags = null;
+    try { const p = await buscarSteamTags(appid); if (p && p.ok) { nome = p.nome || ''; tags = p.tags || null; } } catch (e) { /* ignora */ }
+    const dados = {
+      origem: 'steam', url_origem: url, steam_appid: appid,
+      capa_url: G.capaSteam(appid) // capa determinística, não depende de API
     };
+    if (nome) dados.nome = nome;
+    if (tags) dados.marcadores = tags;
+    return { ok: !!nome, parcial: !nome, msg: nome ? undefined : r.msg, dados: dados };
   }
   if (G.ehYouTube(url)) {
     const r = await buscarYouTube(url);

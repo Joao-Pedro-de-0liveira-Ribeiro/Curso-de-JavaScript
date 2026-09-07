@@ -252,6 +252,12 @@
       <div class="modal-corpo">
         <p class="muted">Seus dados ficam só no navegador. Exporte um JSON para levar de máquina, ou restaure um backup.</p>
         <button id="btn-exportar-json" class="btn full">⬇ Exportar tudo (JSON)</button>
+        <button id="btn-exportar-md" class="btn ghost full" style="margin-top:8px">⬇ Exportar lista (Markdown · nome + tempo)</button>
+        <button id="btn-exportar-tudo" class="btn ghost full" style="margin-top:8px">⬇ Exportar os dois de uma vez (JSON + MD)</button>
+        <p class="muted pequeno" style="margin:6px 0 0">
+          O Markdown lista <strong>todos os jogos por nome e tempo para zerar</strong>. Jogos sem
+          tempo cadastrado aparecem como <code>undefined</code>.
+        </p>
         <label class="rot" style="margin-top:14px">Restaurar de um JSON</label>
         <input id="arquivo-json" type="file" accept=".json" class="input">
         <label class="check-linha" style="margin-top:8px">
