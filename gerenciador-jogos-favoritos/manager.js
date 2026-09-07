@@ -15,7 +15,6 @@
   let importParsed = null;     // patches vindos do .html
   let importTipo = null;       // 'html' | 'json' | 'txt'
   let importJson = null;       // dados do backup .json selecionado
-  let importTempos = null;     // lista de tempos do .txt selecionado
   let enriquecendo = false;
   let revalidandoPrecos = false;
 
@@ -141,7 +140,7 @@
     Object.keys(mapa).forEach(function (k) {
       const el = document.createElement('span');
       el.className = 'chip';
-      el.textContent = lbl(mapa, k);
+      el.textContent = (chave === 'marcador') ? (G.iconeTag(k) + ' ' + (mapa[k] || k)) : lbl(mapa, k);
       el.dataset.k = k;
       el.addEventListener('click', function () {
         const set = filtros[chave];
@@ -384,7 +383,7 @@
     j.estilo_visual.forEach(function (e) { jaNorm[norm(rotulo(G.ESTILOS, e))] = true; });
     j.vibe.forEach(function (v) { jaNorm[norm(rotulo(G.VIBES, v))] = true; });
     const marc = (j.marcadores || []).filter(function (m) { return !jaNorm[norm(m)]; });
-    const marcHtml = marc.slice(0, 12).map(function (m) { return '<span class="tag tag-marcador">' + esc(m) + '</span>'; }).join('');
+    const marcHtml = marc.slice(0, 12).map(function (m) { return '<span class="tag tag-marcador">' + G.iconeTag(m) + ' ' + esc(m) + '</span>'; }).join('');
 
     const capa = j.capa_url
       ? '<img class="card-capa" src="' + esc(j.capa_url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
@@ -661,36 +660,19 @@
     let txt;
     try { txt = await lerArquivo(f); } catch (err) { return toast('Erro ao ler o arquivo.', true); }
     const prev = $('#imp-previa');
-    importParsed = importJson = importTempos = null; importTipo = null;
+    importParsed = importJson = null; importTipo = null;
     const nome = (f.name || '').toLowerCase();
     const ehJson = nome.endsWith('.json') || /^\s*[\[{]/.test(txt);
-    const ehTxt = !ehJson && (nome.endsWith('.txt') ||
-      (!nome.endsWith('.html') && !nome.endsWith('.htm') && /[-–—:]\s*\d+([.,]\d+)?\s*h\b/i.test(txt)));
 
     if (ehJson) {
       let d;
       try { d = JSON.parse(txt); } catch (err) { $('#btn-fazer-import').disabled = true; return toast('JSON inválido.', true); }
-      // JSON de TEMPOS (nome + horas) → casa por NOME e preenche o tempo
-      if (G.ehTemposJson(d)) {
-        importTempos = G.extrairTemposDeJson(d); importTipo = 'json-tempos';
-        prev.innerHTML = '<strong>⏱ Tempos (JSON)</strong> — ' + importTempos.length +
-          ' jogos. Clique em <strong>Importar</strong> para casar por <strong>nome</strong> e preencher o tempo dos jogos existentes (e guardar para os próximos).';
-        prev.hidden = false;
-        $('#btn-fazer-import').disabled = importTempos.length === 0;
-        return;
-      }
       const lista = Array.isArray(d) ? d : (d.jogos || []);
       importJson = d; importTipo = 'json';
-      prev.innerHTML = '<strong>📦 Backup JSON</strong> — ' + lista.length + ' jogos. Clique em <strong>Importar</strong> para mesclar (o backup atualiza os existentes).';
+      const rotulo = d.pendentes ? 'Tempos pendentes (JSON)' : 'Backup JSON';
+      prev.innerHTML = '<strong>📦 ' + rotulo + '</strong> — ' + lista.length + ' jogos. Clique em <strong>Importar</strong> para mesclar (atualiza os existentes pelo AppID/URL).';
       prev.hidden = false;
       $('#btn-fazer-import').disabled = lista.length === 0;
-      return;
-    }
-    if (ehTxt) {
-      importTempos = parseTempos(txt); importTipo = 'txt';
-      prev.innerHTML = '<strong>⏱ Lista de tempos</strong> — ' + importTempos.length + ' jogos. Clique em <strong>Importar</strong> para aplicar aos jogos existentes.';
-      prev.hidden = false;
-      $('#btn-fazer-import').disabled = importTempos.length === 0;
       return;
     }
     // HTML (favoritos)
@@ -753,21 +735,13 @@
     $('#btn-fazer-import').disabled = true;
     try {
       if (importTipo === 'json') { await importarJson(importJson); }
-      else if (importTipo === 'txt' || importTipo === 'json-tempos') {
-        const n = aplicarTempos(importTempos);
-        const total = (importTempos && importTempos.length) || 0;
-        $('#imp-status').textContent = 'Tempos: ' + n + ' de ' + total + ' casaram (guardados para os próximos imports).';
-        toast(n ? ('⏱ Tempos aplicados a ' + n + ' de ' + total + '.') :
-          'Guardei ' + total + ' tempos. Nenhum casou ainda — importe os jogos e o tempo entra sozinho.', !n);
-      } else if (importParsed && importParsed.patches.length) {
+      else if (importParsed && importParsed.patches.length) {
         const res = await mesclarEmLote(importParsed.patches);
         render(); atualizarFiltros();
         $('#imp-status').textContent = res.criados + ' novos, ' + res.mesclados + ' já existiam (' +
           resumoPorOrigem(importParsed.porOrigem) + ').';
-        toast('Importados: ' + res.criados + ' — validando e buscando capas…');
-        await enriquecerTudo(); // Steam/tags/capas — NÃO busca tempo p/ todos
-        const nt = aplicarTemposSalvos(); // reaplica sua lista de tempos, se já importada
-        if (nt) toast('⏱ ' + nt + ' tempos preenchidos pela sua lista.');
+        toast('Importados: ' + res.criados + ' — validando tudo (capa, tags, lançamento)…');
+        await enriquecerTudo(); // valida Steam/tags/capas de uma vez — NÃO mexe no tempo
       }
     } finally {
       $('#btn-fazer-import').disabled = false;
@@ -803,39 +777,12 @@
   }
 
   /* ---- lista de tempos "Nome - Xh" ---- */
-  const chaveNome = G.chaveTempoLista;
-  function parseTempos(txt) {
-    const out = [];
-    (txt || '').split(/\r?\n/).forEach(function (linha) {
-      const m = linha.match(/^\s*(.+?)\s*[-–—:]\s*([\d]+[.,]?[\d]*)\s*h\b/i);
-      if (m) { const h = parseFloat(m[2].replace(',', '.')); if (h > 0) out.push({ nome: m[1].trim(), horas: h }); }
-    });
-    return out;
-  }
   // procura o tempo de UM nome: 1º na sua lista importada, 2º na lista EMBUTIDA
   // do projeto (tempos_dados.js). null se não achar em nenhuma.
   function tempoDaLista(nome) { return G.casarTempoTudo(nome, temposSalvos); }
 
-  function aplicarTempos(tempos) {
-    if (!tempos || !tempos.length) return 0;
-    // MESCLA na lista salva (não substitui) — os tempos novos sobrescrevem os antigos
-    const mapa = {};
-    temposSalvos.forEach(function (e) { if (e && e.k) mapa[e.k] = e.h; });
-    tempos.forEach(function (t) { const k = chaveNome(t.nome); if (k.length >= 3 && t.horas > 0) mapa[k] = t.horas; });
-    temposSalvos = Object.keys(mapa).map(function (k) { return { k: k, h: mapa[k] }; });
-    chrome.storage.local.set({ gjf_tempos: temposSalvos });
-    let n = 0;
-    jogos.forEach(function (j) {
-      if (!j.nome) return;
-      const h = tempoDaLista(j.nome);
-      if (h != null && j.tempo_para_zerar !== h) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
-    });
-    if (n) { G.salvarJogos(jogos); render(); atualizarFiltros(); }
-    return n;
-  }
-
   // preenche o tempo dos jogos que ainda não têm, usando a lista importada +
-  // a EMBUTIDA no projeto. Usado após importar e ao abrir o gerenciador.
+  // a EMBUTIDA no projeto. Usado ao abrir o gerenciador.
   function aplicarTemposSalvos() {
     let n = 0;
     jogos.forEach(function (j) {
@@ -1025,42 +972,26 @@
     $('#backup-status').textContent = 'Exportado ' + jogos.length + ' jogos (JSON).';
   }
 
-  // monta o Markdown: todos os jogos por nome + tempo (undefined quando não há)
-  function montarMd() {
-    const linhas = jogos.slice().sort(function (a, b) {
-      return (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' });
+  // Exporta SÓ os jogos já lançados e SEM tempo para zerar cadastrado.
+  // Backup-shaped (jogos: [...]) → compatível com o script Python e com
+  // "Restaurar de um JSON (Mesclar)", que casa por AppID/URL e atualiza só esses.
+  function exportarTemposPendentes() {
+    const pend = jogos.filter(function (j) {
+      const semTempo = (j.tempo_para_zerar == null || j.tempo_para_zerar === '');
+      return semTempo && G.statusEfetivo(j) === 'lancado';
     });
-    let comTempo = 0;
-    const corpo = linhas.map(function (j) {
-      const nome = (j.nome || '(sem nome)').trim();
-      const t = (j.tempo_para_zerar == null || j.tempo_para_zerar === '') ? 'undefined' : (j.tempo_para_zerar + 'h');
-      if (t !== 'undefined') comTempo++;
-      return '| ' + nome.replace(/\|/g, '\\|') + ' | ' + t + ' |';
-    }).join('\n');
-    const cab = '# Jogos favoritos — tempo para zerar\n\n' +
-      '_' + linhas.length + ' jogos · ' + comTempo + ' com tempo · ' +
-      (linhas.length - comTempo) + ' sem tempo (undefined) · gerado em ' +
-      new Date().toISOString().slice(0, 10) + '_\n\n' +
-      '| Jogo | Tempo (Main Story) |\n|---|---|\n';
-    return { md: cab + corpo + '\n', total: linhas.length, comTempo: comTempo };
-  }
-
-  function exportarMd() {
-    const r = montarMd();
-    baixarArquivo(r.md, 'jogos-favoritos-' + new Date().toISOString().slice(0, 10) + '.md', 'text/markdown');
-    $('#backup-status').textContent = 'Exportado MD: ' + r.total + ' jogos (' + r.comTempo + ' com tempo, ' +
-      (r.total - r.comTempo) + ' undefined).';
-  }
-
-  function exportarTudo() {
-    exportarJson();
-    // pequeno atraso para não disparar dois downloads no mesmo tick (alguns navegadores bloqueiam)
-    setTimeout(exportarMd, 350);
-    setTimeout(function () {
-      const r = montarMd();
-      $('#backup-status').textContent = 'Exportados JSON + MD (' + jogos.length + ' jogos, ' +
-        (r.total - r.comTempo) + ' sem tempo).';
-    }, 700);
+    if (!pend.length) {
+      $('#backup-status').textContent = 'Nenhum jogo lançado está sem tempo — nada pendente. 🎉';
+      return;
+    }
+    const dados = {
+      versao: 1, exportadoEm: new Date().toISOString(),
+      pendentes: true, tipo: 'tempos-pendentes', jogos: pend
+    };
+    baixarArquivo(JSON.stringify(dados, null, 2),
+      'tempos-pendentes-' + new Date().toISOString().slice(0, 10) + '.json', 'application/json');
+    $('#backup-status').textContent = pend.length + ' jogo(s) pendente(s) exportado(s). ' +
+      'Preencha o tempo e restaure com “Mesclar”.';
   }
 
   async function restaurarJson(e) {
@@ -1158,24 +1089,11 @@
     $('#btn-importar').addEventListener('click', function () { $('#imp-status').textContent = ''; abrirModal('#modal-importar'); });
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
-    $('#btn-aplicar-tempos').addEventListener('click', function () {
-      const lista = parseTempos($('#tempos-txt').value);
-      // caixa vazia → aplica a lista JÁ embutida no projeto aos jogos existentes
-      if (!lista.length) {
-        const nb = aplicarTemposSalvos();
-        return toast(nb ? ('⏱ ' + nb + ' jogo(s) preenchido(s) pela lista embutida do projeto.') :
-          'Todos os jogos conhecidos já têm tempo. Cole uma lista nova para adicionar mais.', !nb);
-      }
-      const n = aplicarTempos(lista);
-      toast(n ? ('⏱ Tempos aplicados a ' + n + ' de ' + lista.length + '.') :
-        'Nenhum jogo casou. Importe os jogos primeiro (o nome precisa bater).', !n);
-    });
     $('#imp-cancelar').addEventListener('click', function () { enriquecendo = false; });
 
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });
     $('#btn-exportar-json').addEventListener('click', exportarJson);
-    $('#btn-exportar-md').addEventListener('click', exportarMd);
-    $('#btn-exportar-tudo').addEventListener('click', exportarTudo);
+    $('#btn-exportar-pendentes').addEventListener('click', exportarTemposPendentes);
     $('#arquivo-json').addEventListener('change', restaurarJson);
 
     $('#btn-config').addEventListener('click', abrirConfig);

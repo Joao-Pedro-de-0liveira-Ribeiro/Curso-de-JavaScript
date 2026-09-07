@@ -90,6 +90,44 @@
     a_pesquisar: '🔎', validado: '✅', arquivado: '📦'
   };
 
+  // Ícones para os "Marcadores populares" da Steam (chaves normalizadas por norm()).
+  // Usado nas tags dos cards e nos chips do filtro de marcadores.
+  const ICONES_TAGS = {
+    'um so jogador': '👤', 'multijogador': '👥', 'co-op': '🤝', 'co-op local': '👫',
+    'cooperativo': '🤝', 'pvp': '⚔️', 'competitivo': '🏆',
+    'aventura': '🧭', 'acao': '💥', 'acao e aventura': '⚔️', 'indie': '🎨',
+    'rpg': '🐉', 'rpg de acao': '🐉', 'jrpg': '🐉', 'estrategia': '♟️', 'simulacao': '🎛️',
+    'plataformas': '🏃', 'plataformas 2d': '🏃', 'plataformas com quebra-cabecas': '🧩',
+    'plataforma de precisao': '🎯', 'metroidvania': '🗝️', 'sidescroller': '↔️',
+    'quebra-cabecas': '🧩', 'point & click': '🖱️', 'point and click': '🖱️',
+    'combate': '⚔️', 'hack & slash': '🗡️', 'hack and slash': '🗡️', 'beat \'em up': '👊',
+    'luta': '🥊', 'tiro': '🔫', 'fps': '🔫', 'shoot \'em up': '🔫', 'inferno de balas': '🌀',
+    'furtividade': '🥷', 'combate baseado em turnos': '⏳', 'dungeon crawler': '🏰',
+    'tatico': '🎯', 'jogo de cartas': '🃏', 'construcao de baralho': '🃏',
+    'roguelike': '💀', 'roguelite': '🎲', 'roguelite de acao': '🎲', 'soulslike': '⚰️',
+    'exploracao': '🧭', 'mundo aberto': '🌍', 'sobrevivencia': '🏕️', 'crafting': '🔨',
+    'construcao': '🏗️', 'sandbox': '🏖️', 'corrida': '🏎️', 'esportes': '⚽',
+    'pixels': '👾', 'pixel art': '👾', 'graficos pixelados': '👾', 'graficos em pixel': '👾',
+    '2d': '🖼️', '2,5d': '◾', '2.5d': '◾', '3d': '🧊', 'colorido': '🌈', 'estilizado': '🎨',
+    'desenhado a mao': '✏️', 'anime': '🌸', 'retro': '🕹️', 'old school': '📼', 'arcade': '🕹️',
+    'boa atmosfera': '🌫️', 'atmosferico': '🌫️', 'relaxante': '🛋️', 'fofo': '🥰',
+    'emocional': '😢', 'engracado': '😂', 'comedia': '😂', 'casual': '☕', 'para toda a familia': '👪',
+    'historia excelente': '📖', 'rico em historia': '📚', 'narrativa': '📖',
+    'novela visual': '📖', 'romance visual': '📖', 'ficcao interativa': '📖',
+    'escolhas importantes': '⚖️', 'varios finais': '🔀', 'linear': '➖', 'curto': '⏱️',
+    'protagonista feminina': '👩', 'personalizacao de personagens': '🧑‍🎨',
+    'fantasia': '🐲', 'fantasia sombria': '🦇', 'ficcao cientifica': '🚀', 'cyberpunk': '🌃',
+    'medieval': '🏰', 'mitologia': '🏛️', 'historico': '📜', 'anos 80': '📼',
+    'terror': '👻', 'terror psicologico': '🧠', 'misterio': '🔍', 'sinistro': '😈',
+    'pos-apocaliptico': '☢️', 'sombrio': '🌑', 'violento': '🩸', 'violencia explicita': '🩸',
+    'sangrento': '🩸', 'nudez': '🔞', 'conteudo sexual': '🔞',
+    'banda sonora excelente': '🎵', 'musica': '🎵', 'ritmo': '🎵', 'ritmo acelerado': '⚡',
+    'imperdivel': '⭐', 'classico': '🏅', 'dificil': '😤', 'comando': '🎮',
+    'visto de cima': '🔝', 'terceira pessoa': '🎥', 'primeira pessoa': '🙂', 'magia': '✨'
+  };
+  // ícone de um marcador (nome cru da Steam); 🏷️ como padrão
+  function iconeTag(nome) { return ICONES_TAGS[norm(nome)] || '🏷️'; }
+
   const DEFAULT_SETTINGS = {
     zeraRapidoLimite: 6,        // horas — limite para "Zera rápido"
     steamLang: 'portuguese',
@@ -598,7 +636,7 @@
   const GJF = {
     STORAGE_KEY, SETTINGS_KEY, DEFAULT_SETTINGS,
     GENEROS, ESTILOS, VIBES, INTENCOES, PRIORIDADES,
-    STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS, ICONES,
+    STATUS_LANCAMENTO, STATUS_CURADORIA, ORIGENS, ICONES, ICONES_TAGS, iconeTag,
     uuid, norm, toArray, uniao,
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,

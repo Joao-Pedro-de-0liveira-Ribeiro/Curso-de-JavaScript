@@ -62,31 +62,18 @@ HowLongToBeat ao vivo (que costuma bloquear consultas feitas pelo navegador).
 A extensão **não** consulta o tempo de todos os jogos pela internet na página principal.
 O tempo é preenchido assim:
 
-- **Ao importar (`.html`/`.json`)**: todo jogo cujo nome esteja na lista embutida já
-  recebe o tempo automaticamente — e ao abrir o gerenciador ele também backfilla os que faltam.
+- **Ao abrir o gerenciador**: todo jogo cujo nome esteja na lista embutida recebe o tempo
+  automaticamente (backfill). **A importação não mexe no tempo** — ela só valida capa, nome,
+  tags e lançamento.
 - **Ao favoritar/adicionar um jogo novo** (popup, clique-direito ou editor): a extensão
   procura o tempo **1º na lista embutida (+ a sua importada), 2º no HowLongToBeat ao vivo**, e salva.
 - **No card (editor)**: botão **⏱ HowLongToBeat** preenche o campo pela lista; se o jogo não
   estiver nela, tenta o HLTB ao vivo; se nada achar, avisa para você preencher à mão
   (não abre mais o site).
-- **Adicionar mais tempos**: na aba **⬇ Importar**, cole/importe uma lista `Nome - 8.93h`
-  (uma por linha) e clique em **Aplicar tempos** — casa por nome e preenche de uma vez.
-  Com o campo **vazio**, o botão **Aplicar** reaplica a lista embutida aos jogos existentes.
-- **JSON de tempos (por nome)**: na aba **⬇ Importar**, selecione um `.json` de tempos. Ele
-  **casa por nome** (não precisa de AppID/URL) e preenche os jogos existentes — e fica salvo
-  para os próximos imports. Formatos aceitos:
-
-  ```jsonc
-  // (a) array de objetos
-  [ { "nome": "Dead Cells", "tempo_para_zerar": 14.06 },
-    { "nome": "Celeste",    "tempo_para_zerar": 8 } ]
-
-  // (b) formato simples "nome": horas
-  { "Dead Cells": 14.06, "Celeste": 8, "#BLUD": "8.93h" }
-  ```
-
-  > Um **backup completo** (`.json` com `jogos`/`id`/`url_origem`) continua sendo restaurado
-  > normalmente — a extensão detecta se o JSON é backup ou lista de tempos.
+- **Preencher os que faltam (fluxo pendentes)**: em **⇅ Backup**, use **⏱ Exportar tempo de
+  jogo pendente** — sai um JSON só com os jogos **já lançados e sem tempo**. Preencha o campo
+  `tempo_para_zerar` (à mão ou com o script Python abaixo) e **restaure** esse arquivo em
+  **⇅ Backup → Restaurar de um JSON** com **Mesclar** — ele atualiza só esses jogos (casa por AppID/URL).
 
 > **Editar a lista embutida:** altere `ferramentas/tempos.txt` e rode
 > `python3 ferramentas/gerar_tempos.py` para regenerar `tempos_dados.js`.
@@ -95,8 +82,8 @@ O tempo é preenchido assim:
 
   ```bash
   pip install howlongtobeatpy --break-system-packages
-  # 1) na extensão: ⇅ Backup → Exportar tudo (JSON)
-  python3 ferramentas/preencher_hltb.py jogos-favoritos-AAAA-MM-DD.json
+  # 1) na extensão: ⇅ Backup → ⏱ Exportar tempo de jogo pendente (JSON)
+  python3 ferramentas/preencher_hltb.py tempos-pendentes-AAAA-MM-DD.json
   # 2) na extensão: ⇅ Backup → Restaurar de um JSON (com "Mesclar"), escolha o *-hltb.json
   ```
 
@@ -105,20 +92,23 @@ O tempo é preenchido assim:
 
 ### Filtros, ordenação e visões prontas
 - Filtros combináveis (E lógico) por todos os campos acima, incluindo **ano de lançamento**,
-  **🏷️ em promoção** e **progresso** (✔ já zerei / 🎯 falta zerar).
+  **🏷️ em promoção**, **progresso** (✔ já zerei / 🎯 falta zerar) e os **🏷️ Marcadores (Steam)** —
+  as tags populares da loja (Metroidvania, Roguelite, Anime, Terror…) viram **filtros clicáveis
+  com ícone** na barra lateral.
 - Ordenar por lançamento (contagem regressiva), tempo para zerar, prioridade, desconto, nome.
 - **Visões de 1 clique**: ⚡ Zera rápido · ⏳ Vão lançar ainda · 🔥 Prioridade alta ·
   👀 Só assistir · 💜 Comprar e apoiar · 🔁 Rejogar · 🏷️ Em promoção · ✔ Zerados · 🔎 A pesquisar.
 
 ### Uma aba de importação para tudo
-A aba **⬇ Importar** aceita **três tipos** de arquivo (detecta sozinha):
-`.html` (favoritos do navegador), `.json` (backup desta extensão) e `.txt` (lista de tempos).
-Também dá para **restaurar JSON** pela aba **⇅ Backup**. O import é rápido (mescla em lote) e
-**não duplica**.
+A aba **⬇ Importar** aceita `.html` (favoritos do navegador) e `.json` (backup desta extensão) —
+detecta o tipo sozinha. **A importação valida tudo de uma vez** (capa, nome, gênero, tags/marcadores
+e lançamento) e **não mexe no tempo para zerar**. Também dá para **restaurar JSON** pela aba
+**⇅ Backup**. O import é rápido (mescla em lote) e **não duplica**.
 
 ### Tudo automático (sem botões)
-- **Ao importar**, a extensão valida tudo sozinha: capa, nome limpo, preço, gênero,
-  **estilo/tags** (pixel, retrô, anime…) e **se já lançou** — os que derem erro aparecem numa lista.
+- **Ao importar**, a extensão valida tudo de uma vez: capa, nome limpo, gênero,
+  **estilo/tags/marcadores** (pixel, retrô, anime…) e **se já lançou** — os que derem erro
+  aparecem numa lista. (O **tempo para zerar** não é tocado na importação.)
 - **Preço e desconto** dos jogos da Steam são consultados **só quando você clica** no botão
   **💲 Atualizar preços** na barra de topo — a extensão **não** bate na Steam sozinha ao abrir a
   página, justamente para **não gerar bloqueio por excesso de acesso (rate limit)**. Depois de
@@ -187,8 +177,15 @@ depois, quantas vezes precisar).
 
 ## 💾 Backup
 
-Botão **⇅ Backup** no gerenciador: exporta tudo para **JSON** (para levar de máquina) e
-restaura (mesclando ou substituindo). Bom para não perder nada se reinstalar o navegador.
+Botão **⇅ Backup** no gerenciador, com duas exportações:
+
+- **⬇ Exportar toda a base (JSON)** — todos os jogos com tudo configurado (para levar de
+  máquina ou não perder nada se reinstalar o navegador).
+- **⏱ Exportar tempo de jogo pendente (JSON)** — só os jogos **já lançados e sem tempo para
+  zerar**. Preencha o `tempo_para_zerar` (à mão ou com o script Python) e **restaure** com
+  **Mesclar** — atualiza só esses jogos.
+
+Restaurar aceita **Mesclar** (atualiza os existentes por AppID/URL) ou **Substituir tudo**.
 
 ---
 

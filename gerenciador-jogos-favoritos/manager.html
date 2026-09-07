@@ -202,29 +202,16 @@
       </div>
       <div class="modal-corpo">
         <p class="muted">
-          Selecione um arquivo <strong>.html</strong> (favoritos do navegador), <strong>.json</strong>
-          (backup desta extensão <em>ou</em> uma lista de tempos por nome) ou <strong>.txt</strong>
-          (lista de tempos). A extensão detecta o tipo sozinha. É <strong>idempotente</strong>
+          Selecione um arquivo <strong>.html</strong> (favoritos do navegador) ou <strong>.json</strong>
+          (backup desta extensão). A extensão detecta o tipo sozinha, é <strong>idempotente</strong>
           (não duplica) e <strong>não destrutiva</strong>.
         </p>
-        <p class="muted pequeno" style="margin:-2px 0 8px">
-          <strong>JSON de tempos</strong> (casa por nome, preenche os jogos existentes). Aceita:
-          <code>[{"nome":"Dead Cells","tempo_para_zerar":14.06}]</code> ou o formato simples
-          <code>{"Dead Cells":14.06,"Celeste":8}</code>.
-        </p>
-        <input id="arquivo-bookmarks" type="file" accept=".html,.htm,.json,.txt" class="input">
+        <input id="arquivo-bookmarks" type="file" accept=".html,.htm,.json" class="input">
         <p class="muted pequeno" style="margin:8px 0 0">
-          No <strong>.html</strong> a extensão valida tudo sozinha (capa, nome, preço, gênero, tags e
-          lançamento). O <strong>tempo para zerar</strong> é preenchido na hora pela lista embutida no
-          projeto (242 jogos) e ao favoritar qualquer jogo novo dessa lista.
-        </p>
-
-        <label class="rot" style="margin-top:14px">Adicionar mais tempos (uma por linha: <code>Nome - 8.93h</code>) — opcional</label>
-        <textarea id="tempos-txt" class="input" rows="3" placeholder="#BLUD - 8.93h&#10;Dead Cells - 14.06h&#10;Celeste - 8h"></textarea>
-        <button id="btn-aplicar-tempos" class="btn ghost full" style="margin-top:6px">⏱ Aplicar tempos aos jogos existentes</button>
-        <p class="muted pequeno" style="margin:6px 0 0">
-          A lista de 242 tempos já vem embutida — clique em <strong>Aplicar</strong> com o campo vazio para
-          preencher os jogos existentes. Cole aqui só para adicionar/atualizar tempos novos.
+          Ao importar, a extensão <strong>valida tudo de uma vez</strong>: capa, nome, gênero,
+          <strong>tags/marcadores da Steam</strong> e <strong>se já lançou</strong>. Os que derem erro
+          aparecem numa lista. (O tempo para zerar não é mexido aqui — use o backup
+          <em>“tempo de jogo pendente”</em> para preencher os que faltam.)
         </p>
 
         <div id="imp-previa" class="imp-previa" hidden></div>
@@ -252,12 +239,12 @@
       </div>
       <div class="modal-corpo">
         <p class="muted">Seus dados ficam só no navegador. Exporte um JSON para levar de máquina, ou restaure um backup.</p>
-        <button id="btn-exportar-json" class="btn full">⬇ Exportar tudo (JSON)</button>
-        <button id="btn-exportar-md" class="btn ghost full" style="margin-top:8px">⬇ Exportar lista (Markdown · nome + tempo)</button>
-        <button id="btn-exportar-tudo" class="btn ghost full" style="margin-top:8px">⬇ Exportar os dois de uma vez (JSON + MD)</button>
+        <button id="btn-exportar-json" class="btn full">⬇ Exportar toda a base (JSON)</button>
+        <button id="btn-exportar-pendentes" class="btn ghost full" style="margin-top:8px">⏱ Exportar tempo de jogo pendente (JSON)</button>
         <p class="muted pequeno" style="margin:6px 0 0">
-          O Markdown lista <strong>todos os jogos por nome e tempo para zerar</strong>. Jogos sem
-          tempo cadastrado aparecem como <code>undefined</code>.
+          <strong>Tempo pendente</strong> = só os jogos <strong>já lançados</strong> e <strong>sem tempo
+          para zerar</strong> cadastrado. Preencha o tempo (à mão ou com o script Python) e restaure o
+          arquivo abaixo com <strong>Mesclar</strong> — ele atualiza só esses jogos.
         </p>
         <label class="rot" style="margin-top:14px">Restaurar de um JSON</label>
         <input id="arquivo-json" type="file" accept=".json" class="input">
