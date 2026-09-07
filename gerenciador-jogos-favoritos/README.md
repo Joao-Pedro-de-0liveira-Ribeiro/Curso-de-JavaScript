@@ -119,8 +119,10 @@ Também dá para **restaurar JSON** pela aba **⇅ Backup**. O import é rápido
 ### Tudo automático (sem botões)
 - **Ao importar**, a extensão valida tudo sozinha: capa, nome limpo, preço, gênero,
   **estilo/tags** (pixel, retrô, anime…) e **se já lançou** — os que derem erro aparecem numa lista.
-- **A cada refresh da página**, ela revalida **preço e desconto** dos jogos da Steam em
-  segundo plano (respeitando o limite de consultas), então o filtro *🏷️ Em promoção* fica sempre atual.
+- **Preço e desconto** dos jogos da Steam são consultados **só quando você clica** no botão
+  **💲 Atualizar preços** na barra de topo — a extensão **não** bate na Steam sozinha ao abrir a
+  página, justamente para **não gerar bloqueio por excesso de acesso (rate limit)**. Depois de
+  atualizar, o filtro *🏷️ Em promoção* fica em dia. (Clique de novo enquanto roda para **parar**.)
 - **Lançamento é validado pela data**: um jogo marcado como “não lançado” cuja data de
   lançamento (da Steam) já passou vira “lançado” automaticamente.
 - No editor, cada categoria (gênero, estilo, vibe) mostra **opções prontas clicáveis**, e o
@@ -194,8 +196,9 @@ restaura (mesclando ou substituindo). Bom para não perder nada se reinstalar o 
 
 - **Limite de "Zera rápido"** (padrão 6 h) — define o que entra no filtro ⚡.
 - **Idioma/País da Steam** (preços em BRL por padrão).
-- **Revalidar preços** a cada X horas (padrão 6 h) — janela usada pela atualização
-  automática de preço/desconto ao abrir a página.
+- **Revalidar preços** a cada X horas (padrão 6 h) — janela do botão **💲 Atualizar preços**:
+  ao clicar, ele checa todos os jogos da Steam; sem clicar, a extensão nunca consulta preços
+  sozinha (evita o rate limit).
 
 ---
 

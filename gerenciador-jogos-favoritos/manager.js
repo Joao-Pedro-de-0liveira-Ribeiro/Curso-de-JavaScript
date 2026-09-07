@@ -59,26 +59,36 @@
     render();
     aplicarTemposSalvos(); // preenche tempos faltantes pela lista embutida do projeto
     tratarHash();
-    // ao abrir/atualizar a página, revalida preços e descontos em segundo plano
-    setTimeout(revalidarPrecos, 1200);
+    // NÃO consulta a Steam sozinho ao abrir a página — isso gerava o bloqueio
+    // por excesso de acesso (rate limit). Preços só quando você clica em
+    // "💲 Atualizar preços" na barra de topo.
   }
 
-  // Revalida preço/desconto dos jogos da Steam checados há mais de X horas.
-  // Roda em segundo plano ao abrir a página; gentil e resistente a bloqueio.
-  async function revalidarPrecos() {
+  // Revalida preço/desconto dos jogos da Steam. SÓ roda quando o usuário clica
+  // no botão "💲 Atualizar preços" (nunca sozinho). Gentil e resistente a bloqueio.
+  // forcar=true (padrão do botão) ignora a janela de horas e checa todos.
+  async function revalidarPrecos(forcar) {
+    if (revalidandoPrecos) { revalidandoPrecos = false; return; } // 2º clique = cancelar
     const limiteMs = (config.precoRevalidarHoras || 6) * 3600000;
     const agora = Date.now();
     const alvos = jogos.filter(function (j) {
       if (!j.steam_appid || j.edited_manually) return false;
-      if (!j.preco_check) return true;
+      if (forcar || !j.preco_check) return true;
       return (agora - new Date(j.preco_check).getTime()) > limiteMs;
     });
-    if (!alvos.length) return;
+    const elBtn = $('#btn-precos');
+    if (!alvos.length) {
+      const el = $('#preco-status'); el.hidden = false;
+      el.textContent = '💲 Nenhum jogo da Steam para atualizar.';
+      setTimeout(function () { el.hidden = true; }, 3000);
+      return;
+    }
     const el = $('#preco-status'); el.hidden = false;
     revalidandoPrecos = true;
-    let i = 0, rate = 0, ok = 0, mudou = 0;
+    if (elBtn) elBtn.textContent = '✕ Parar (atualizando…)';
+    let i = 0, rate = 0, ok = 0, mudou = 0, bloqueou = false;
     while (i < alvos.length) {
-      if (!revalidandoPrecos) { el.hidden = true; break; }
+      if (!revalidandoPrecos) { break; }
       const j = alvos[i];
       el.textContent = '💲 Atualizando preços ' + (i + 1) + '/' + alvos.length + '…';
       const r = await pedir({ tipo: 'steam', appid: j.steam_appid });
@@ -94,18 +104,20 @@
         await dorme(2000);
       } else if (r && r.erro === 'rate') {
         rate++;
-        if (rate > 2) { el.textContent = '💲 Steam limitou — continua no próximo refresh.'; setTimeout(function () { el.hidden = true; }, 4000); break; }
+        if (rate > 2) { bloqueou = true; break; }
         await dorme(8000);
       } else {
         j.preco_check = new Date().toISOString(); i++; await dorme(2000);
       }
     }
     await G.salvarJogos(jogos); render(); atualizarFiltros();
+    const cancelado = !revalidandoPrecos && i < alvos.length && !bloqueou;
     revalidandoPrecos = false;
-    if (i >= alvos.length) {
-      el.textContent = '💲 Preços atualizados' + (mudou ? ' — ' + mudou + ' mudaram' : '') + '.';
-      setTimeout(function () { el.hidden = true; }, 3500);
-    }
+    if (elBtn) elBtn.textContent = '💲 Atualizar preços';
+    if (bloqueou) el.textContent = '💲 A Steam bloqueou (' + ok + ' atualizados). Espere alguns minutos e clique de novo.';
+    else if (cancelado) el.textContent = '💲 Parado (' + ok + ' atualizados).';
+    else el.textContent = '💲 Preços atualizados' + (mudou ? ' — ' + mudou + ' mudaram' : '') + ' (' + ok + ').';
+    setTimeout(function () { el.hidden = true; }, 4000);
   }
 
   function tratarHash() {
@@ -1142,6 +1154,7 @@
       // se marcar "lançado", esconde relevância de data (apenas UX leve)
     });
 
+    $('#btn-precos').addEventListener('click', function () { revalidarPrecos(true); });
     $('#btn-importar').addEventListener('click', function () { $('#imp-status').textContent = ''; abrirModal('#modal-importar'); });
     $('#arquivo-bookmarks').addEventListener('change', arquivoBookmarksSelecionado);
     $('#btn-fazer-import').addEventListener('click', executarImportacao);
