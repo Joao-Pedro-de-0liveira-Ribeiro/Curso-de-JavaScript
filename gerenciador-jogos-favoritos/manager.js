@@ -658,6 +658,15 @@
     if (ehJson) {
       let d;
       try { d = JSON.parse(txt); } catch (err) { $('#btn-fazer-import').disabled = true; return toast('JSON inválido.', true); }
+      // JSON de TEMPOS (nome + horas) → casa por NOME e preenche o tempo
+      if (G.ehTemposJson(d)) {
+        importTempos = G.extrairTemposDeJson(d); importTipo = 'json-tempos';
+        prev.innerHTML = '<strong>⏱ Tempos (JSON)</strong> — ' + importTempos.length +
+          ' jogos. Clique em <strong>Importar</strong> para casar por <strong>nome</strong> e preencher o tempo dos jogos existentes (e guardar para os próximos).';
+        prev.hidden = false;
+        $('#btn-fazer-import').disabled = importTempos.length === 0;
+        return;
+      }
       const lista = Array.isArray(d) ? d : (d.jogos || []);
       importJson = d; importTipo = 'json';
       prev.innerHTML = '<strong>📦 Backup JSON</strong> — ' + lista.length + ' jogos. Clique em <strong>Importar</strong> para mesclar (o backup atualiza os existentes).';
@@ -732,10 +741,12 @@
     $('#btn-fazer-import').disabled = true;
     try {
       if (importTipo === 'json') { await importarJson(importJson); }
-      else if (importTipo === 'txt') {
+      else if (importTipo === 'txt' || importTipo === 'json-tempos') {
         const n = aplicarTempos(importTempos);
-        $('#imp-status').textContent = 'Tempos aplicados a ' + n + ' jogos.';
-        toast('⏱ Tempos aplicados a ' + n + ' jogos.');
+        const total = (importTempos && importTempos.length) || 0;
+        $('#imp-status').textContent = 'Tempos: ' + n + ' de ' + total + ' casaram (guardados para os próximos imports).';
+        toast(n ? ('⏱ Tempos aplicados a ' + n + ' de ' + total + '.') :
+          'Guardei ' + total + ' tempos. Nenhum casou ainda — importe os jogos e o tempo entra sozinho.', !n);
       } else if (importParsed && importParsed.patches.length) {
         const res = await mesclarEmLote(importParsed.patches);
         render(); atualizarFiltros();
@@ -795,16 +806,17 @@
 
   function aplicarTempos(tempos) {
     if (!tempos || !tempos.length) return 0;
-    const entradas = tempos.map(function (t) { return { k: chaveNome(t.nome), h: t.horas }; })
-      .filter(function (e) { return e.k.length >= 3; });
-    // guarda a lista para reaplicar em importações futuras e casar jogos novos
-    temposSalvos = entradas;
-    chrome.storage.local.set({ gjf_tempos: entradas });
+    // MESCLA na lista salva (não substitui) — os tempos novos sobrescrevem os antigos
+    const mapa = {};
+    temposSalvos.forEach(function (e) { if (e && e.k) mapa[e.k] = e.h; });
+    tempos.forEach(function (t) { const k = chaveNome(t.nome); if (k.length >= 3 && t.horas > 0) mapa[k] = t.horas; });
+    temposSalvos = Object.keys(mapa).map(function (k) { return { k: k, h: mapa[k] }; });
+    chrome.storage.local.set({ gjf_tempos: temposSalvos });
     let n = 0;
     jogos.forEach(function (j) {
       if (!j.nome) return;
       const h = tempoDaLista(j.nome);
-      if (h != null) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
+      if (h != null && j.tempo_para_zerar !== h) { j.tempo_para_zerar = h; j.hltb_check = true; n++; }
     });
     if (n) { G.salvarJogos(jogos); render(); atualizarFiltros(); }
     return n;

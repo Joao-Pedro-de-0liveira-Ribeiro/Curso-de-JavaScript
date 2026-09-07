@@ -201,9 +201,15 @@
       </div>
       <div class="modal-corpo">
         <p class="muted">
-          Selecione um arquivo <strong>.html</strong> (favoritos do navegador) <strong>ou .json</strong>
-          (backup desta extensão) <strong>ou .txt</strong> (lista de tempos). A extensão detecta o tipo
-          sozinha. É <strong>idempotente</strong> (não duplica) e <strong>não destrutiva</strong>.
+          Selecione um arquivo <strong>.html</strong> (favoritos do navegador), <strong>.json</strong>
+          (backup desta extensão <em>ou</em> uma lista de tempos por nome) ou <strong>.txt</strong>
+          (lista de tempos). A extensão detecta o tipo sozinha. É <strong>idempotente</strong>
+          (não duplica) e <strong>não destrutiva</strong>.
+        </p>
+        <p class="muted pequeno" style="margin:-2px 0 8px">
+          <strong>JSON de tempos</strong> (casa por nome, preenche os jogos existentes). Aceita:
+          <code>[{"nome":"Dead Cells","tempo_para_zerar":14.06}]</code> ou o formato simples
+          <code>{"Dead Cells":14.06,"Celeste":8}</code>.
         </p>
         <input id="arquivo-bookmarks" type="file" accept=".html,.htm,.json,.txt" class="input">
         <p class="muted pequeno" style="margin:8px 0 0">

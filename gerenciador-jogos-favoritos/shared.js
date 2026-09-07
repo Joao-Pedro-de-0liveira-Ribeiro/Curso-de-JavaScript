@@ -294,6 +294,55 @@
     return casarTempo(nome, temposEmbutidos());
   }
 
+  /* ----------------------------------------------------------------------- *
+   * JSON de tempos: aceita vários formatos que o usuário possa montar.
+   * ----------------------------------------------------------------------- */
+  function _nomeDeObj(o) {
+    return o.nome || o.name || o.titulo || o.title || o.jogo || o.game || o.n || '';
+  }
+  function _horasDeObj(o) {
+    var chaves = ['tempo_para_zerar', 'horas', 'hours', 'h', 'tempo', 'mainStory',
+      'main', 'main_story', 'comp_main', 'tempoZerar', 'time'];
+    for (var i = 0; i < chaves.length; i++) { if (o[chaves[i]] != null) return o[chaves[i]]; }
+    return null;
+  }
+  // Extrai [{nome, horas}] de um JSON de tempos em vários formatos:
+  //   [{nome, tempo_para_zerar}] · [{name, hours}] · {"Nome do Jogo": 8.93} ·
+  //   {"Nome": "8.93h"} · {tempos:[...]} · {jogos:[...]} · {games:[...]}
+  function extrairTemposDeJson(dados) {
+    var out = [];
+    function add(nome, horas) {
+      if (!nome || horas == null) return;
+      var h = typeof horas === 'number' ? horas : parseFloat(String(horas).replace(',', '.'));
+      if (h > 0) out.push({ nome: String(nome).trim(), horas: h });
+    }
+    if (Array.isArray(dados)) {
+      dados.forEach(function (o) { if (o && typeof o === 'object') add(_nomeDeObj(o), _horasDeObj(o)); });
+      return out;
+    }
+    if (dados && typeof dados === 'object') {
+      var arr = dados.tempos || dados.jogos || dados.games || dados.list;
+      if (Array.isArray(arr)) return extrairTemposDeJson(arr);
+      Object.keys(dados).forEach(function (k) {
+        if (k === 'config' || k === 'versao' || k === 'exportadoEm') return;
+        var v = dados[k];
+        if (typeof v === 'number' || (typeof v === 'string' && /\d/.test(v))) add(k, v);
+      });
+    }
+    return out;
+  }
+  // true se o JSON é uma LISTA DE TEMPOS (nome+horas), não um backup completo
+  // (backup tem url_origem/steam_appid/id na maioria dos itens).
+  function ehTemposJson(dados) {
+    var lista = Array.isArray(dados) ? dados : (dados && (dados.tempos || dados.jogos || dados.games || dados.list));
+    if (Array.isArray(lista) && lista.length) {
+      var comChave = 0;
+      lista.forEach(function (o) { if (o && typeof o === 'object' && (o.url_origem || o.steam_appid || o.id)) comChave++; });
+      if (comChave > lista.length / 2) return false; // é backup completo
+    }
+    return extrairTemposDeJson(dados).length > 0;
+  }
+
   // recebe nomes de tags e devolve { genero:[], estilo_visual:[], vibe:[] }
   function mapearTagsSteam(nomes) {
     const out = { genero: [], estilo_visual: [], vibe: [] };
@@ -554,7 +603,7 @@
     extrairAppId, ehYouTube, detectarOrigem, hostDe, normalizarUrlChave,
     capaSteam, youtubeId, capaYoutube, capaDeterministica, ehPlaylistYoutube,
     parseDataSteam, mapearTagsSteam, chaveTempoLista, chaveTempoJogo, casarTempo,
-    temposEmbutidos, casarTempoTudo,
+    temposEmbutidos, casarTempoTudo, extrairTemposDeJson, ehTemposJson,
     mapearGenerosSteam, dadosParaPatch,
     novoJogo, normalizarJogo, ehZeraRapido, statusEfetivo, diasRestantes, formatarContagem,
     carregarJogos, salvarJogos, carregarConfig, salvarConfig, upsertJogo

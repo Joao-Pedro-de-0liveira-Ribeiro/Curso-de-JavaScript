@@ -72,6 +72,21 @@ O tempo é preenchido assim:
 - **Adicionar mais tempos**: na aba **⬇ Importar**, cole/importe uma lista `Nome - 8.93h`
   (uma por linha) e clique em **Aplicar tempos** — casa por nome e preenche de uma vez.
   Com o campo **vazio**, o botão **Aplicar** reaplica a lista embutida aos jogos existentes.
+- **JSON de tempos (por nome)**: na aba **⬇ Importar**, selecione um `.json` de tempos. Ele
+  **casa por nome** (não precisa de AppID/URL) e preenche os jogos existentes — e fica salvo
+  para os próximos imports. Formatos aceitos:
+
+  ```jsonc
+  // (a) array de objetos
+  [ { "nome": "Dead Cells", "tempo_para_zerar": 14.06 },
+    { "nome": "Celeste",    "tempo_para_zerar": 8 } ]
+
+  // (b) formato simples "nome": horas
+  { "Dead Cells": 14.06, "Celeste": 8, "#BLUD": "8.93h" }
+  ```
+
+  > Um **backup completo** (`.json` com `jogos`/`id`/`url_origem`) continua sendo restaurado
+  > normalmente — a extensão detecta se o JSON é backup ou lista de tempos.
 
 > **Editar a lista embutida:** altere `ferramentas/tempos.txt` e rode
 > `python3 ferramentas/gerar_tempos.py` para regenerar `tempos_dados.js`.
