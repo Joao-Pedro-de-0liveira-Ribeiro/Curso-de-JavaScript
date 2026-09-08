@@ -78,24 +78,31 @@ O tempo é preenchido assim:
 > **Editar a lista embutida:** altere `ferramentas/tempos.txt` e rode
 > `python3 ferramentas/gerar_tempos.py` para regenerar `tempos_dados.js`.
 
-- **Em massa, para jogos fora da lista** (se o HLTB bloquear o navegador): use o script Python em `ferramentas/`:
+- **Em massa, sem digitar caminho** (jeito fácil): em **⇅ Backup**, clique em
+  **🐍 Baixar script que preenche os tempos (.py)**. Baixe e rode:
 
   ```bash
   pip install howlongtobeatpy --break-system-packages
-  # 1) na extensão: ⇅ Backup → ⏱ Exportar tempo de jogo pendente (JSON)
-  python3 ferramentas/preencher_hltb.py tempos-pendentes-AAAA-MM-DD.json
-  # 2) na extensão: ⇅ Backup → Restaurar de um JSON (com "Mesclar"), escolha o *-hltb.json
+  # 1) na extensão: ⇅ Backup → ⬇ Exportar toda a base (JSON)   (baixa em ~/Downloads)
+  # 2) na extensão: ⇅ Backup → 🐍 Baixar script (.py)
+  python3 preencher_tempos_catalogo.py      # acha sozinho o JSON mais recente em ~/Downloads
+  # 3) na extensão: ⇅ Backup → Restaurar de um JSON (com "Mesclar"), escolha o *-com-tempos.json
   ```
 
-  Ele preenche o **tempo para zerar** (Main Story) de cada jogo. Depois, o badge **⏱ Xh** e o
-  filtro **⚡ Zera rápido** passam a usar o valor real por jogo (o antigo “5h fixo” foi removido).
+  O script acha sozinho o JSON exportado (procura `jogos-favoritos-*.json` /
+  `tempos-pendentes-*.json` na sua pasta de Downloads), consulta o **HowLongToBeat** só dos
+  jogos **já lançados e sem tempo**, testa até 8 variantes do nome e gera um `*-com-tempos.json`.
+  Depois, o badge **⏱ Xh** e o filtro **⚡ Zera rápido** passam a usar o valor real por jogo.
 
 ### Filtros, ordenação e visões prontas
 - Filtros combináveis (E lógico) por todos os campos acima, incluindo **ano de lançamento**,
   **🏷️ em promoção**, **progresso** (✔ já zerei / 🎯 falta zerar) e os **🏷️ Marcadores (Steam)** —
   as tags populares da loja (Metroidvania, Roguelite, Anime, Terror…) viram **filtros clicáveis
   com ícone** na barra lateral.
-- Ordenar por lançamento (contagem regressiva), tempo para zerar, prioridade, desconto, nome.
+- Ordenar por lançamento (contagem regressiva), tempo para zerar, **preço (menor→maior)**,
+  prioridade, desconto, nome. Ao ligar **⚡ Zera rápido** a lista já ordena do **mais rápido ao
+  mais demorado**; ao ligar **🏷️ Em promoção**, do **mais barato ao mais caro**.
+- O **limite de “Zera rápido”** (⚙ Configurações) atualiza a lista **na hora**, enquanto você digita.
 - **Visões de 1 clique**: ⚡ Zera rápido · ⏳ Vão lançar ainda · 🔥 Prioridade alta ·
   👀 Só assistir · 💜 Comprar e apoiar · 🔁 Rejogar · 🏷️ Em promoção · ✔ Zerados · 🔎 A pesquisar.
 

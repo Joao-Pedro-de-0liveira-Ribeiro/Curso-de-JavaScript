@@ -42,6 +42,7 @@
           <option value="data_adicao">Adição (recentes)</option>
           <option value="data_prevista">Lançamento (contagem regressiva)</option>
           <option value="tempo_para_zerar">Tempo para zerar (curto→longo)</option>
+          <option value="preco">Preço (menor→maior)</option>
           <option value="prioridade">Prioridade (alta→baixa)</option>
           <option value="desconto">Maior desconto</option>
           <option value="nome">Nome (A→Z)</option>
@@ -245,6 +246,16 @@
           <strong>Tempo pendente</strong> = só os jogos <strong>já lançados</strong> e <strong>sem tempo
           para zerar</strong> cadastrado. Preencha o tempo (à mão ou com o script Python) e restaure o
           arquivo abaixo com <strong>Mesclar</strong> — ele atualiza só esses jogos.
+        </p>
+
+        <hr class="sep">
+        <button id="btn-baixar-script" class="btn ghost full">🐍 Baixar script que preenche os tempos (.py)</button>
+        <p class="muted pequeno" style="margin:6px 0 0">
+          Baixe o <code>preencher_tempos_catalogo.py</code> e rode
+          <code>python3 preencher_tempos_catalogo.py</code>. Ele acha sozinho o JSON exportado na sua
+          pasta de Downloads, consulta o HowLongToBeat e gera um <code>*-com-tempos.json</code> pronto
+          para você <strong>Restaurar</strong> aqui (com <strong>Mesclar</strong>).
+          Requer <code>pip install howlongtobeatpy --break-system-packages</code>.
         </p>
         <label class="rot" style="margin-top:14px">Restaurar de um JSON</label>
         <input id="arquivo-json" type="file" accept=".json" class="input">

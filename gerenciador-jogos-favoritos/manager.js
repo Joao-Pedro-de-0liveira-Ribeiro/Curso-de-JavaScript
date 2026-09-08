@@ -247,7 +247,7 @@
     { id: 'detonado', nome: '👀 Só assistir', aplica: function () { limparFiltrosState(); filtros.intencao.add('assistir_walkthrough'); } },
     { id: 'apoiar', nome: '💜 Comprar e apoiar', aplica: function () { limparFiltrosState(); filtros.intencao.add('comprar_apoiar'); } },
     { id: 'rejogar', nome: '🔁 Rejogar', aplica: function () { limparFiltrosState(); filtros.intencao.add('rejogar'); } },
-    { id: 'promo', nome: '🏷️ Em promoção', aplica: function () { limparFiltrosState(); filtros.promo = true; filtros.ordenar = 'desconto'; } },
+    { id: 'promo', nome: '🏷️ Em promoção', aplica: function () { limparFiltrosState(); filtros.promo = true; filtros.ordenar = 'preco'; } },
     { id: 'zerados', nome: '✔ Zerados', aplica: function () { limparFiltrosState(); filtros.zerado = true; } },
     { id: 'backlog', nome: '🎯 Falta zerar', aplica: function () { limparFiltrosState(); filtros.zerado = false; } },
     { id: 'leads', nome: '🔎 A pesquisar', aplica: function () { limparFiltrosState(); filtros.curadoria.add('a_pesquisar'); } }
@@ -308,6 +308,18 @@
     return true;
   }
 
+  // "R$ 75,00" → 75; "R$ 1.234,56" → 1234.56; "Grátis"/"Free" → 0; vazio → grande (fim)
+  function precoNum(s) {
+    if (s == null || s === '') return 9e15;
+    const t = String(s).toLowerCase();
+    if (/gr[áa]tis|free/.test(t)) return 0;
+    let m = t.replace(/[^\d.,]/g, '');
+    if (!m) return 9e15;
+    if (m.indexOf(',') >= 0) m = m.replace(/\./g, '').replace(',', '.'); // formato BR (milhar . / decimal ,)
+    const n = parseFloat(m);
+    return isNaN(n) ? 9e15 : n;
+  }
+
   function ordenarLista(lista) {
     const prio = { alta: 0, media: 1, baixa: 2 };
     const arr = lista.slice();
@@ -322,7 +334,8 @@
           const da = G.diasRestantes(a), db = G.diasRestantes(b);
           return numAsc(da == null ? null : da, db == null ? null : db);
         }
-        case 'tempo_para_zerar': return numAsc(a.tempo_para_zerar, b.tempo_para_zerar);
+        case 'tempo_para_zerar': return numAsc(a.tempo_para_zerar, b.tempo_para_zerar); // rápido → demorado
+        case 'preco': return precoNum(a.preco_atual) - precoNum(b.preco_atual); // barato → caro
         case 'prioridade': return (prio[a.prioridade] == null ? 9 : prio[a.prioridade]) - (prio[b.prioridade] == null ? 9 : prio[b.prioridade]);
         case 'desconto': return (b.desconto_pct || 0) - (a.desconto_pct || 0);
         case 'nome': return (a.nome || '').localeCompare(b.nome || '', 'pt');
@@ -994,6 +1007,21 @@
       'Preencha o tempo e restaure com “Mesclar”.';
   }
 
+  // Baixa o script Python (empacotado na extensão) que preenche os tempos.
+  async function baixarScriptTempos() {
+    const nome = 'preencher_tempos_catalogo.py';
+    try {
+      const resp = await fetch(chrome.runtime.getURL('ferramentas/' + nome));
+      if (!resp.ok) throw new Error('http ' + resp.status);
+      const txt = await resp.text();
+      baixarArquivo(txt, nome, 'text/x-python');
+      $('#backup-status').textContent = 'Script baixado. Rode: python3 ' + nome;
+    } catch (e) {
+      $('#backup-status').textContent = 'Não consegui baixar o script (' + e.message +
+        '). Ele está em ferramentas/' + nome + ' no projeto.';
+    }
+  }
+
   async function restaurarJson(e) {
     const input = e.target;
     const f = input.files && input.files[0]; if (!f) return;
@@ -1048,8 +1076,16 @@
 
     $('#busca').addEventListener('input', function () { filtros.busca = this.value; limparVisaoAtiva(); render(); });
     $('#ordenar').addEventListener('change', function () { filtros.ordenar = this.value; render(); });
-    $('#f-zera').addEventListener('change', function () { filtros.zera = this.checked; limparVisaoAtiva(); render(); });
-    $('#f-promo').addEventListener('change', function () { filtros.promo = this.checked; limparVisaoAtiva(); render(); });
+    $('#f-zera').addEventListener('change', function () {
+      filtros.zera = this.checked;
+      if (this.checked) { filtros.ordenar = 'tempo_para_zerar'; $('#ordenar').value = 'tempo_para_zerar'; } // do mais rápido ao mais demorado
+      limparVisaoAtiva(); render();
+    });
+    $('#f-promo').addEventListener('change', function () {
+      filtros.promo = this.checked;
+      if (this.checked) { filtros.ordenar = 'preco'; $('#ordenar').value = 'preco'; } // do mais barato ao mais caro
+      limparVisaoAtiva(); render();
+    });
     $('#f-zerado').addEventListener('click', function (e) {
       const c = e.target.closest('.chip'); if (!c) return;
       const alvo = c.dataset.z === 'sim' ? true : false;
@@ -1094,10 +1130,12 @@
     $('#btn-backup').addEventListener('click', function () { $('#backup-status').textContent = ''; abrirModal('#modal-backup'); });
     $('#btn-exportar-json').addEventListener('click', exportarJson);
     $('#btn-exportar-pendentes').addEventListener('click', exportarTemposPendentes);
+    $('#btn-baixar-script').addEventListener('click', baixarScriptTempos);
     $('#arquivo-json').addEventListener('change', restaurarJson);
 
     $('#btn-config').addEventListener('click', abrirConfig);
     ['#cfg-zera', '#cfg-lang', '#cfg-cc'].forEach(function (s) { $(s).addEventListener('change', salvarConfigUI); });
+    $('#cfg-zera').addEventListener('input', salvarConfigUI); // atualiza a lista ao vivo enquanto digita
     $('#btn-limpar-tudo').addEventListener('click', limparTudo);
 
     document.querySelectorAll('[data-fechar]').forEach(function (b) { b.addEventListener('click', fecharModais); });
